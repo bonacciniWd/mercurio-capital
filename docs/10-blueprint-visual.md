@@ -968,7 +968,7 @@ sequenceDiagram
   PA->>FE: clica "Consultar Serasa"
   FE->>EF: POST {cpf, proposta_id}
   EF->>DB: SELECT preco_centavos FROM precos_consulta WHERE tipo='serasa_pf' AND vigente_ate IS NULL
-  EF->>DB: BEGIN; SET TRANSACTION SERIALIZABLE
+  EF->>DB: BEGIN SERIALIZABLE transaction
   EF->>DB: SELECT wallet_debit(partner_id,'debito_consulta',preco,...)
   alt saldo_insuficiente
     DB-->>EF: exception
@@ -1006,7 +1006,7 @@ stateDiagram-v2
   ajuste_debito --> [*]
 ```
 
-## 23. Resumo dos artefatos a serem gerados (pr\u00f3ximos passos)
+## 23. Resumo dos artefatos a serem gerados (proximos passos)
 
 ```mermaid
 flowchart LR
