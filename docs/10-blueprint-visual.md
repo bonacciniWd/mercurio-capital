@@ -1,7 +1,5 @@
 # 10 — Blueprint Visual Completo (Mermaid)
 
-> Visão consolidada antes da geração do SQL. Cada diagrama foca em uma camada do sistema, do mais alto nível ao detalhe.
-
 ---
 
 ## 1. Visão macro — todos os atores e camadas
@@ -598,7 +596,7 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  subgraph TABS[/p/propostas/:id]
+  subgraph TABS["Proposta — /p/propostas/:id"]
     T1[Resumo]
     T2[Proponentes]
     T3[Imoveis]
