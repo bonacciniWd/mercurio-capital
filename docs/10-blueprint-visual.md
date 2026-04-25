@@ -23,6 +23,7 @@ flowchart TB
   A((Admin Mercurio)):::admin
 
   subgraph FE[Frontend - React SPA]
+    direction TB
     LP[Landing / Login / Registro]:::public
     PROTO[Consulta por Protocolo]:::public
     CLI[Portal Cliente /c/*]:::client
@@ -31,7 +32,7 @@ flowchart TB
   end
 
   subgraph EDGE[Supabase Edge Functions]
-    direction LR
+    direction TB
     EAUTH[magic-link issuer/consumer]:::edge
     EWPP[whatsapp evolution]:::edge
     EBUR[bureaus credito/juridico]:::edge
@@ -42,6 +43,7 @@ flowchart TB
   end
 
   subgraph CORE[Supabase Core]
+    direction TB
     AUTH[(Auth + JWT)]:::db
     DB[(PostgreSQL + RLS)]:::db
     RT[(Realtime)]:::db
@@ -49,6 +51,7 @@ flowchart TB
   end
 
   subgraph EXT[Integracoes Externas]
+    direction TB
     EVO[Evolution API WhatsApp]:::ext
     BAC[Bacen]:::ext
     SER[SPC/Serasa]:::ext
@@ -118,7 +121,7 @@ flowchart TB
 ## 2. Sitemap completo (todas as rotas)
 
 ```mermaid
-flowchart LR
+flowchart TB
   classDef pub fill:#fef3c7,stroke:#d97706
   classDef cli fill:#dbeafe,stroke:#2563eb
   classDef par fill:#dcfce7,stroke:#16a34a
