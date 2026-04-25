@@ -118,7 +118,7 @@ flowchart TB
 
 ---
 
-## 2. Sitemap completo (todas as rotas)
+## 2. Sitemap — visão geral por papel
 
 ```mermaid
 flowchart TB
@@ -128,91 +128,161 @@ flowchart TB
   classDef adm fill:#fee2e2,stroke:#dc2626
 
   ROOT(("/"))
-
-  subgraph PUB[Publicas]
-    direction TB
-    R0["/"]:::pub
-    R1["/login"]:::pub
-    R2["/registro"]:::pub
-    R2b["/registro/sucesso"]:::pub
-    R3["/recuperar-senha"]:::pub
-    R3b["/recuperar-senha/confirmar"]:::pub
-    R4["/protocolo"]:::pub
-    R4b["/protocolo/:numero"]:::pub
-    R5["/magic/:token"]:::pub
-    R6["/2fa"]:::pub
-  end
-
-  subgraph CLIENTE[Cliente /c]
-    direction TB
-    C0["/c"]:::cli
-    C1["/c/propostas"]:::cli
-    C2["/c/propostas/:id"]:::cli
-    C3["/c/propostas/:id/documentos"]:::cli
-    C4["/c/perfil"]:::cli
-    C5["/c/notificacoes"]:::cli
-    C6["/c/universidade"]:::cli
-  end
-
-  subgraph PARC[Parceiro /p]
-    direction TB
-    P0["/p"]:::par
-    P1["/p/dashboard"]:::par
-    P2["/p/simulacoes"]:::par
-    P2b["/p/simulacoes/nova"]:::par
-    P3["/p/propostas"]:::par
-    P3b["/p/propostas/nova"]:::par
-    P3c["/p/propostas/:id"]:::par
-    P3d["...tabs: proponentes, imoveis, documentos, historico, kanban"]:::par
-    P4["/p/equipe"]:::par
-    P4b["/p/equipe/convidar"]:::par
-    P5["/p/relatorios"]:::par
-    P6["/p/universidade"]:::par
-    P6b["/p/universidade/curso/:slug"]:::par
-    P6c["/p/universidade/certificados"]:::par
-    P7["/p/perfil"]:::par
-    P8["/p/configuracoes"]:::par
-  end
-
-  subgraph ADM[Admin /admin]
-    direction TB
-    A0["/admin"]:::adm
-    A1["/admin/dashboard"]:::adm
-    A1b["/admin/dashboard/funil"]:::adm
-    A1c["/admin/dashboard/gargalos"]:::adm
-    A2["/admin/parceiros"]:::adm
-    A2b["/admin/parceiros/aprovacoes"]:::adm
-    A2c["/admin/parceiros/:id"]:::adm
-    A3["/admin/clientes"]:::adm
-    A3b["/admin/clientes/:id"]:::adm
-    A4["/admin/propostas"]:::adm
-    A4b["/admin/propostas/:id"]:::adm
-    A4c["/admin/propostas/kanban"]:::adm
-    A5["/admin/rede ReactFlow"]:::adm
-    A6["/admin/documentos"]:::adm
-    A6b["/admin/documentos/pendentes"]:::adm
-    A7["/admin/financeiro"]:::adm
-    A7b["/admin/financeiro/contratos"]:::adm
-    A8["/admin/relatorios"]:::adm
-    A9["/admin/universidade"]:::adm
-    A9b["/admin/universidade/cursos"]:::adm
-    A9c["/admin/universidade/cursos/:id"]:::adm
-    A9d["/admin/universidade/assinaturas"]:::adm
-    A10["/admin/fluxos"]:::adm
-    A10b["/admin/fluxos/:id"]:::adm
-    A11["/admin/campanhas"]:::adm
-    A12["/admin/integracoes"]:::adm
-    A13["/admin/configuracoes"]:::adm
-    A14["/admin/auditoria"]:::adm
-    A15["/admin/usuarios"]:::adm
-  end
+  PUB[["Públicas (10 rotas)"]]:::pub
+  CLI[["Cliente /c (7 rotas)"]]:::cli
+  PARC[["Parceiro /p (16 rotas)"]]:::par
+  ADM[["Admin /admin (28 rotas)"]]:::adm
 
   ROOT --> PUB
-  R1 --> CLIENTE
-  R1 --> PARC
-  R1 --> ADM
-  R5 --> CLIENTE
-  R5 --> PARC
+  PUB -->|login OK| CLI
+  PUB -->|login OK| PARC
+  PUB -->|login OK| ADM
+  PUB -.magic link.-> CLI
+  PUB -.magic link.-> PARC
+```
+
+### 2.1 Rotas públicas
+
+```mermaid
+flowchart TB
+  classDef pub fill:#fef3c7,stroke:#d97706,color:#000
+  R0["/"]:::pub
+  R1["/login"]:::pub
+  R2["/registro"]:::pub
+  R2b["/registro/sucesso"]:::pub
+  R3["/recuperar-senha"]:::pub
+  R3b["/recuperar-senha/confirmar"]:::pub
+  R4["/protocolo"]:::pub
+  R4b["/protocolo/:numero"]:::pub
+  R5["/magic/:token"]:::pub
+  R6["/2fa"]:::pub
+
+  R0 --> R1 --> R6
+  R0 --> R2 --> R2b
+  R1 --> R3 --> R3b
+  R0 --> R4 --> R4b
+  R5 -.consume.-> R6
+```
+
+### 2.2 Rotas do Cliente (/c)
+
+```mermaid
+flowchart TB
+  classDef cli fill:#dbeafe,stroke:#2563eb,color:#000
+  C0["/c (home)"]:::cli
+  C1["/c/propostas"]:::cli
+  C2["/c/propostas/:id"]:::cli
+  C3["/c/propostas/:id/documentos"]:::cli
+  C4["/c/perfil"]:::cli
+  C5["/c/notificacoes"]:::cli
+  C6["/c/universidade"]:::cli
+
+  C0 --> C1 --> C2 --> C3
+  C0 --> C4
+  C0 --> C5
+  C0 --> C6
+```
+
+### 2.3 Rotas do Parceiro (/p)
+
+```mermaid
+flowchart TB
+  classDef par fill:#dcfce7,stroke:#16a34a,color:#000
+  P0["/p (home)"]:::par
+  P1["/p/dashboard"]:::par
+  P2["/p/simulacoes"]:::par
+  P2b["/p/simulacoes/nova"]:::par
+  P3["/p/propostas"]:::par
+  P3b["/p/propostas/nova"]:::par
+  P3c["/p/propostas/:id"]:::par
+  P3d["tabs: proponentes, imoveis,<br/>documentos, historico, kanban"]:::par
+  P4["/p/equipe"]:::par
+  P4b["/p/equipe/convidar"]:::par
+  P5["/p/relatorios"]:::par
+  P6["/p/universidade"]:::par
+  P6b["/p/universidade/curso/:slug"]:::par
+  P6c["/p/universidade/certificados"]:::par
+  P7["/p/perfil"]:::par
+  P8["/p/configuracoes"]:::par
+  PW["/p/carteira"]:::par
+  PWr["/p/carteira/recarga"]:::par
+  PWe["/p/carteira/extrato"]:::par
+
+  P0 --> P1
+  P0 --> P2 --> P2b
+  P0 --> P3 --> P3b
+  P3 --> P3c --> P3d
+  P0 --> P4 --> P4b
+  P0 --> P5
+  P0 --> P6 --> P6b
+  P6 --> P6c
+  P0 --> PW --> PWr
+  PW --> PWe
+  P0 --> P7
+  P0 --> P8
+```
+
+### 2.4 Rotas do Admin (/admin)
+
+```mermaid
+flowchart TB
+  classDef adm fill:#fee2e2,stroke:#dc2626,color:#000
+  A0["/admin (home)"]:::adm
+  A1["/admin/dashboard"]:::adm
+  A1b["dashboard/funil"]:::adm
+  A1c["dashboard/gargalos"]:::adm
+  A2["/admin/parceiros"]:::adm
+  A2b["parceiros/aprovacoes"]:::adm
+  A2c["parceiros/:id"]:::adm
+  A3["/admin/clientes"]:::adm
+  A3b["clientes/:id"]:::adm
+  A4["/admin/propostas"]:::adm
+  A4b["propostas/:id"]:::adm
+  A4c["propostas/kanban"]:::adm
+  A5["/admin/rede (ReactFlow)"]:::adm
+  A6["/admin/documentos"]:::adm
+  A6b["documentos/pendentes"]:::adm
+  A7["/admin/financeiro"]:::adm
+  A7b["financeiro/contratos"]:::adm
+  A7c["financeiro/carteiras"]:::adm
+  A7d["financeiro/precos"]:::adm
+  A7e["financeiro/recargas"]:::adm
+  A8["/admin/relatorios"]:::adm
+  A9["/admin/universidade"]:::adm
+  A9b["universidade/cursos"]:::adm
+  A9c["universidade/cursos/:id"]:::adm
+  A9d["universidade/assinaturas"]:::adm
+  A10["/admin/fluxos"]:::adm
+  A10b["fluxos/:id"]:::adm
+  A11["/admin/campanhas"]:::adm
+  A12["/admin/integracoes"]:::adm
+  A13["/admin/configuracoes"]:::adm
+  A14["/admin/auditoria"]:::adm
+  A15["/admin/usuarios"]:::adm
+
+  A0 --> A1
+  A1 --> A1b
+  A1 --> A1c
+  A0 --> A2 --> A2b
+  A2 --> A2c
+  A0 --> A3 --> A3b
+  A0 --> A4 --> A4b
+  A4 --> A4c
+  A0 --> A5
+  A0 --> A6 --> A6b
+  A0 --> A7 --> A7b
+  A7 --> A7c
+  A7 --> A7d
+  A7 --> A7e
+  A0 --> A8
+  A0 --> A9 --> A9b --> A9c
+  A9 --> A9d
+  A0 --> A10 --> A10b
+  A0 --> A11
+  A0 --> A12
+  A0 --> A13
+  A0 --> A14
+  A0 --> A15
 ```
 
 ---
