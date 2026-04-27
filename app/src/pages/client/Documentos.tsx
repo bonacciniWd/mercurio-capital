@@ -64,7 +64,7 @@ export function ClientDocs() {
               ) : (
                 <button
                   onClick={() => setUploaded(p => ({ ...p, [d.name]: 'arquivo.pdf' }))}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-silver-300 bg-silver-50 p-6 text-sm text-silver-600 hover:border-gold hover:text-navy"
+                  className="btn-no-liquid mt-4 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-silver-300 bg-silver-50 p-6 text-sm text-silver-600 hover:border-gold hover:text-navy"
                 >
                   <Upload className="h-4 w-4" /> Arraste ou clique para selecionar — PDF / JPG / PNG até 10MB
                 </button>

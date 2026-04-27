@@ -21,46 +21,81 @@ export function PartnerLayout() {
   const saldo = 125000 // centavos = R$ 1.250,00
   return (
     <div className="flex min-h-screen bg-silver-50">
-      <aside className="flex w-60 shrink-0 flex-col bg-navy text-white">
-        <div className="flex h-16 items-center border-b border-white/10 px-5">
+      <aside className="flex w-64 shrink-0 flex-col text-white" style={{
+        background: 'linear-gradient(180deg, #07101e 0%, #0a1628 50%, #0d1c32 100%)',
+        borderRight: '1px solid rgba(255,255,255,0.055)',
+        boxShadow: '4px 0 24px rgba(0,0,0,0.45)',
+      }}>
+        {/* Logo */}
+        <div className="flex h-16 items-center px-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <Logo variant="light" />
         </div>
-        <div className="border-b border-white/10 p-4">
+
+        {/* Perfil */}
+        <div className="p-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gold text-navy font-bold">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-navy text-sm font-bold shadow-md">
               C
             </div>
-            <div>
-              <p className="text-sm font-semibold">Construtora Aurora</p>
-              <span className="badge bg-success/20 text-success mt-0.5">Parceiro</span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">Construtora Aurora</p>
+              <span className="mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                style={{ background: 'rgba(44,154,76,0.18)', color: '#4ade80', border: '1px solid rgba(44,154,76,0.25)' }}>
+                Parceiro
+              </span>
             </div>
           </div>
         </div>
-        <div className="m-4 rounded-lg bg-gold p-4 text-navy">
-          <p className="text-xs font-semibold uppercase tracking-wide">Saldo</p>
-          <p className="mt-1 text-xl font-bold">{brl(saldo)}</p>
-          <NavLink to="/p/carteira/recarga" className="mt-3 inline-flex w-full items-center justify-center rounded-md bg-navy px-3 py-1.5 text-xs font-medium text-gold hover:bg-navy-600">
+
+        {/* Card de saldo */}
+        <div className="mx-4 my-4 rounded-xl p-4" style={{
+          background: 'linear-gradient(135deg, rgba(212,175,55,0.18) 0%, rgba(212,175,55,0.08) 100%)',
+          border: '1px solid rgba(212,175,55,0.25)',
+        }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gold/60">Saldo disponível</p>
+          <p className="mt-1 text-2xl font-bold text-gold">{brl(saldo)}</p>
+          <NavLink
+            to="/p/carteira/recarga"
+            className="btn-no-liquid mt-3 inline-flex w-full items-center justify-center rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
+            style={{ background: 'rgba(212,175,55,0.15)', color: '#D4AF37', border: '1px solid rgba(212,175,55,0.3)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(212,175,55,0.25)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(212,175,55,0.15)')}
+          >
             Recarregar →
           </NavLink>
         </div>
-        <nav className="flex-1 space-y-1 px-3">
+
+        {/* Navegação */}
+        <nav className="flex-1 space-y-0.5 px-3">
           {ITEMS.map((it) => (
             <NavLink
               key={it.to}
               to={it.to}
               end={it.end}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive ? 'bg-white/10 text-gold' : 'text-white/80 hover:bg-white/5 hover:text-white'
+                `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
+                  isActive
+                    ? 'text-gold'
+                    : 'text-white/50 hover:text-white/90'
                 }`
               }
+              style={({ isActive }) => isActive ? {
+                background: 'linear-gradient(90deg, rgba(212,175,55,0.14) 0%, rgba(212,175,55,0.04) 100%)',
+                borderLeft: '2px solid #D4AF37',
+                paddingLeft: '10px',
+              } : {
+                borderLeft: '2px solid transparent',
+              }}
             >
-              <it.icon className="h-4 w-4" />
+              <it.icon className="h-4 w-4 shrink-0" />
               <span>{it.label}</span>
             </NavLink>
           ))}
         </nav>
-        <div className="p-4 text-xs text-white/40">v0.1 · Mercurio Capital</div>
+
+        <div className="p-4 text-[11px] text-white/20" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          v0.1 · Mercurio Capital
+        </div>
       </aside>
       <main className="flex flex-1 flex-col">
         <header className="flex h-16 items-center justify-between border-b border-silver-200 bg-white px-6">

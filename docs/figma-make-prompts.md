@@ -1,4 +1,4 @@
-# Figma Make — Prompts de Prototipação
+Prompts de Prototipação
 # Mercurio Capital
 
 > Cole sempre o **Prompt Base** antes de qualquer prompt de tela específica.
@@ -10,7 +10,13 @@
 ```
 Design a professional Brazilian real-estate credit platform called "Mercurio Capital".
 Visual style: clean SaaS dashboard, light mode, sidebar navigation.
-Brand colors: primary deep navy #0f172a, accent gold #d97706, success green #16a34a, danger red #dc2626.
+Crie uma interface para a Mercúrio Capital usando a paleta:
+Primária – Azul #0A2B4E (confiança, financeiro);
+Secundária – Prata #9CA3AF (mercúrio metal);
+Destaque – Dourado #D4AF37 (valor, retorno).
+Light mode: fundo #F8F9FA, texto #212529, cards #F1F3F5, bordas #DEE2E6.
+Dark mode: fundo #121826, superfície #1E293B, texto #F1F5F9, destaque #EAB308.
+Use azul em botões principais, prata em ícones/bordas, dourado em CTAs. Gráficos financeiros usam azul metálico (#2C6B9E), cinza prata (#A9B7C6) e dourado suave (#E6C87A). Feedback: verde (#2C9A4C), vermelho (#D9534F), laranja (#F0AD4E).
 Typography: Inter font family.
 Components: shadcn/ui style — cards with subtle shadows, rounded-lg corners, clean tables, pill badges for status.
 All monetary values in Brazilian Real (R$).

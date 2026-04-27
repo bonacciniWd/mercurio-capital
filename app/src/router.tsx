@@ -35,6 +35,11 @@ import { AdminFluxos } from '@/pages/admin/Fluxos'
 import { AdminCampanhas } from '@/pages/admin/Campanhas'
 import { AdminAuditoria } from '@/pages/admin/Auditoria'
 import { AdminIntegracoes } from '@/pages/admin/Integracoes'
+import { AdminParceiros } from '@/pages/admin/Parceiros'
+import { AdminPropostas } from '@/pages/admin/Propostas'
+import { AdminRelatorios } from '@/pages/admin/Relatorios'
+import { AdminConfiguracoes } from '@/pages/admin/Configuracoes'
+import { AdminUniversidade } from '@/pages/admin/Universidade'
 
 export const router = createBrowserRouter([
   { path: '/', element: <Landing /> },
@@ -79,19 +84,19 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <AdminDashboard /> },
       { path: 'aprovacoes', element: <AdminAprovacoes /> },
-      { path: 'parceiros', element: <Navigate to="/admin/aprovacoes" replace /> },
+      { path: 'parceiros', element: <AdminParceiros /> },
       { path: 'rede', element: <AdminRede /> },
       { path: 'kanban', element: <AdminKanban /> },
-      { path: 'propostas', element: <AdminKanban /> },
+      { path: 'propostas', element: <AdminPropostas /> },
       { path: 'financeiro/carteiras', element: <AdminCarteiras /> },
       { path: 'financeiro/precos', element: <AdminPrecos /> },
       { path: 'fluxos', element: <AdminFluxos /> },
       { path: 'campanhas', element: <AdminCampanhas /> },
       { path: 'auditoria', element: <AdminAuditoria /> },
       { path: 'integracoes', element: <AdminIntegracoes /> },
-      { path: 'configuracoes', element: <AdminDashboard /> },
-      { path: 'relatorios', element: <AdminDashboard /> },
-      { path: 'universidade', element: <UniversidadeLista /> },
+      { path: 'configuracoes', element: <AdminConfiguracoes /> },
+      { path: 'relatorios', element: <AdminRelatorios /> },
+      { path: 'universidade', element: <AdminUniversidade /> },
     ],
   },
   { path: '*', element: <Navigate to="/" replace /> },

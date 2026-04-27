@@ -73,7 +73,7 @@ function DocItem({ name }: { name: string }) {
   return (
     <li className="flex items-center justify-between rounded-md border border-silver-200 bg-white p-2.5">
       <span className="text-sm text-silver-800">{name}</span>
-      <button className="btn-outline px-3 py-1.5 text-xs"><Upload className="h-3.5 w-3.5" /> Enviar</button>
+      <button className="btn-no-liquid btn-outline px-3 py-1.5 text-xs"><Upload className="h-3.5 w-3.5" /> Enviar</button>
     </li>
   )
 }

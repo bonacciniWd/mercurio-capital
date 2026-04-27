@@ -33,7 +33,7 @@ function Perfil() {
     <>
       <div className="flex items-center gap-4">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-navy text-3xl font-bold text-gold">A</div>
-        <button className="btn-outline">Alterar logo</button>
+        <button className="btn-no-liquid btn-outline">Alterar logo</button>
       </div>
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         <Field label="Razão social" v="Construtora Aurora LTDA" />
