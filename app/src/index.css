@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-silver-50 text-silver-900 font-sans antialiased;
+  }
+  .dark body {
+    @apply bg-[#121826] text-[#F1F5F9];
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-lg border border-silver-200 shadow-card;
+  }
+  .dark .card {
+    @apply bg-[#1E293B] border-[#1E293B];
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary { @apply btn bg-navy text-white hover:bg-navy-600; }
+  .btn-gold    { @apply btn bg-gold text-navy hover:bg-gold-500; }
+  .btn-outline { @apply btn border border-silver-300 bg-white text-silver-900 hover:bg-silver-100; }
+  .btn-ghost   { @apply btn text-silver-700 hover:bg-silver-100; }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .input {
+    @apply w-full rounded-lg border border-silver-300 bg-white px-3 py-2 text-sm placeholder:text-silver-400 focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/20;
+  }
+  .label {
+    @apply block text-sm font-medium text-silver-700 mb-1.5;
+  }
+}
