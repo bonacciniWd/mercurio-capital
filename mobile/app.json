@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Mercurio Capital",
+    "slug": "mercurio-capital",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "mercurio",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A2B4E"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mercuriocapital.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A2B4E"
+      },
+      "package": "com.mercuriocapital.app"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O Mercurio Capital precisa da câmera para capturar seus documentos."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
