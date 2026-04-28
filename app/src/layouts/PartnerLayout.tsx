@@ -1,10 +1,21 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
+import { ElectricBannerCard } from '@/components/ElectricBannerCard'
 import { brl } from '@/lib/utils'
 import {
   LayoutDashboard, Calculator, FileText, Users, Wallet, BarChart3,
   GraduationCap, Settings, Bell, ChevronRight,
 } from 'lucide-react'
+
+const logoSquare = new URL('../assets/logos/logo-square.png', import.meta.url).href
+
+// Banner images — will be configurable via admin/configurações → Domínio e Marca / Promoções
+const BANNER_SRCS = [
+  
+  new URL('../assets/promotions/promo.jpeg', import.meta.url).href,
+  new URL('../assets/promotions/promo2.jpeg', import.meta.url).href,
+  new URL('../assets/promotions/promo3.jpeg', import.meta.url).href,
+]
 
 const ITEMS = [
   { to: '/p', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -21,7 +32,7 @@ export function PartnerLayout() {
   const saldo = 125000 // centavos = R$ 1.250,00
   return (
     <div className="flex min-h-screen bg-silver-50">
-      <aside className="flex w-64 shrink-0 flex-col text-white" style={{
+      <aside className="relative flex h-screen w-64 shrink-0 flex-col overflow-hidden text-white" style={{
         background: 'linear-gradient(180deg, #07101e 0%, #0a1628 50%, #0d1c32 100%)',
         borderRight: '1px solid rgba(255,255,255,0.055)',
         boxShadow: '4px 0 24px rgba(0,0,0,0.45)',
@@ -47,26 +58,11 @@ export function PartnerLayout() {
           </div>
         </div>
 
-        {/* Card de saldo */}
-        <div className="mx-4 my-4 rounded-xl p-4" style={{
-          background: 'linear-gradient(135deg, rgba(212,175,55,0.18) 0%, rgba(212,175,55,0.08) 100%)',
-          border: '1px solid rgba(212,175,55,0.25)',
-        }}>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gold/60">Saldo disponível</p>
-          <p className="mt-1 text-2xl font-bold text-gold">{brl(saldo)}</p>
-          <NavLink
-            to="/p/carteira/recarga"
-            className="btn-no-liquid mt-3 inline-flex w-full items-center justify-center rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
-            style={{ background: 'rgba(212,175,55,0.15)', color: '#D4AF37', border: '1px solid rgba(212,175,55,0.3)' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(212,175,55,0.25)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(212,175,55,0.15)')}
-          >
-            Recarregar →
-          </NavLink>
-        </div>
+      
+        
 
         {/* Navegação */}
-        <nav className="flex-1 space-y-0.5 px-3">
+        <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 py-1">
           {ITEMS.map((it) => (
             <NavLink
               key={it.to}
@@ -93,6 +89,11 @@ export function PartnerLayout() {
           ))}
         </nav>
 
+        {/* Banner promocional com slideshow */}
+        <div className="shrink-0 min-h-64 px-3 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <ElectricBannerCard srcs={BANNER_SRCS} to="/p/milestones" />
+        </div>
+  
         <div className="p-4 text-[11px] text-white/20" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
           v0.1 · Mercurio Capital
         </div>

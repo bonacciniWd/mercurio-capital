@@ -51,7 +51,7 @@ export function PartnerPropostas() {
             {dados.map(d => (
               <tr key={d.id} className="cursor-pointer border-t border-silver-100 hover:bg-silver-50">
                 <td className="px-4 py-3"><Link to={`/p/propostas/${d.id}`} className="font-mono text-navy hover:underline">{d.id}</Link></td>
-                <td className="px-4 py-3 font-medium text-silver-900">{d.cliente}</td>
+                <td className="px-4 py-3 font-medium text-white">{d.cliente}</td>
                 <td className="px-4 py-3 text-silver-700">{d.produto}</td>
                 <td className="px-4 py-3 font-medium">{brl(d.valor)}</td>
                 <td className="px-4 py-3">

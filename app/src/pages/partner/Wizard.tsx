@@ -62,23 +62,35 @@ function Step1() {
   return (
     <>
       <h2 className="text-lg font-semibold text-navy">Tipo de produto e cliente</h2>
-      <div className="mt-5 grid gap-3 md:grid-cols-3">
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {opts.map(o => (
           <button key={o.id} onClick={() => setProduto(o.id)}
-            className={`rounded-lg border-2 p-5 text-left transition ${produto === o.id ? 'border-gold bg-gold/5' : 'border-silver-200 hover:border-silver-300'}`}>
-            <o.icon className={`h-6 w-6 ${produto === o.id ? 'text-gold-600' : 'text-silver-500'}`} />
+            className={`btn-no-liquid group relative flex flex-col rounded-lg border-2 p-5 text-left transition-all ${
+              produto === o.id
+                ? 'border-gold bg-gradient-to-br from-gold/12 to-gold/6 shadow-md'
+                : 'border-silver-200 bg-white hover:border-gold/50 hover:shadow-sm'
+            }`}>
+            <div className={`flex h-10 w-10 items-center justify-center rounded-lg transition-all ${
+              produto === o.id ? 'bg-gold/20' : 'bg-silver-100 group-hover:bg-silver-200'
+            }`}>
+              <o.icon className={`h-5 w-5 ${produto === o.id ? 'text-gold-600' : 'text-silver-600'}`} />
+            </div>
             <p className="mt-3 font-semibold text-navy">{o.id}</p>
-            <p className="mt-1 text-xs text-silver-600">{o.desc}</p>
-            {produto === o.id && <Check className="mt-3 h-4 w-4 text-gold-600" />}
+            <p className="mt-2 flex-1 text-xs text-silver-700">{o.desc}</p>
+            {produto === o.id && (
+              <div className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-gold">
+                <Check className="h-4 w-4 text-white" />
+              </div>
+            )}
           </button>
         ))}
       </div>
       <div className="mt-6">
         <label className="label">Tipo de pessoa</label>
-        <div className="inline-flex rounded-lg bg-silver-100 p-1">
+        <div className="inline-flex gap-2">
           {(['PF', 'PJ'] as const).map(t => (
             <button key={t} onClick={() => setTipo(t)}
-              className={`rounded-md px-6 py-2 text-sm font-medium ${tipo === t ? 'bg-white text-navy shadow-sm' : 'text-silver-600'}`}>
+              className={`rounded-md border-2 px-6 py-2 text-sm font-medium transition-all ${tipo === t ? 'border-gold-600 bg-gold text-navy shadow-md' : 'border-silver-300 bg-silver-100 text-silver-600 hover:border-gold/50'}`}>
               {t === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'}
             </button>
           ))}
@@ -143,6 +155,8 @@ function Step3() {
 }
 
 function Step4() {
+  const [correcao, setCorrecao] = useState<'pós' | 'pré'>('pós')
+  const [amortizacao, setAmortizacao] = useState<'price' | 'sac'>('price')
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <div>
@@ -152,16 +166,24 @@ function Step4() {
           <Field label="Valor do imóvel (R$)" placeholder="R$ 850.000,00" />
           <div>
             <label className="label">Correção</label>
-            <div className="inline-flex rounded-lg bg-silver-100 p-1">
-              <button className="rounded-md bg-white px-4 py-1.5 text-sm font-medium shadow-sm">Pós (IPCA)</button>
-              <button className="rounded-md px-4 py-1.5 text-sm font-medium text-silver-600">Pré-fixado</button>
+            <div className="inline-flex gap-2">
+              {(['pós', 'pré'] as const).map(c => (
+                <button key={c} onClick={() => setCorrecao(c)}
+                  className={`rounded-md border px-4 py-1.5 text-sm font-medium transition ${correcao === c ? 'border-gold-600 bg-gold text-white' : 'border-silver-300 bg-silver-100 text-silver-600'}`}>
+                  {c === 'pós' ? 'Pós (IPCA)' : 'Pré-fixado'}
+                </button>
+              ))}
             </div>
           </div>
           <div>
             <label className="label">Sistema de amortização</label>
-            <div className="inline-flex rounded-lg bg-silver-100 p-1">
-              <button className="rounded-md bg-white px-4 py-1.5 text-sm font-medium shadow-sm">Price</button>
-              <button className="rounded-md px-4 py-1.5 text-sm font-medium text-silver-600">SAC</button>
+            <div className="inline-flex gap-2">
+              {(['price', 'sac'] as const).map(a => (
+                <button key={a} onClick={() => setAmortizacao(a)}
+                  className={`rounded-md border px-4 py-1.5 text-sm font-medium transition ${amortizacao === a ? 'border-gold-600 bg-gold text-white' : 'border-silver-300 bg-silver-100 text-silver-600'}`}>
+                  {a.toUpperCase()}
+                </button>
+              ))}
             </div>
           </div>
           <div>
@@ -321,7 +343,7 @@ function Toggle({ label }: { label: string }) {
     <label className="flex cursor-pointer items-center justify-between rounded-md bg-silver-50 p-3">
       <span className="text-sm text-silver-700">{label}</span>
       <button type="button" onClick={() => setOn(!on)}
-        className={`relative h-5 w-9 rounded-full transition ${on ? 'bg-gold' : 'bg-silver-300'}`}>
+        className={`relative h-5 w-9 rounded-full transition border ${on ? 'bg-gold border-gold-600' : 'bg-silver-300 border-silver-300'}`}>
         <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${on ? 'left-4' : 'left-0.5'}`} />
       </button>
     </label>

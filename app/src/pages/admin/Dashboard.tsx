@@ -21,7 +21,7 @@ export function AdminDashboard() {
     <>
       <h1 className="mb-6 text-2xl font-bold text-navy">Dashboard administrativo</h1>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
         <KPICard label="Parceiros ativos" value="47" />
         <KPICard label="Propostas abertas" value="312" />
         <KPICard label="Volume em análise" value={brl(8700000000)} intent="gold" />

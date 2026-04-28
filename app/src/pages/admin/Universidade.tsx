@@ -70,15 +70,18 @@ export function AdminUniversidade() {
           </div>
           {CURSOS.map(c => (
             <button key={c.id} onClick={() => setSelected(c)}
-              className={`w-full card p-4 text-left transition ${selected?.id === c.id ? 'border-l-4 border-gold' : ''}`}>
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold text-silver-900">{c.titulo}</h3>
+              className={`btn-no-liquid !block w-full min-h-[156px] border border-silver-200 bg-white p-4 text-left rounded-none transition-all sm:min-h-[136px] sm:p-5 ${selected?.id === c.id ? 'border-l-4 border-gold bg-gradient-to-r from-gold/10 to-white shadow-sm' : 'hover:bg-silver-50'}`}>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                <h3 className="min-w-0 break-words text-base font-semibold leading-tight text-silver-900">{c.titulo}</h3>
                 <Badge variant={STATUS_VAR[c.status]}>{c.status}</Badge>
               </div>
-              <p className="mt-1 text-xs text-silver-500">{c.categoria} · {c.nivel} · {c.publico}</p>
-              <div className="mt-3 flex items-center justify-between text-xs text-silver-600">
-                <span>{c.modulos.length} módulos · {c.modulos.reduce((s, m) => s + m.aulas.length, 0)} aulas</span>
-                <span className="font-semibold text-navy">{c.alunos} alunos</span>
+              <div className="mt-2 space-y-0.5 text-sm leading-snug text-silver-700 sm:text-xs">
+                <p>{c.categoria} · {c.nivel}</p>
+                <p>{c.publico}</p>
+              </div>
+              <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-sm text-silver-700 sm:text-xs">
+                <span className="min-w-0 break-words">{c.modulos.length} módulos · {c.modulos.reduce((s, m) => s + m.aulas.length, 0)} aulas</span>
+                <span className="whitespace-nowrap font-semibold text-navy-700">{c.alunos} alunos</span>
               </div>
             </button>
           ))}

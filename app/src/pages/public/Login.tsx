@@ -2,12 +2,19 @@ import { Link } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
 import { Building2 } from 'lucide-react'
 
+const logoSquare = new URL('../../assets/logos/logowide.png', import.meta.url).href
+
+const loginVideo = new URL('../../assets/videos/video-login-optimized.mp4', import.meta.url).href
+
 export function Login() {
   return (
     <div className="grid min-h-screen lg:grid-cols-5">
       <div className="col-span-2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
-          <div className="mb-10 flex justify-center"><Logo /></div>
+           {/* Logo */}
+        <div className="flex h-auto items-center px-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <img src={logoSquare} alt="Mercurio Capital" className="h-full w-auto" />
+        </div>
           <div className="card p-8">
             <div className="mb-6 flex items-center justify-between text-xs">
               <span className="font-semibold uppercase tracking-wide text-gold-600">Cadastro de Parceiro</span>
@@ -57,8 +64,20 @@ export function Login() {
           </div>
         </div>
       </div>
-      <div className="relative col-span-3 hidden bg-navy lg:block">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(212,175,55,0.25),transparent_60%)]" />
+      <div className="relative col-span-3 hidden overflow-hidden bg-navy lg:block">
+        <video
+          className="absolute inset-0 h-full w-full object-cover"
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          aria-hidden="true"
+        >
+          <source src={loginVideo} type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,16,30,0.24)_0%,rgba(7,16,30,0.64)_52%,rgba(7,16,30,0.88)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(212,175,55,0.22),transparent_58%)]" />
         <div className="relative flex h-full flex-col justify-end p-16 text-white">
           <h2 className="max-w-xl text-4xl font-bold leading-tight">
             Crédito Imobiliário <span className="text-gold">para parceiros</span> estratégicos.
