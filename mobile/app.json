@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0A2B4E"
+      "backgroundColor": "#0F0F0F"
     },
     "ios": {
       "supportsTablet": true,
@@ -20,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0A2B4E"
+        "backgroundColor": "#0F0F0F"
       },
       "package": "com.mercuriocapital.app"
     },
@@ -34,7 +34,8 @@
         {
           "cameraPermission": "O Mercurio Capital precisa da câmera para capturar seus documentos."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

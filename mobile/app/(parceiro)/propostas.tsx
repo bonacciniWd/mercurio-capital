@@ -17,14 +17,14 @@ const propostas = [
 export default function Propostas() {
   return (
     <SafeAreaView className="flex-1 bg-silver-50" edges={['top']}>
-      <View className="bg-white px-5 pb-3 pt-2">
+      <View className="bg-navy-700 px-5 pb-3 pt-2">
         <View className="flex-row items-center justify-between">
-          <Text className="text-2xl font-bold text-navy">Propostas</Text>
+          <Text className="text-2xl font-bold text-white">Propostas</Text>
           <Pressable
             onPress={() => router.push('/propostas/nova')}
             className="h-10 w-10 items-center justify-center rounded-full bg-gold"
           >
-            <Plus size={20} color="#061B33" />
+            <Plus size={20} color="#FFF" />
           </Pressable>
         </View>
 

@@ -4,7 +4,7 @@ import { Bell } from 'lucide-react'
 
 export function ClientLayout() {
   return (
-    <div className="min-h-screen bg-silver-50">
+    <div className="min-h-screen py-6 bg-silver-50">
       <header className="border-b border-silver-200 bg-white">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <Link to="/c"><Logo /></Link>

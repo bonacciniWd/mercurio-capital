@@ -1,4 +1,4 @@
-import { ScrollView, View, Text, Pressable } from 'react-native'
+import { ScrollView, View, Text, Pressable, Image } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { Bell, Plus, TrendingUp, AlertCircle } from 'lucide-react-native'
@@ -29,27 +29,32 @@ export default function Dashboard() {
 
       <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingVertical: 16, gap: 16 }}>
         {/* Saldo carteira */}
-        <View className="rounded-xl bg-navy-700 p-4">
+        <View className="rounded-xl bg-slate-950 p-4">
           <View className="flex-row items-center justify-between">
             <Text className="text-xs text-white/70">Saldo na carteira</Text>
             <Pressable onPress={() => router.push('/(parceiro)/carteira')}>
-              <Text className="text-xs font-medium text-gold">Ver extrato →</Text>
+              <Text className="text-xs font-medium text-white">Ver extrato →</Text>
             </Pressable>
           </View>
-          <Text className="mt-1 text-3xl font-bold text-gold">R$ 1.250,00</Text>
+           <Image
+            source={require('../../assets/cardwallet.png')}
+            className="absolute -bottom-4 -right-2"
+            style={{ width: 100, height: 100 }}
+          /> 
+          <Text className="mt-1 text-3xl font-bold text-[#FFF]">R$ 1.250,00</Text>
           <Pressable className="mt-3 self-start rounded-lg bg-gold px-4 py-2">
-            <Text className="text-sm font-bold text-navy-900">Recarregar</Text>
+            <Text className="text-sm font-bold text-white">Recarregar</Text>
           </Pressable>
         </View>
 
         {/* KPIs */}
         <View className="flex-row gap-3">
-          <KPICard label="Propostas ativas" value="12" />
-          <KPICard label="Em análise" value={brl(3500000000)} intent="gold" />
+          <KPICard label="Propostas ativas" value="12" bg="bg-slate-950" />
+          <KPICard label="Em análise" value={brl(3500000000)}  bg="bg-slate-950" />
         </View>
         <View className="flex-row gap-3">
-          <KPICard label="Aprovadas/mês" value="3" intent="success" />
-          <KPICard label="Pendências" value="4" intent="warning" />
+          <KPICard label="Aprovadas/mês" value="3" bg="bg-slate-950" />
+          <KPICard label="Pendências" value="4"  bg="bg-slate-950" />
         </View>
 
         {/* CTA nova proposta */}
@@ -57,14 +62,14 @@ export default function Dashboard() {
           onPress={() => router.push('/propostas/nova')}
           className="flex-row items-center justify-center gap-2 rounded-xl bg-gold py-4"
         >
-          <Plus size={20} color="#061B33" />
-          <Text className="text-base font-bold text-navy-900">Nova proposta</Text>
+          <Plus size={20} color="#FFF" />
+          <Text className="text-base font-bold text-white">Nova proposta</Text>
         </Pressable>
 
         {/* Pendências */}
         <View className="rounded-xl border border-warning/30 bg-warning/5 p-4">
           <View className="flex-row items-center gap-2">
-            <AlertCircle size={18} color="#F0AD4E" />
+            <AlertCircle size={18} color="#F59E0B" />
             <Text className="font-semibold text-warning">3 pendências precisam de ação</Text>
           </View>
           <Text className="mt-1 text-xs text-silver-700">Documentos faltando em propostas ativas.</Text>
@@ -99,7 +104,7 @@ export default function Dashboard() {
         {/* Marco / Milestone */}
         <View className="rounded-xl bg-gold/10 p-4">
           <View className="flex-row items-center gap-2">
-            <TrendingUp size={18} color="#B8962B" />
+            <TrendingUp size={18} color="#991B1B" />
             <Text className="font-semibold text-gold-600">Marco do mês</Text>
           </View>
           <Text className="mt-1 text-sm text-silver-800">Faltam <Text className="font-bold">R$ 250.000</Text> em volume para atingir a meta de abril.</Text>

@@ -18,7 +18,7 @@ export default function NovaProposta() {
       <View className="border-b border-silver-200 bg-white px-5 py-3">
         <View className="flex-row items-center justify-between">
           <Pressable onPress={() => router.back()} className="-ml-2 p-2">
-            <X size={24} color="#0A2B4E" />
+            <X size={24} color="#0F0F0F" />
           </Pressable>
           <Text className="text-sm font-medium text-silver-700">Passo {step + 1} de {STEPS.length}</Text>
           <View className="w-10" />
@@ -41,14 +41,14 @@ export default function NovaProposta() {
       </ScrollView>
 
       {/* Bottom nav */}
-      <View className="flex-row gap-2 border-t border-silver-200 bg-white px-4 py-3">
+      <View className="flex-row gap-2 border-t border-silver-200 bg-white px-8 py-3">
         <Pressable onPress={prev} className="flex-row items-center gap-1 rounded-lg border border-silver-300 px-5 py-3">
-          <ChevronLeft size={18} color="#0A2B4E" />
+          <ChevronLeft size={18} color="#0F0F0F" />
           <Text className="font-semibold text-navy">Voltar</Text>
         </Pressable>
         <Pressable onPress={next} className="flex-1 flex-row items-center justify-center gap-1 rounded-lg bg-gold py-3">
-          <Text className="font-bold text-navy-900">{step === STEPS.length - 1 ? 'Concluir' : 'Próximo'}</Text>
-          {step === STEPS.length - 1 ? <Check size={18} color="#061B33" /> : <ChevronRight size={18} color="#061B33" />}
+          <Text className="font-bold text-white">{step === STEPS.length - 1 ? 'Concluir' : 'Próximo'}</Text>
+          {step === STEPS.length - 1 ? <Check size={18} color="#FFFFFF" /> : <ChevronRight size={18} color="#FFFFFF" />}
         </Pressable>
       </View>
     </SafeAreaView>

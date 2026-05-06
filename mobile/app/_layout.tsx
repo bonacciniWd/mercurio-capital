@@ -10,7 +10,9 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
+        <Stack.Screen name="cadastro" />
         <Stack.Screen name="magic/[token]" />
+        <Stack.Screen name="protocolo" />
         <Stack.Screen name="(parceiro)" />
         <Stack.Screen name="(cliente)" />
         <Stack.Screen name="(admin)" />

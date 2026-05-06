@@ -1,4 +1,4 @@
-import { ScrollView, View, Text, Pressable } from 'react-native'
+import { ScrollView, View, Text, Pressable, Image } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ArrowDown, ArrowUp, RotateCcw, Plus } from 'lucide-react-native'
 import { Badge } from '@/components/Badge'
@@ -19,24 +19,24 @@ export default function Carteira() {
         {/* Saldo card gradiente navy */}
         <View className="bg-navy-700 px-5 pb-6 pt-4">
           <Text className="text-xs text-white/70">Saldo disponível</Text>
-          <Text className="mt-1 text-4xl font-bold text-gold">R$ 1.250,00</Text>
+          <Text className="mt-1 text-4xl font-bold text-[#FFD700]">R$ 1.250,00</Text>
           <Text className="mt-1 text-xs text-white/60">Atualizado agora há pouco</Text>
-
+<Image source={require('../../assets/cardwallet.png')} className=" absolute right-10 top-4 h-28 w-28 flex-1 rounded-lg" resizeMode="cover" /> 
           <View className="mt-4 flex-row gap-2">
-            <Pressable className="flex-1 items-center rounded-lg bg-gold py-3">
-              <Text className="font-bold text-navy-900">Recarregar</Text>
-            </Pressable>
             <Pressable className="flex-1 items-center rounded-lg border border-white/30 py-3">
               <Text className="font-semibold text-white">Histórico</Text>
             </Pressable>
+            <Pressable className="flex-1 items-center rounded-lg bg-gold/80 py-3">
+              <Text className="font-bold text-white">Recarregar</Text>
+            </Pressable>
           </View>
+          
         </View>
-
         {/* Recarga rápida */}
         <View className="px-5 py-4">
           <Text className="text-base font-bold text-navy">Recarga rápida</Text>
           <View className="mt-2 flex-row flex-wrap gap-2">
-            {[5000, 10000, 25000, 50000, 100000].map(v => (
+            {[2500, 5000, 7500, 10000, 25000, 50000, 100000].map(v => (
               <Pressable key={v} className="rounded-full border border-silver-300 bg-white px-4 py-2">
                 <Text className="text-sm font-semibold text-navy">{brl(v)}</Text>
               </Pressable>
@@ -68,9 +68,9 @@ export default function Carteira() {
                 <View className={`h-9 w-9 items-center justify-center rounded-full ${
                   e.type === 'in' ? 'bg-success/15' : e.type === 'refund' ? 'bg-warning/15' : 'bg-silver-100'
                 }`}>
-                  {e.type === 'in' && <ArrowDown size={18} color="#2C9A4C" />}
+                  {e.type === 'in' && <ArrowDown size={18} color="#16A34A" />}
                   {e.type === 'out' && <ArrowUp size={18} color="#495057" />}
-                  {e.type === 'refund' && <RotateCcw size={18} color="#F0AD4E" />}
+                  {e.type === 'refund' && <RotateCcw size={18} color="#F59E0B" />}
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm font-medium text-silver-900">{e.desc}</Text>

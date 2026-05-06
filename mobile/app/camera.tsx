@@ -22,7 +22,7 @@ export default function CameraScreen() {
       <View className="flex-1 items-center justify-center px-8">
         <View className="aspect-[3/4] w-full rounded-2xl border-2 border-dashed border-gold">
           <View className="flex-1 items-center justify-center">
-            <CameraIcon size={48} color="#D4AF37" />
+            <CameraIcon size={48} color="#DC2626" />
             <Text className="mt-3 text-center text-sm text-white/70">
               Posicione o documento dentro do quadro
             </Text>

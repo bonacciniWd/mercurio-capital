@@ -10,7 +10,7 @@ export default function MagicLink() {
     <SafeAreaView className="flex-1 bg-white">
       <View className="flex-1 items-center justify-center px-6">
         <View className="h-20 w-20 items-center justify-center rounded-full bg-success/15">
-          <CheckCircle2 size={48} color="#2C9A4C" />
+          <CheckCircle2 size={48} color="#16A34A" />
         </View>
         <Text className="mt-6 text-2xl font-bold text-navy">Link verificado!</Text>
         <Text className="mt-2 text-center text-sm text-silver-600">

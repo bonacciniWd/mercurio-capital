@@ -1,9 +1,8 @@
 import { Link } from 'react-router-dom'
-import { KPICard } from '@/components/KPICard'
-import { StatusBadge } from '@/components/Badge'
 import { brl } from '@/lib/utils'
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts'
 import { Plus, Search } from 'lucide-react'
+import { StatusBadge } from '@/components/Badge'
 
 const funnel = [
   { name: 'Simulações', value: 87 },
@@ -26,21 +25,28 @@ export function PartnerDashboard() {
     <>
       <div className="mb-6 flex items-end justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-navy">Dashboard</h1>
-          <p className="text-sm text-silver-600">Visão geral das operações da sua carteira.</p>
+          <h1 className="text-2xl font-bold text-silver-900">Dashboard</h1>
+          <p className="text-sm text-silver-500">Visão geral das operações da sua carteira.</p>
         </div>
-        <Link to="/p/propostas/nova" className="btn-gold"><Plus className="h-4 w-4" /> Nova proposta</Link>
+        <Link to="/p/propostas/nova" className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90" style={{ backgroundColor: '#DC2626' }}><Plus className="h-4 w-4" /> Nova proposta</Link>
       </div>
 
       <div className="mb-6 grid gap-4 md:grid-cols-4">
-        <KPICard label="Propostas ativas" value="12" />
-        <KPICard label="Em análise" value="5" />
-        <KPICard label="Contratos assinados" value="3" intent="success" />
-        <KPICard label="Volume total" value={brl(420000000)} intent="gold" />
+        {[
+          { label: 'Propostas ativas',   value: '12',           accent: '#737373' },
+          { label: 'Em análise',         value: '5',            accent: '#F59E0B' },
+          { label: 'Contratos assinados',value: '3',            accent: '#16A34A' },
+          { label: 'Volume total',       value: brl(420000000), accent: '#DC2626' },
+        ].map(k => (
+          <div key={k.label} className="rounded-xl border bg-white p-4" style={{ borderTopWidth: 2, borderTopColor: k.accent, borderColor: '#e5e7eb' }}>
+            <p className="text-xs font-semibold uppercase tracking-wider text-silver-500">{k.label}</p>
+            <p className="mt-1.5 text-2xl font-bold text-silver-900">{k.value}</p>
+          </div>
+        ))}
       </div>
 
       <div className="mb-6 grid gap-4 lg:grid-cols-3">
-        <div className="card p-5 lg:col-span-2">
+        <div className="card p-5 lg:col-span-2" style={{ borderTop: '2px solid #DC2626' }}>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-semibold text-silver-900">Funil de conversão</h2>
             <span className="text-xs text-silver-500">Últimos 30 dias</span>
@@ -48,25 +54,25 @@ export function PartnerDashboard() {
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={funnel}>
               <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} />
-              <Tooltip cursor={{ fill: 'rgba(10,43,78,0.05)' }} />
+              <Tooltip cursor={{ fill: 'rgba(220,38,38,0.05)' }} />
               <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                {funnel.map((_, i) => <Cell key={i} fill={i === funnel.length - 1 ? '#D4AF37' : '#2C6B9E'} />)}
+                {funnel.map((_, i) => <Cell key={i} fill={i === funnel.length - 1 ? '#DC2626' : '#2a2a2a'} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="card p-5">
+        <div className="card p-5" style={{ borderTop: '2px solid #F59E0B' }}>
           <h2 className="mb-4 font-semibold text-silver-900">Pendências</h2>
           <ul className="space-y-3 text-sm">
-            <li className="flex items-center justify-between"><span>Documentos pendentes</span><span className="font-bold text-danger">7</span></li>
-            <li className="flex items-center justify-between"><span>Aguardando assinatura</span><span className="font-bold text-warning">3</span></li>
-            <li className="flex items-center justify-between"><span>Saldo de carteira</span><span className="font-bold text-gold-600">{brl(125000)}</span></li>
-            <li className="flex items-center justify-between"><span>Notificações novas</span><span className="font-bold text-navy">12</span></li>
+            <li className="flex items-center justify-between border-b border-silver-100 pb-3"><span className="text-silver-700">Documentos pendentes</span><span className="font-bold" style={{ color: '#DC2626' }}>7</span></li>
+            <li className="flex items-center justify-between border-b border-silver-100 pb-3"><span className="text-silver-700">Aguardando assinatura</span><span className="font-bold" style={{ color: '#F59E0B' }}>3</span></li>
+            <li className="flex items-center justify-between border-b border-silver-100 pb-3"><span className="text-silver-700">Saldo de carteira</span><span className="font-bold" style={{ color: '#DC2626' }}>{brl(125000)}</span></li>
+            <li className="flex items-center justify-between"><span className="text-silver-700">Notificações novas</span><span className="font-bold text-silver-900">12</span></li>
           </ul>
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" style={{ borderTop: '2px solid #DC2626' }}>
         <div className="flex items-center justify-between border-b border-silver-200 p-5">
           <h2 className="font-semibold text-silver-900">Propostas recentes</h2>
           <div className="relative">
@@ -75,7 +81,7 @@ export function PartnerDashboard() {
           </div>
         </div>
         <table className="w-full text-sm">
-          <thead className="bg-silver-50 text-left text-xs uppercase text-silver-500">
+          <thead className="text-left text-xs uppercase text-silver-500" style={{ backgroundColor: '#f9f9f9' }}>
             <tr>
               <th className="px-5 py-3">Cliente</th>
               <th className="px-5 py-3">Produto</th>
@@ -92,7 +98,7 @@ export function PartnerDashboard() {
                   <p className="font-mono text-xs text-silver-500">{p.id}</p>
                 </td>
                 <td className="px-5 py-3 text-silver-700">{p.produto}</td>
-                <td className="px-5 py-3 font-medium text-navy">{brl(p.valor)}</td>
+                <td className="px-5 py-3 font-medium" style={{ color: '#DC2626' }}>{brl(p.valor)}</td>
                 <td className="px-5 py-3"><StatusBadge status={p.status} /></td>
                 <td className="px-5 py-3 text-silver-700">{p.resp}</td>
               </tr>

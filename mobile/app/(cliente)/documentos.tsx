@@ -18,7 +18,7 @@ export default function Documentos() {
       <View className="bg-white px-5 pb-3 pt-2">
         <View className="flex-row items-center gap-3">
           <Pressable onPress={() => router.back()} className="-ml-2 p-2">
-            <ArrowLeft size={22} color="#0A2B4E" />
+            <ArrowLeft size={22} color="#0F0F0F" />
           </Pressable>
           <Text className="text-lg font-bold text-navy">Documentos</Text>
         </View>
@@ -31,7 +31,7 @@ export default function Documentos() {
               d.status === 'aprovado' ? 'bg-success/15' :
               d.status === 'enviado' ? 'bg-warning/15' : 'bg-silver-100'
             }`}>
-              {d.status === 'aprovado' ? <CheckCircle2 size={20} color="#2C9A4C" /> : <FileText size={20} color="#9CA3AF" />}
+              {d.status === 'aprovado' ? <CheckCircle2 size={20} color="#16A34A" /> : <FileText size={20} color="#9CA3AF" />}
             </View>
             <View className="flex-1">
               <Text className="font-semibold text-silver-900">{d.name}</Text>
@@ -44,7 +44,7 @@ export default function Documentos() {
                 onPress={() => router.push('/camera')}
                 className="rounded-lg bg-gold px-3 py-2"
               >
-                <Text className="text-xs font-bold text-navy-900">Enviar</Text>
+                <Text className="text-xs font-bold text-white">Enviar</Text>
               </Pressable>
             )}
           </View>
@@ -52,7 +52,7 @@ export default function Documentos() {
       </ScrollView>
 
       {/* Bottom actions */}
-      <View className="flex-row gap-2 border-t border-silver-200 bg-white px-4 py-3">
+      <View className="flex-row gap-2 border-t mb-2 border-silver-200 bg-white px-6 py-3">
         <Pressable
           onPress={() => router.push('/camera')}
           className="flex-1 flex-row items-center justify-center gap-2 rounded-lg bg-navy-700 py-3"
@@ -61,7 +61,7 @@ export default function Documentos() {
           <Text className="font-bold text-white">Câmera</Text>
         </Pressable>
         <Pressable className="flex-1 flex-row items-center justify-center gap-2 rounded-lg border border-silver-300 py-3">
-          <Upload size={18} color="#0A2B4E" />
+          <Upload size={18} color="#0F0F0F" />
           <Text className="font-bold text-navy">Galeria</Text>
         </Pressable>
       </View>

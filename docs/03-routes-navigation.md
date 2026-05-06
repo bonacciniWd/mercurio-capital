@@ -67,6 +67,7 @@
 | `/p/carteira` | `CarteiraHome` | partner (leitura: team_member) |
 | `/p/carteira/recarga` | `CarteiraRecarga` (Stripe Elements) | partner |
 | `/p/carteira/extrato` | `CarteiraExtrato` | partner, team_member |
+| `/p/milestones` | `PartnerMilestones` | partner |
 
 ### 2.4 Admin (`AdminLayout` — role `admin`)
 
