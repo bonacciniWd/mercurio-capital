@@ -10,3 +10,10 @@ build/
 .idea/
 coverage/
 .cache/
+
+# TS incremental builds
+*.tsbuildinfo
+
+# Supabase CLI
+supabase/.temp/
+supabase/.branches/

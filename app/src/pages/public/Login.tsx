@@ -139,7 +139,12 @@ export function Login({
               </div>
 
               <div>
-                <label className="label">Senha</label>
+                <div className="flex items-baseline justify-between">
+                  <label className="label">Senha</label>
+                  <Link to="/recuperar-senha" className="text-xs font-medium text-navy hover:underline">
+                    Esqueci minha senha
+                  </Link>
+                </div>
                 <input
                   className="input"
                   type="password"

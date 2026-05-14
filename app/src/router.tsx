@@ -16,6 +16,9 @@ import { MagicLink } from '@/pages/public/MagicLink'
 import { TwoFactor } from '@/pages/public/TwoFactor'
 import { TwoFactorSetupPage } from '@/pages/public/TwoFactorSetupPage'
 import { AcessoPendente } from '@/pages/public/AcessoPendente'
+import { Registro } from '@/pages/public/Registro'
+import { RecuperarSenha } from '@/pages/public/RecuperarSenha'
+import { RedefinirSenha } from '@/pages/public/RedefinirSenha'
 
 import { ClientHome } from '@/pages/client/Home'
 import { ClientDocs } from '@/pages/client/Documentos'
@@ -93,10 +96,14 @@ export const router = createBrowserRouter([
               />
             ),
           },
+          { path: '/p/registro', element: <Registro /> },
+          { path: '/registro', element: <Navigate to="/p/registro" replace /> },
+          { path: '/recuperar-senha', element: <RecuperarSenha /> },
         ],
       },
       { path: '/protocolo', element: <Protocolo /> },
       { path: '/magic/:token', element: <MagicLink /> },
+      { path: '/redefinir-senha', element: <RedefinirSenha /> },
       {
         element: <RequireAuth />,
         children: [

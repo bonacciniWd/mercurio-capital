@@ -4,29 +4,29 @@
 
 ## Fase 0 — Fundações
 
-- [ ] Setup Supabase (projetos: local, staging, prod).
-- [ ] Setup repositório front (Vite + TS + Tailwind + shadcn + React Router + TanStack Query).
-- [ ] CI: lint, typecheck, testes, build.
-- [ ] Supabase CLI + esqueleto de migrações.
-- [ ] Edge Functions skeleton (deno).
-- [ ] Sentry + PostHog conectados.
-- [ ] Esquema visual (Storybook ou Ladle) com tokens.
+- [x] Setup Supabase (projetos: local, staging, prod).
+- [x] Setup repositório front (Vite + TS + Tailwind + shadcn + React Router + TanStack Query).
+- [x] CI: lint, typecheck, testes, build.
+- [x] Supabase CLI + esqueleto de migrações.
+- [ ] Edge Functions skeleton (deno). _(adiado para Fase 2 — magic-link customizado depende de payload de proposta)_
+- [x] Sentry + PostHog conectados.
+- [ ] Esquema visual (Storybook ou Ladle) com tokens. _(deferido)_
 
-**Saída**: ambiente reproduzível, deploy contínuo para staging.
+**Saída**: ambiente reproduzível, deploy contínuo para staging. ✅
 
 ---
 
 ## Fase 1 — Identidade & Onboarding (M1, M2)
 
-- [ ] Migrações: `usuarios`, `partners`, `partner_documentos`, `magic_links`, `sessoes_2fa`, `audit_log`.
-- [ ] RLS base + helpers `auth.is_admin()`, `auth.partner_id()`.
-- [ ] Telas: `/registro`, `/login`, `/recuperar-senha`, `/2fa`, `/magic/:token`.
-- [ ] Modal de upload de documentos do parceiro.
-- [ ] Tela `/admin/parceiros/aprovacoes`.
-- [ ] Edge `magic-link/issue` + `magic-link/consume`.
-- [ ] Edge `evolution-whatsapp` (envio simples).
+- [x] Migrações: `usuarios`, `partners`, `partner_documentos`, `magic_links`, `sessoes_2fa`, `audit_log`.
+- [x] RLS base + helpers `auth.is_admin()`, `auth.partner_id()`. _(implementados como `public.app_is_admin()` / `public.app_partner_id()`)_
+- [x] Telas: `/registro`, `/login`, `/recuperar-senha`, `/2fa`, `/magic/:token`.
+- [x] Modal de upload de documentos do parceiro. _(componente `PartnerDocsUploader` integrado ao wizard de registro + tela admin)_
+- [x] Tela `/admin/parceiros/aprovacoes`. _(consome view `v_admin_partner_aprovacoes` + RPCs `admin_approve_partner` / `admin_reject_partner`)_
+- [ ] Edge `magic-link/issue` + `magic-link/consume`. _(Supabase Auth built-in cobre magic-link via e-mail; edge customizada adiada para Fase 2 quando entrar magic link de proposta)_
+- [ ] Edge `evolution-whatsapp` (envio simples). _(pulado — magic-link/notificação só via e-mail nesta etapa)_
 
-**Saída**: parceiro consegue se registrar, anexar docs e ser aprovado pelo admin.
+**Saída**: parceiro consegue se registrar, anexar docs e ser aprovado pelo admin. ✅
 
 ---
 
