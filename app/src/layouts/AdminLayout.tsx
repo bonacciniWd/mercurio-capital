@@ -1,8 +1,9 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, UserCheck, Network, Kanban, FileText, Folder, DollarSign,
   BarChart3, GraduationCap, Workflow, Megaphone, Plug, Settings, ScrollText, Bell,
 } from 'lucide-react'
+import { useAuth } from '@/auth/AuthContext'
 
 const ITEMS = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -24,6 +25,14 @@ const ITEMS = [
 const logoSquare = new URL('../assets/logos/logo-square.png', import.meta.url).href
 
 export function AdminLayout() {
+  const { session, logout } = useAuth()
+  const navigate = useNavigate()
+
+  async function handleLogout() {
+    await logout()
+    navigate('/admin/login', { replace: true })
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-silver-50">
       <aside className="flex h-screen w-64 shrink-0 flex-col text-white" style={{
@@ -73,9 +82,8 @@ export function AdminLayout() {
               <Bell className="h-5 w-5 text-silver-600" />
               <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-danger" />
             </button>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-danger text-white text-sm font-semibold">
-              AD
-            </div>
+            <span className="text-xs text-silver-500">{session?.nome ?? 'Admin'}</span>
+            <button className="btn-outline text-xs" onClick={handleLogout}>Sair</button>
           </div>
         </header>
         <div className="flex-1 overflow-y-auto p-6">
