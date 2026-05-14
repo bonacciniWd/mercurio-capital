@@ -4,7 +4,7 @@ import { ElectricBannerCard } from '@/components/ElectricBannerCard'
 import { brl } from '@/lib/utils'
 import {
   LayoutDashboard, Calculator, FileText, Users, Wallet, BarChart3,
-  GraduationCap, Settings, Bell, ChevronRight, ScrollText,
+  GraduationCap, Settings, Bell, ChevronRight,
 } from 'lucide-react'
 
 const logoSquare = new URL('../assets/logos/logo-square.png', import.meta.url).href
@@ -24,7 +24,6 @@ const ITEMS = [
   { to: '/p/equipe', icon: Users, label: 'Equipe' },
   { to: '/p/carteira', icon: Wallet, label: 'Carteira' },
   { to: '/p/relatorios', icon: BarChart3, label: 'Relatórios' },
-  { to: '/p/contrato', icon: ScrollText, label: 'Contrato' },
   { to: '/p/universidade', icon: GraduationCap, label: 'Universidade' },
   { to: '/p/configuracoes', icon: Settings, label: 'Configurações' },
 ]

@@ -23,7 +23,6 @@ import { PartnerEquipe } from '@/pages/partner/Equipe'
 import { PartnerRelatorios } from '@/pages/partner/Relatorios'
 import { PartnerConfig } from '@/pages/partner/Configuracoes'
 import { PartnerMilestones } from '@/pages/partner/Milestones'
-import { PartnerContrato } from '@/pages/partner/Contrato'
 import { UniversidadeLista } from '@/pages/partner/UniversidadeLista'
 import { UniversidadePlayer } from '@/pages/partner/UniversidadePlayer'
 
@@ -77,7 +76,6 @@ export const router = createBrowserRouter([
       { path: 'relatorios', element: <PartnerRelatorios /> },
       { path: 'configuracoes', element: <PartnerConfig /> },
       { path: 'milestones', element: <PartnerMilestones /> },
-      { path: 'contrato', element: <PartnerContrato /> },
       { path: 'universidade', element: <UniversidadeLista /> },
       { path: 'universidade/:cursoId/aula/:aulaId', element: <UniversidadePlayer /> },
     ],
