@@ -47,7 +47,11 @@ export function AdminUniversidade() {
 
   const toggleModulo = (id: string) => {
     const next = new Set(openModulos)
-    next.has(id) ? next.delete(id) : next.add(id)
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
     setOpenModulos(next)
   }
 

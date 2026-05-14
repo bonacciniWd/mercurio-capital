@@ -1,94 +1,195 @@
-import { Link } from 'react-router-dom'
+import { FormEvent, useState, type ReactNode } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '@/auth/AuthContext'
 import { Logo } from '@/components/Logo'
-import { Building2 } from 'lucide-react'
+import type { AppRole } from '@/auth/types'
 
-const logoSquare = new URL('../../assets/logos/logowide.png', import.meta.url).href
+type LoginProps = {
+  /** Mantido por compatibilidade com o router; não é usado para selecionar perfil. */
+  defaultRole?: AppRole
+  /** Restringe quem pode entrar por esta URL (ex.: /admin/login só admin). */
+  allowedRoles?: AppRole[]
+  title?: string
+  description?: string
+}
 
-const loginVideo = new URL('../../assets/videos/video-login-optimized.mp4', import.meta.url).href
+type HeroContent = {
+  eyebrow: string
+  headline: ReactNode
+  subline: string
+  stats: Array<{ value: string; label: string }>
+}
 
-export function Login() {
+const HERO_BY_ROLE: Record<'admin' | 'partner' | 'client', HeroContent> = {
+  admin: {
+    eyebrow: 'Operação interna',
+    headline: (
+      <>
+        Painel de <span className="text-gold">controle</span> da esteira de crédito.
+      </>
+    ),
+    subline: 'Aprovações, kanban global, financeiro e auditoria — tudo em um lugar.',
+    stats: [
+      { value: 'R$ 4,2B', label: 'volume operado' },
+      { value: '+ 1.200', label: 'parceiros ativos' },
+      { value: '98%', label: 'SLA de aprovação' },
+    ],
+  },
+  partner: {
+    eyebrow: 'Parceiro estratégico',
+    headline: (
+      <>
+        Crédito Imobiliário <span className="text-gold">para parceiros</span> estratégicos.
+      </>
+    ),
+    subline: 'Home Equity, Construção e Financiamento — esteira completa, do funil ao registro.',
+    stats: [
+      { value: 'R$ 4,2B', label: 'volume operado' },
+      { value: '+ 1.200', label: 'parceiros' },
+      { value: '98%', label: 'satisfação' },
+    ],
+  },
+  client: {
+    eyebrow: 'Portal do cliente',
+    headline: (
+      <>
+        Acompanhe sua <span className="text-gold">proposta</span> com transparência.
+      </>
+    ),
+    subline: 'Documentos, pendências e status em tempo real — direto da nossa esteira.',
+    stats: [
+      { value: '24/7', label: 'acompanhamento' },
+      { value: '256-bit', label: 'criptografia' },
+      { value: 'LGPD', label: 'em conformidade' },
+    ],
+  },
+}
+
+function pickHero(allowed?: AppRole[]): HeroContent {
+  if (!allowed || allowed.length === 0) return HERO_BY_ROLE.partner
+  if (allowed.includes('admin')) return HERO_BY_ROLE.admin
+  if (allowed.includes('client')) return HERO_BY_ROLE.client
+  return HERO_BY_ROLE.partner
+}
+
+function pickRegisterLink(allowed?: AppRole[]): { to: string; label: string } | null {
+  if (!allowed || allowed.includes('partner') || allowed.includes('team_member')) {
+    return { to: '/p/registro', label: 'Cadastrar como parceiro' }
+  }
+  return null
+}
+
+export function Login({
+  allowedRoles,
+  title = 'Entrar na plataforma',
+  description = 'Use suas credenciais para acessar seu painel.',
+}: LoginProps) {
+  const { login } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const hero = pickHero(allowedRoles)
+  const registerLink = pickRegisterLink(allowedRoles)
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setLoading(true)
+    setError(null)
+
+    try {
+      const redirectTo = await login({ email, password, allowedRoles })
+      const from = (location.state as { from?: string } | null)?.from
+      navigate(from ?? redirectTo, { replace: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível autenticar.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="grid min-h-screen lg:grid-cols-5">
       <div className="col-span-2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
-           {/* Logo */}
-        <div className="flex h-auto items-center px-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <img src={logoSquare} alt="Mercurio Capital" className="h-full w-auto" />
-        </div>
+          <div className="mb-10 flex justify-center">
+            <Logo />
+          </div>
           <div className="card p-8">
-            <div className="mb-6 flex items-center justify-between text-xs">
-              <span className="font-semibold uppercase tracking-wide text-gold-600">Cadastro de Parceiro</span>
-              <span className="text-silver-500">Passo 1 de 3</span>
-            </div>
-            <h1 className="text-2xl font-bold text-navy">Crie sua conta</h1>
-            <p className="mt-1 text-sm text-silver-600">Envie seus dados para análise da nossa equipe.</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gold-600">{hero.eyebrow}</p>
+            <h1 className="mt-2 text-2xl font-bold text-navy">{title}</h1>
+            <p className="mt-2 text-sm text-silver-600">{description}</p>
 
-            <form className="mt-6 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="label">Nome completo</label>
-                  <input className="input" placeholder="João Silva" />
-                </div>
-                <div>
-                  <label className="label">E-mail</label>
-                  <input className="input" type="email" placeholder="joao@empresa.com" />
-                </div>
-                <div>
-                  <label className="label">Telefone</label>
-                  <input className="input" placeholder="+55 (11) 9XXXX-XXXX" />
-                </div>
-                <div>
-                  <label className="label">CNPJ</label>
-                  <input className="input" placeholder="00.000.000/0001-00" />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="label">Razão social</label>
-                  <input className="input" placeholder="Construtora Aurora LTDA" />
-                </div>
+            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+              <div>
+                <label className="label">E-mail</label>
+                <input
+                  className="input"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="voce@empresa.com"
+                  required
+                />
               </div>
 
               <div>
-                <label className="label">Documentos da empresa</label>
-                <div className="rounded-lg border-2 border-dashed border-silver-300 bg-silver-50 p-6 text-center">
-                  <Building2 className="mx-auto h-7 w-7 text-silver-400" />
-                  <p className="mt-2 text-sm text-silver-700">Arraste os arquivos ou <span className="font-medium text-gold-600 underline">selecione</span></p>
-                  <p className="mt-1 text-xs text-silver-500">Cartão CNPJ + contrato social · PDF, JPG, PNG até 10MB</p>
-                </div>
+                <label className="label">Senha</label>
+                <input
+                  className="input"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="********"
+                  required
+                />
               </div>
 
-              <button type="button" className="btn-gold w-full">Enviar para análise</button>
-              <p className="text-center text-sm text-silver-600">
-                Já tem conta? <Link to="/p" className="font-medium text-navy underline">Faça login</Link>
+              {error && (
+                <p className="rounded-md border border-danger/20 bg-danger/5 px-3 py-2 text-sm text-danger">
+                  {error}
+                </p>
+              )}
+
+              <button type="submit" className="btn-gold w-full" disabled={loading}>
+                {loading ? 'Entrando...' : 'Entrar'}
+              </button>
+
+              {registerLink && (
+                <p className="text-center text-sm text-silver-600">
+                  Ainda não tem conta?{' '}
+                  <Link to={registerLink.to} className="font-medium text-navy underline">
+                    {registerLink.label}
+                  </Link>
+                </p>
+              )}
+
+              <p className="text-center text-xs text-silver-500">
+                Autenticação Supabase · sessão segura com RLS e 2FA opcional.
               </p>
             </form>
           </div>
         </div>
       </div>
-      <div className="relative col-span-3 hidden overflow-hidden bg-navy lg:block">
-        <video
-          className="absolute inset-0 h-full w-full object-cover"
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          aria-hidden="true"
-        >
-          <source src={loginVideo} type="video/mp4" />
-        </video>
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(7,16,30,0.24)_0%,rgba(7,16,30,0.64)_52%,rgba(7,16,30,0.88)_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(212,175,55,0.22),transparent_58%)]" />
+
+      <div className="relative col-span-3 hidden bg-navy lg:block">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(212,175,55,0.25),transparent_60%)]" />
         <div className="relative flex h-full flex-col justify-end p-16 text-white">
-          <h2 className="max-w-xl text-4xl font-bold leading-tight">
-            Crédito Imobiliário <span className="text-gold">para parceiros</span> estratégicos.
-          </h2>
-          <p className="mt-4 max-w-lg text-white/80">
-            Home Equity, Construção e Financiamento — esteira completa, do funil ao registro.
-          </p>
+          <h2 className="max-w-xl text-4xl font-bold leading-tight">{hero.headline}</h2>
+          <p className="mt-4 max-w-lg text-white/80">{hero.subline}</p>
           <div className="mt-12 flex gap-6 text-sm">
-            <div><p className="text-3xl font-bold text-gold">R$ 4,2B</p><p className="text-white/60">volume operado</p></div>
-            <div><p className="text-3xl font-bold text-gold">+ 1.200</p><p className="text-white/60">parceiros</p></div>
-            <div><p className="text-3xl font-bold text-gold">98%</p><p className="text-white/60">satisfação</p></div>
+            {hero.stats.map((stat) => (
+              <div key={stat.label}>
+                <p className="text-3xl font-bold text-gold">{stat.value}</p>
+                <p className="text-white/60">{stat.label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>

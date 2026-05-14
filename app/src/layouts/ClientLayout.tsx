@@ -1,8 +1,17 @@
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
 import { Bell } from 'lucide-react'
+import { useAuth } from '@/auth/AuthContext'
 
 export function ClientLayout() {
+  const { session, logout } = useAuth()
+  const navigate = useNavigate()
+
+  async function handleLogout() {
+    await logout()
+    navigate('/c/login', { replace: true })
+  }
+
   return (
     <div className="min-h-screen py-6 bg-silver-50">
       <header className="border-b border-silver-200 bg-white">
@@ -18,7 +27,8 @@ export function ClientLayout() {
               <Bell className="h-5 w-5 text-silver-600" />
               <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-danger" />
             </button>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-navy text-white text-sm font-semibold">JS</div>
+            <span className="text-xs text-silver-500">{session?.nome ?? 'Cliente'}</span>
+            <button className="btn-outline text-xs" onClick={handleLogout}>Sair</button>
           </div>
         </div>
       </header>

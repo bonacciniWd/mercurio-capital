@@ -1,11 +1,11 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
 import { ElectricBannerCard } from '@/components/ElectricBannerCard'
-import { brl } from '@/lib/utils'
 import {
   LayoutDashboard, Calculator, FileText, Users, Wallet, BarChart3,
   GraduationCap, Settings, Bell, ChevronRight,
 } from 'lucide-react'
+import { useAuth } from '@/auth/AuthContext'
 
 const logoSquare = new URL('../assets/logos/logo-square.png', import.meta.url).href
 
@@ -29,7 +29,14 @@ const ITEMS = [
 ]
 
 export function PartnerLayout() {
-  const saldo = 125000 // centavos = R$ 1.250,00
+  const { session, logout } = useAuth()
+  const navigate = useNavigate()
+
+  async function handleLogout() {
+    await logout()
+    navigate('/p/login', { replace: true })
+  }
+
   return (
     <div className="flex min-h-screen bg-silver-50">
       <aside className="relative flex h-screen w-64 shrink-0 flex-col overflow-hidden text-white" style={{
@@ -110,9 +117,8 @@ export function PartnerLayout() {
               <Bell className="h-5 w-5 text-silver-600" />
               <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-danger" />
             </button>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-navy text-white text-sm font-semibold">
-              JR
-            </div>
+            <span className="text-xs text-silver-500">{session?.nome ?? 'Parceiro'}</span>
+            <button className="btn-outline text-xs" onClick={handleLogout}>Sair</button>
           </div>
         </header>
         <div className="flex-1 p-6">

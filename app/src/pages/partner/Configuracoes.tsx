@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { TwoFactorManager } from '@/components/TwoFactorManager'
 
 const sub = ['Perfil da empresa', 'Notificações', 'Integrações', 'Segurança'] as const
 
@@ -21,7 +22,7 @@ export function PartnerConfig() {
           {active === 'Perfil da empresa' && <Perfil />}
           {active === 'Notificações' && <Notif />}
           {active === 'Integrações' && <p className="text-silver-500">[ APIs externas em construção ]</p>}
-          {active === 'Segurança' && <p className="text-silver-500">[ 2FA + sessões ativas em construção ]</p>}
+          {active === 'Segurança' && <TwoFactorManager />}
         </div>
       </div>
     </>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Building2, Bell, Shield, Globe, Users, Database, Save, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/Badge'
+import { TwoFactorManager } from '@/components/TwoFactorManager'
 
 const TABS = [
   { id: 'empresa', icon: Building2, label: 'Empresa' },
@@ -109,6 +110,11 @@ function SegurancaTab() {
           <div><label className="label">IPs permitidos (whitelist)</label><input className="input font-mono" placeholder="0.0.0.0/0 (todos)" /></div>
         </div>
       </div>
+
+      <div className="mt-8 rounded-lg border border-silver-200 p-5">
+        <TwoFactorManager />
+      </div>
+
       <div className="mt-6 flex justify-end"><button className="btn-gold"><Save className="h-4 w-4" /> Salvar políticas</button></div>
     </>
   )
