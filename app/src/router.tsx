@@ -19,8 +19,10 @@ import { AcessoPendente } from '@/pages/public/AcessoPendente'
 import { Registro } from '@/pages/public/Registro'
 import { RecuperarSenha } from '@/pages/public/RecuperarSenha'
 import { RedefinirSenha } from '@/pages/public/RedefinirSenha'
+import { ClienteProposta } from '@/pages/public/ClienteProposta'
 
 import { ClientHome } from '@/pages/client/Home'
+import { ClientPropostaDetalhe } from '@/pages/client/PropostaDetalhe'
 import { ClientDocs } from '@/pages/client/Documentos'
 import { ClientUniversidade } from '@/pages/client/Universidade'
 
@@ -103,6 +105,7 @@ export const router = createBrowserRouter([
       },
       { path: '/protocolo', element: <Protocolo /> },
       { path: '/magic/:token', element: <MagicLink /> },
+      { path: '/c/proposta/:token', element: <ClienteProposta /> },
       { path: '/redefinir-senha', element: <RedefinirSenha /> },
       {
         element: <RequireAuth />,
@@ -125,6 +128,7 @@ export const router = createBrowserRouter([
             element: <ClientLayout />,
             children: [
               { index: true, element: <ClientHome /> },
+              { path: 'propostas/:id', element: <ClientPropostaDetalhe /> },
               { path: 'documentos', element: <ClientDocs /> },
               { path: 'universidade', element: <ClientUniversidade /> },
             ],

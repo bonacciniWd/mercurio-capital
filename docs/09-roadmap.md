@@ -32,16 +32,17 @@
 
 ## Fase 2 — Originação Mínima (M3 núcleo)
 
-- [ ] Migrações: `simulacoes`, `propostas`, `proponentes`, `imoveis`, `imovel_proprietarios`, `proposta_status_historico`, `proposta_pendencias`, `proposta_documentos`.
-- [ ] RLS de todas + triggers de transição de status.
-- [ ] Wizard `/p/propostas/nova` (7 etapas).
-- [ ] Lista `/p/propostas` com filtros e busca.
-- [ ] Detalhe `/p/propostas/:id` com tabs (Resumo, Proponentes, Imóveis, Documentos, Histórico).
-- [ ] Geração de protocolo + magic link cliente.
-- [ ] Portal cliente: `/c`, `/c/propostas`, `/c/propostas/:id`, upload de documentos.
-- [ ] Calculadora Price (componente reutilizável + testes unitários).
+- [x] Migrações: `simulacoes`, `propostas`, `proponentes`, `imoveis`, `imovel_proprietarios`, `proposta_status_historico`, `proposta_pendencias`, `proposta_documentos`.
+- [x] RLS de todas + triggers de transição de status.
+- [x] Wizard `/p/propostas/nova` (7 etapas).
+- [x] Lista `/p/propostas` com filtros e busca.
+- [x] Detalhe `/p/propostas/:id` com tabs (Resumo, Proponentes, Imóveis, Documentos, Histórico).
+- [x] Geração de protocolo + magic link cliente.
+- [x] Portal cliente: `/c`, `/c/propostas/:id`, magic-link preview público `/c/proposta/:token`.
+- [x] Calculadora Price/SAC (lib + 8 testes unitários).
+- [ ] Upload de documentos pelo cliente (deferido para Fase 3 junto com bucket Storage + signed URLs).
 
-**Saída**: parceiro cria proposta, cliente recebe magic link, vê status e envia documentos.
+**Saída**: parceiro cria proposta, cliente recebe magic link, vê status. _(Upload pelo cliente entra na Fase 3.)_
 
 ---
 
