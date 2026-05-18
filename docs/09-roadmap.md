@@ -63,14 +63,14 @@
 
 ## Fase 4 — Equipe, Dashboards & Relatórios (M4, M5)
 
-- [ ] Migrações `equipes`, `equipe_membros`.
-- [ ] Convites por magic link.
-- [ ] Dashboard parceiro (Tremor): KPIs, funil, gargalos.
-- [ ] Filtros por responsável, equipe, produto, data.
-- [ ] Exportação xlsx (edge `relatorios/exportar`).
-- [ ] Dashboard admin global.
+- [x] Migrações `equipes`, `equipe_membros` (já em `20260513000002_identidade.sql`) + RPCs e views em `20260518000008_equipes_convites.sql`.
+- [x] Convites por magic link — RPCs `partner_invite_membro` / `membro_accept_convite` + página `/convite/:token`.
+- [x] Dashboard parceiro (recharts): KPIs, funil, gargalos, evolução 12 meses — views `v_partner_dashboard_kpis`, `v_partner_funil_status`, `v_partner_propostas_por_mes`, `v_partner_gargalos`.
+- [x] Filtros (data, status, produto) na edge de exportação; UI parceiro com filtros já presentes.
+- [x] Exportação CSV (edge `relatorios-exportar`, UTF-8 BOM, RLS via JWT do caller).
+- [x] Dashboard admin global — views `v_admin_dashboard_kpis` e `v_admin_top_partners`.
 
-**Saída**: parceiros gerenciam equipes e enxergam métricas; admin tem visão macro.
+**Saída**: parceiros gerenciam equipes e enxergam métricas; admin tem visão macro. ✅ **Fase 4 fechada em 2026-05-18.**
 
 ---
 

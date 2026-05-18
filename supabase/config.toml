@@ -45,3 +45,6 @@ verify_jwt = true
 
 [functions.magic-link-consume]
 verify_jwt = false
+
+[functions.relatorios-exportar]
+verify_jwt = true

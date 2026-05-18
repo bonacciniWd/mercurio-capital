@@ -1,6 +1,8 @@
 import { brl } from '@/lib/utils'
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Download, FileText } from 'lucide-react'
+import { Download, FileText, Loader2 } from 'lucide-react'
+import { useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
 const monthly = [
   { m: 'Jan', v: 14 }, { m: 'Fev', v: 18 }, { m: 'Mar', v: 22 }, { m: 'Abr', v: 19 },
@@ -19,13 +21,42 @@ const funnel = [
 ]
 
 export function PartnerRelatorios() {
+  const [exporting, setExporting] = useState(false)
+
+  async function exportar() {
+    try {
+      setExporting(true)
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token
+      if (!token) throw new Error('Sessão expirada')
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/relatorios-exportar`
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tipo: 'propostas', filtros: {} }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `propostas_${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a); a.click(); a.remove()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Falha ao exportar')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <>
       <div className="mb-6 flex items-end justify-between">
         <h1 className="text-2xl font-bold text-navy">Relatórios</h1>
         <div className="flex gap-2">
-          <button className="btn-outline"><Download className="h-4 w-4" /> Excel</button>
-          <button className="btn-outline"><FileText className="h-4 w-4" /> PDF</button>
+          <button className="btn-outline" onClick={exportar} disabled={exporting}>
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} CSV
+          </button>
+          <button className="btn-outline" disabled><FileText className="h-4 w-4" /> PDF</button>
         </div>
       </div>
 
