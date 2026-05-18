@@ -53,8 +53,8 @@
 - [x] Pendências e ciclo de resolução (criar pelo admin/parceiro, cliente responde, admin/parceiro resolve/rejeita; RPCs `pendencia_resolver` e `cliente_responder_pendencia`).
 - [x] Consulta pública por protocolo (M7) com rate-limit DB; CAPTCHA plug-in (hCaptcha) pendente sitekey/edge function.
 - [x] Upload via UI cliente/parceiro (bucket privado + RLS); pendente: upload via protocolo público (signed URLs).
-- [ ] OCR pipeline (M11 parcial).
-- [ ] Notificações in-app (Realtime) + bandeja.
+- [x] OCR pipeline (M11 parcial) — Tesseract.js client-side em imagens pós-upload + RPC `set_documento_ocr`; PDFs não cobertos.
+- [x] Notificações in-app (Realtime) + bandeja — triggers para status/pendência/doc validado, sino em todos os layouts.
 
 **Saída**: esteira funcional ponta a ponta até "Proposta ao Cliente".
 

@@ -1,9 +1,10 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, UserCheck, Network, Kanban, FileText, Folder, DollarSign,
-  BarChart3, GraduationCap, Workflow, Megaphone, Plug, Settings, ScrollText, Bell,
+  BarChart3, GraduationCap, Workflow, Megaphone, Plug, Settings, ScrollText,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
+import { NotificationBell } from '@/components/NotificationBell'
 
 const ITEMS = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -78,10 +79,7 @@ export function AdminLayout() {
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-silver-200 bg-white px-6">
           <p className="text-sm font-medium text-silver-700">Administração</p>
           <div className="flex items-center gap-3">
-            <button className="relative rounded-full p-2 hover:bg-silver-100">
-              <Bell className="h-5 w-5 text-silver-600" />
-              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-danger" />
-            </button>
+            <NotificationBell />
             <span className="text-xs text-silver-500">{session?.nome ?? 'Admin'}</span>
             <button className="btn-outline text-xs" onClick={handleLogout}>Sair</button>
           </div>

@@ -1,7 +1,7 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
-import { Bell } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
+import { NotificationBell } from '@/components/NotificationBell'
 
 export function ClientLayout() {
   const { session, logout } = useAuth()
@@ -23,10 +23,7 @@ export function ClientLayout() {
             <NavLink to="/c/universidade" className={({ isActive }) => `rounded-md px-3 py-2 text-sm font-medium ${isActive ? 'text-navy' : 'text-silver-600 hover:text-navy'}`}>Universidade</NavLink>
           </nav>
           <div className="flex items-center gap-3">
-            <button className="relative rounded-full p-2 hover:bg-silver-100">
-              <Bell className="h-5 w-5 text-silver-600" />
-              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-danger" />
-            </button>
+            <NotificationBell />
             <span className="text-xs text-silver-500">{session?.nome ?? 'Cliente'}</span>
             <button className="btn-outline text-xs" onClick={handleLogout}>Sair</button>
           </div>

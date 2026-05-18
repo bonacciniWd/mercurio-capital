@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, Upload, X, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { FileText, Upload, X, CheckCircle2, AlertCircle, Loader2, ScanText } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
@@ -48,7 +48,23 @@ type DocRow = {
   tamanho_bytes: number | null
   origem: string | null
   validado: boolean
+  ocr_texto: string | null
   created_at: string
+}
+
+/** Roda OCR client-side em imagens e grava em proposta_documentos.ocr_texto. */
+async function runOcrInBackground(docId: string, file: File) {
+  try {
+    if (!file.type.startsWith('image/')) return
+    const { recognize } = await import('tesseract.js')
+    const result = await recognize(file, 'por', { logger: () => {} })
+    const texto = (result.data.text ?? '').trim()
+    if (!texto) return
+    await supabase.rpc('set_documento_ocr', { p_id: docId, p_texto: texto.slice(0, 10000) })
+  } catch (err) {
+    // OCR é best-effort; falha não bloqueia o upload
+    console.warn('OCR falhou:', err)
+  }
 }
 
 export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, className }: Props) {
@@ -61,7 +77,7 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
     queryFn: async () => {
       const { data, error } = await supabase
         .from('proposta_documentos')
-        .select('id, tipo, categoria, storage_path, mime_type, tamanho_bytes, origem, validado, created_at')
+        .select('id, tipo, categoria, storage_path, mime_type, tamanho_bytes, origem, validado, ocr_texto, created_at')
         .eq('proposta_id', propostaId)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -101,6 +117,11 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
         await supabase.storage.from('proposta-docs').remove([path])
         throw new Error(insErr.message)
       }
+
+      // OCR best-effort em background (não aguarda)
+      void runOcrInBackground(row.id as string, file).finally(() => {
+        qc.invalidateQueries({ queryKey: ['proposta-docs', propostaId] })
+      })
 
       return row.id as string
     },
@@ -194,6 +215,14 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {d.ocr_texto && (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full bg-navy/10 px-2 py-0.5 text-[10px] font-medium text-navy"
+                      title={d.ocr_texto.slice(0, 200)}
+                    >
+                      <ScanText className="h-3 w-3" /> OCR
+                    </span>
+                  )}
                   {d.validado ? (
                     <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
                       <CheckCircle2 className="h-3.5 w-3.5" /> Aprovado
