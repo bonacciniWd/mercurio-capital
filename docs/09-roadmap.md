@@ -48,7 +48,7 @@
 
 ## Fase 3 — Esteira & Admin Operacional (M3 avançado, M8)
 
-- [ ] Kanban global e por proposta (dnd-kit + Realtime).
+- [x] Kanban global (admin) com drag-and-drop (`@dnd-kit`) e Realtime (`postgres_changes` em `propostas`). Card abre detalhe; mover dispara `admin_set_proposta_status`.
 - [x] Tela admin de propostas e detalhe (lista global + detalhe com troca de status e validação de docs).
 - [x] Pendências e ciclo de resolução (criar pelo admin/parceiro, cliente responde, admin/parceiro resolve/rejeita; RPCs `pendencia_resolver` e `cliente_responder_pendencia`).
 - [ ] Consulta pública por protocolo (M7) com CAPTCHA + rate-limit.
