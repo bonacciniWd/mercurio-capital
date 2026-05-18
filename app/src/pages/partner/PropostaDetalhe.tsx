@@ -6,6 +6,7 @@ import { brl } from '@/lib/utils'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
+import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
 
 const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Histórico'] as const
 
@@ -83,16 +84,6 @@ interface HistoricoRow {
   created_at: string
 }
 
-interface DocumentoRow {
-  id: string
-  tipo: string
-  categoria: string
-  storage_path: string
-  validado: boolean
-  origem: string | null
-  created_at: string
-}
-
 export function PartnerPropostaDetalhe() {
   const { id } = useParams()
   const [tab, setTab] = useState<typeof TABS[number]>('Resumo')
@@ -151,20 +142,6 @@ export function PartnerPropostaDetalhe() {
       return data || []
     },
     enabled: !!id && tab === 'Histórico',
-  })
-
-  const { data: documentos } = useQuery({
-    queryKey: ['proposta-docs', id],
-    queryFn: async (): Promise<DocumentoRow[]> => {
-      const { data, error } = await supabase
-        .from('proposta_documentos')
-        .select('id, tipo, categoria, storage_path, validado, origem, created_at')
-        .eq('proposta_id', id!)
-        .order('created_at', { ascending: false })
-      if (error) throw error
-      return data || []
-    },
-    enabled: !!id && tab === 'Documentos',
   })
 
   if (isLoading) return <div className="p-10 text-center text-silver-500">Carregando…</div>
@@ -292,31 +269,8 @@ export function PartnerPropostaDetalhe() {
         </div>
       )}
 
-      {tab === 'Documentos' && (
-        <div className="card overflow-x-auto">
-          {!documentos ? <div className="p-10 text-center text-sm text-silver-500">Carregando…</div>
-            : documentos.length === 0 ? <div className="p-10 text-center text-sm text-silver-500">Nenhum documento ainda. O cliente pode enviar via portal /c.</div>
-            : <table className="w-full text-sm">
-              <thead className="bg-silver-50 text-left text-xs uppercase text-silver-500">
-                <tr><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Categoria</th><th className="px-4 py-3">Origem</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Enviado</th></tr>
-              </thead>
-              <tbody>
-                {documentos.map(d => (
-                  <tr key={d.id} className="border-t border-silver-100">
-                    <td className="px-4 py-3 capitalize">{d.tipo.replace(/_/g, ' ')}</td>
-                    <td className="px-4 py-3">{d.categoria}</td>
-                    <td className="px-4 py-3 text-silver-600">{d.origem || '—'}</td>
-                    <td className="px-4 py-3">
-                      {d.validado
-                        ? <span className="badge bg-success/15 text-success">Validado</span>
-                        : <span className="badge bg-yellow-100 text-yellow-800">Pendente</span>}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-silver-500">{new Date(d.created_at).toLocaleDateString('pt-BR')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>}
-        </div>
+      {tab === 'Documentos' && id && (
+        <PropostaDocsUploader propostaId={id} origem="parceiro" />
       )}
 
       {tab === 'Histórico' && (

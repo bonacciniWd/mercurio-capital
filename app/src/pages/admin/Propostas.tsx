@@ -1,90 +1,213 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Eye, Download } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Search, Eye, Loader2, Download } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { KPICard } from '@/components/KPICard'
-import { StatusBadge } from '@/components/Badge'
+import { calcularLTV } from '@/lib/credito'
 
-const propostas = [
-  { id: 'MC-2024-0042', cliente: 'João Silva', cpf: '123.456.789-00', parceiro: 'Aurora', produto: 'Home Equity', valor: 35000000, ltv: 48, status: 'Análise de Crédito', dias: 5, criada: '07/04' },
-  { id: 'MC-2024-0058', cliente: 'Camila R.', cpf: '234.567.890-11', parceiro: 'Vista Sul', produto: 'Home Equity', valor: 28000000, ltv: 52, status: 'Aguardando assinatura', dias: 2, criada: '10/04' },
-  { id: 'MC-2024-0061', cliente: 'Pedro Lima', cpf: '345.678.901-22', parceiro: 'Vista Sul', produto: 'Financiamento', valor: 62000000, ltv: 65, status: 'Análise Jurídica', dias: 8, criada: '04/04' },
-  { id: 'MC-2024-0072', cliente: 'Igor S.', cpf: '456.789.012-33', parceiro: 'Capital +', produto: 'Financiamento', valor: 18000000, ltv: 70, status: 'Análise de Crédito', dias: 3, criada: '09/04' },
-  { id: 'MC-2024-0078', cliente: 'Ana Souza', cpf: '567.890.123-44', parceiro: 'Aurora', produto: 'Construção', valor: 48000000, ltv: 60, status: 'Comitê', dias: 4, criada: '08/04' },
-  { id: 'MC-2024-0083', cliente: 'Lucas P.', cpf: '678.901.234-55', parceiro: 'Aurora', produto: 'Home Equity', valor: 22000000, ltv: 45, status: 'Pré-análise', dias: 1, criada: '11/04' },
-  { id: 'MC-2024-0086', cliente: 'Renato G.', cpf: '789.012.345-66', parceiro: 'Capital +', produto: 'Home Equity', valor: 41000000, ltv: 55, status: 'Comitê', dias: 12, criada: '31/03' },
-  { id: 'MC-2024-0091', cliente: 'Fernanda T.', cpf: '890.123.456-77', parceiro: 'Aurora', produto: 'Construção', valor: 91000000, ltv: 58, status: 'Recurso Liberado', dias: 1, criada: '11/04' },
-]
+const PRODUTO_LABEL: Record<string, string> = {
+  home_equity: 'Home Equity',
+  credito_construcao: 'Construção',
+  financiamento_imobiliario: 'Financiamento',
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  simulacao: 'Rascunho',
+  pre_analise: 'Pré-análise',
+  analise_credito: 'Análise de Crédito',
+  analise_imovel: 'Análise de Imóvel',
+  analise_juridica: 'Análise Jurídica',
+  comite: 'Comitê',
+  proposta_cliente: 'Proposta ao Cliente',
+  resolucao_pendencias: 'Resolução pendências',
+  emissao_contrato: 'Emissão de Contrato',
+  aguardando_assinatura: 'Aguardando Assinatura',
+  em_registro: 'Em Registro',
+  contrato_registrado: 'Contrato Registrado',
+  recurso_liberado: 'Recurso Liberado',
+  cancelado: 'Cancelada',
+}
+
+const STATUS_FINAIS = new Set(['contrato_registrado', 'recurso_liberado', 'cancelado'])
+
+type Row = {
+  id: string
+  protocolo: string | null
+  produto: string
+  status: string
+  valor_solicitado: number
+  valor_imoveis_total: number
+  prazo_meses: number
+  created_at: string
+  updated_at: string
+  partner: { usuario: { nome_completo: string | null } | null } | null
+  cliente: { nome_completo: string; cpf: string | null } | null
+}
+
+function diasDesde(iso: string) {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+}
 
 export function AdminPropostas() {
+  const [q, setQ] = useState('')
+  const [statusF, setStatusF] = useState<string>('all')
+  const [produtoF, setProdutoF] = useState<string>('all')
+
+  const { data: propostas, isLoading } = useQuery({
+    queryKey: ['admin-propostas'],
+    queryFn: async (): Promise<Row[]> => {
+      const { data, error } = await supabase
+        .from('propostas')
+        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, created_at, updated_at, partner:partners(usuario:usuarios(nome_completo)), cliente:clientes(nome_completo, cpf)')
+        .order('updated_at', { ascending: false })
+        .limit(500)
+      if (error) throw error
+      return (data || []) as unknown as Row[]
+    },
+  })
+
+  const filtradas = useMemo(() => {
+    if (!propostas) return []
+    const term = q.trim().toLowerCase()
+    return propostas.filter((p) => {
+      if (statusF !== 'all' && p.status !== statusF) return false
+      if (produtoF !== 'all' && p.produto !== produtoF) return false
+      if (!term) return true
+      const haystack = [
+        p.protocolo,
+        p.cliente?.nome_completo,
+        p.cliente?.cpf,
+        p.partner?.usuario?.nome_completo,
+      ].filter(Boolean).join(' ').toLowerCase()
+      return haystack.includes(term)
+    })
+  }, [propostas, q, statusF, produtoF])
+
+  const kpis = useMemo(() => {
+    const ativas = (propostas || []).filter((p) => !STATUS_FINAIS.has(p.status))
+    const volume = ativas.reduce((sum, p) => sum + Number(p.valor_solicitado || 0), 0)
+    const ltvs = ativas
+      .map((p) => calcularLTV(Number(p.valor_solicitado || 0), Number(p.valor_imoveis_total || 0)))
+      .filter((v) => Number.isFinite(v) && v > 0)
+    const ltvMedio = ltvs.length ? ltvs.reduce((a, b) => a + b, 0) / ltvs.length : 0
+    const tempoMedio = ativas.length
+      ? ativas.reduce((s, p) => s + diasDesde(p.created_at), 0) / ativas.length
+      : 0
+    return {
+      total: ativas.length,
+      volume,
+      ltv: ltvMedio,
+      tempo: tempoMedio,
+    }
+  }, [propostas])
+
   return (
     <>
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold text-navy">Propostas — visão geral</h1>
-          <p className="text-sm text-silver-600">Lista completa em todas as etapas. Use o Kanban para visualização por estágio.</p>
+          <p className="text-sm text-silver-600">Lista completa em todas as etapas.</p>
         </div>
         <div className="flex gap-2">
           <Link to="/admin/kanban" className="btn-outline">Ver Kanban</Link>
-          <button className="btn-gold"><Download className="h-4 w-4" /> Exportar</button>
+          <button className="btn-gold inline-flex items-center gap-2" disabled>
+            <Download className="h-4 w-4" /> Exportar
+          </button>
         </div>
       </div>
 
       <div className="mb-6 grid gap-4 md:grid-cols-4">
-        <KPICard label="Total ativas" value="312" />
-        <KPICard label="Volume em análise" value={brl(8700000000)} intent="gold" />
-        <KPICard label="LTV médio" value="56%" />
-        <KPICard label="Tempo médio" value="14d" intent="warning" />
+        <KPICard label="Ativas" value={kpis.total.toString()} />
+        <KPICard label="Volume em análise" value={brl(kpis.volume * 100)} intent="gold" />
+        <KPICard label="LTV médio" value={kpis.ltv ? `${Math.round(kpis.ltv * 100)}%` : '—'} />
+        <KPICard label="Tempo médio" value={kpis.tempo ? `${Math.round(kpis.tempo)}d` : '—'} intent="warning" />
       </div>
 
       <div className="card mb-4 flex flex-wrap gap-3 p-4">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative min-w-[200px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-silver-400" />
-          <input className="input pl-9" placeholder="Protocolo, CPF ou cliente" />
+          <input
+            className="input pl-9"
+            placeholder="Protocolo, CPF, cliente ou parceiro"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
         </div>
-        <select className="input w-auto"><option>Status: todos</option></select>
-        <select className="input w-auto"><option>Produto</option><option>Home Equity</option><option>Construção</option><option>Financiamento</option></select>
-        <select className="input w-auto"><option>Parceiro</option></select>
-        <input type="date" className="input w-auto" />
+        <select className="input w-auto" value={statusF} onChange={(e) => setStatusF(e.target.value)}>
+          <option value="all">Status: todos</option>
+          {Object.entries(STATUS_LABEL).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+        <select className="input w-auto" value={produtoF} onChange={(e) => setProdutoF(e.target.value)}>
+          <option value="all">Produto: todos</option>
+          {Object.entries(PRODUTO_LABEL).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-silver-50 text-left text-xs uppercase text-silver-500">
-            <tr>
-              <th className="px-4 py-3">Protocolo</th>
-              <th className="px-4 py-3">Cliente</th>
-              <th className="px-4 py-3">Parceiro</th>
-              <th className="px-4 py-3">Produto</th>
-              <th className="px-4 py-3 text-right">Valor</th>
-              <th className="px-4 py-3 text-right">LTV</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Dias</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {propostas.map(p => (
-              <tr key={p.id} className="border-t border-silver-100 hover:bg-silver-50">
-                <td className="px-4 py-3 font-mono text-xs text-silver-700">{p.id}</td>
-                <td className="px-4 py-3">
-                  <p className="font-medium text-silver-900">{p.cliente}</p>
-                  <p className="font-mono text-xs text-silver-500">{p.cpf}</p>
-                </td>
-                <td className="px-4 py-3 text-silver-700">{p.parceiro}</td>
-                <td className="px-4 py-3 text-silver-700">{p.produto}</td>
-                <td className="px-4 py-3 text-right font-bold text-navy">{brl(p.valor)}</td>
-                <td className="px-4 py-3 text-right">
-                  <span className={`badge ${p.ltv > 60 ? 'bg-warning/15 text-warning' : 'bg-success/15 text-success'}`}>{p.ltv}%</span>
-                </td>
-                <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
-                <td className={`px-4 py-3 text-right ${p.dias > 7 ? 'text-danger font-semibold' : 'text-silver-600'}`}>{p.dias}d</td>
-                <td className="px-4 py-3">
-                  <button className="rounded-md p-1.5 hover:bg-silver-100" title="Ver"><Eye className="h-4 w-4 text-silver-600" /></button>
-                </td>
+        {isLoading ? (
+          <div className="flex items-center justify-center p-10"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>
+        ) : !filtradas.length ? (
+          <div className="p-10 text-center text-sm text-silver-500">Nenhuma proposta encontrada.</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-silver-50 text-left text-xs uppercase text-silver-500">
+              <tr>
+                <th className="px-4 py-3">Protocolo</th>
+                <th className="px-4 py-3">Cliente</th>
+                <th className="px-4 py-3">Parceiro</th>
+                <th className="px-4 py-3">Produto</th>
+                <th className="px-4 py-3 text-right">Valor</th>
+                <th className="px-4 py-3 text-right">LTV</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Dias</th>
+                <th className="px-4 py-3"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtradas.map((p) => {
+                const dias = diasDesde(p.created_at)
+                const ltv = calcularLTV(Number(p.valor_solicitado || 0), Number(p.valor_imoveis_total || 0))
+                const ltvPct = Math.round(ltv * 100)
+                return (
+                  <tr key={p.id} className="border-t border-silver-100 hover:bg-silver-50">
+                    <td className="px-4 py-3 font-mono text-xs text-silver-700">{p.protocolo || '—'}</td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-silver-900">{p.cliente?.nome_completo || '—'}</p>
+                      <p className="font-mono text-xs text-silver-500">{p.cliente?.cpf || ''}</p>
+                    </td>
+                    <td className="px-4 py-3 text-silver-700">
+                      {p.partner?.usuario?.nome_completo || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-silver-700">{PRODUTO_LABEL[p.produto] || p.produto}</td>
+                    <td className="px-4 py-3 text-right font-bold text-navy">{brl(Number(p.valor_solicitado) * 100)}</td>
+                    <td className="px-4 py-3 text-right">
+                      {ltv > 0 ? (
+                        <span className={`badge ${ltvPct > 60 ? 'bg-warning/15 text-warning' : 'bg-success/15 text-success'}`}>{ltvPct}%</span>
+                      ) : <span className="text-silver-400">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="rounded-full bg-silver-100 px-2 py-0.5 text-xs text-silver-700">
+                        {STATUS_LABEL[p.status] || p.status}
+                      </span>
+                    </td>
+                    <td className={`px-4 py-3 text-right ${dias > 7 ? 'font-semibold text-danger' : 'text-silver-600'}`}>{dias}d</td>
+                    <td className="px-4 py-3">
+                      <Link to={`/admin/propostas/${p.id}`} className="rounded-md p-1.5 hover:bg-silver-100" title="Ver">
+                        <Eye className="h-4 w-4 text-silver-600" />
+                      </Link>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </>
   )

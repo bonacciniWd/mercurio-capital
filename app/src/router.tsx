@@ -52,6 +52,7 @@ import { AdminAuditoria } from '@/pages/admin/Auditoria'
 import { AdminIntegracoes } from '@/pages/admin/Integracoes'
 import { AdminParceiros } from '@/pages/admin/Parceiros'
 import { AdminPropostas } from '@/pages/admin/Propostas'
+import { AdminPropostaDetalhe } from '@/pages/admin/PropostaDetalhe'
 import { AdminRelatorios } from '@/pages/admin/Relatorios'
 import { AdminConfiguracoes } from '@/pages/admin/Configuracoes'
 import { AdminUniversidade } from '@/pages/admin/Universidade'
@@ -186,6 +187,7 @@ export const router = createBrowserRouter([
                   { path: 'rede', element: <AdminRede /> },
                   { path: 'kanban', element: <AdminKanban /> },
                   { path: 'propostas', element: <AdminPropostas /> },
+                  { path: 'propostas/:id', element: <AdminPropostaDetalhe /> },
                   { path: 'financeiro/carteiras', element: <AdminCarteiras /> },
                   { path: 'financeiro/precos', element: <AdminPrecos /> },
                   { path: 'fluxos', element: <AdminFluxos /> },

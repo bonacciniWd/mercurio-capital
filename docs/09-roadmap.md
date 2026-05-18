@@ -40,19 +40,19 @@
 - [x] Geração de protocolo + magic link cliente.
 - [x] Portal cliente: `/c`, `/c/propostas/:id`, magic-link preview público `/c/proposta/:token`.
 - [x] Calculadora Price/SAC (lib + 8 testes unitários).
-- [ ] Upload de documentos pelo cliente (deferido para Fase 3 junto com bucket Storage + signed URLs).
+- [x] Upload de documentos pelo cliente (bucket `proposta-docs` + RLS + componente reutilizável; entregue no início da Fase 3).
 
-**Saída**: parceiro cria proposta, cliente recebe magic link, vê status. _(Upload pelo cliente entra na Fase 3.)_
+**Saída**: parceiro cria proposta, cliente recebe magic link, vê status, faz upload.
 
 ---
 
 ## Fase 3 — Esteira & Admin Operacional (M3 avançado, M8)
 
 - [ ] Kanban global e por proposta (dnd-kit + Realtime).
-- [ ] Tela admin de propostas e detalhe.
+- [x] Tela admin de propostas e detalhe (lista global + detalhe com troca de status e validação de docs).
 - [ ] Pendências e ciclo de resolução.
 - [ ] Consulta pública por protocolo (M7) com CAPTCHA + rate-limit.
-- [ ] Upload via protocolo (signed URLs).
+- [x] Upload via UI cliente/parceiro (bucket privado + RLS); pendente: upload via protocolo público (signed URLs).
 - [ ] OCR pipeline (M11 parcial).
 - [ ] Notificações in-app (Realtime) + bandeja.
 

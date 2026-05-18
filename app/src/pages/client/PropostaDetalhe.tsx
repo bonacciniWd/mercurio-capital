@@ -1,9 +1,10 @@
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Loader2, Clock, FileText, Upload, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Loader2, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { calcularFinanciamento } from '@/lib/credito'
+import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
 import { useState } from 'react'
 
 const PRODUTO_LABEL: Record<string, string> = {
@@ -55,20 +56,6 @@ export function ClientPropostaDetalhe() {
         .from('imoveis')
         .select('*')
         .eq('proposta_id', id!)
-      if (error) throw error
-      return data || []
-    },
-  })
-
-  const { data: docs } = useQuery({
-    queryKey: ['client-proposta-docs', id],
-    enabled: !!id && tab === 'documentos',
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('proposta_documentos')
-        .select('*')
-        .eq('proposta_id', id!)
-        .order('created_at', { ascending: false })
       if (error) throw error
       return data || []
     },
@@ -173,33 +160,8 @@ export function ClientPropostaDetalhe() {
           </div>
         )}
 
-        {tab === 'documentos' && (
-          <div className="card p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-semibold text-navy">Documentos da proposta</p>
-              <button className="btn-gold inline-flex items-center gap-2 text-sm" disabled>
-                <Upload className="h-4 w-4" /> Em breve
-              </button>
-            </div>
-            {!docs?.length ? (
-              <p className="text-sm text-silver-500">Nenhum documento enviado ainda.</p>
-            ) : (
-              <ul className="divide-y divide-silver-100">
-                {docs.map((d: any) => (
-                  <li key={d.id} className="flex items-center justify-between py-3">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-4 w-4 text-silver-500" />
-                      <div>
-                        <p className="text-sm font-medium text-navy">{d.tipo || 'Documento'}</p>
-                        <p className="text-xs text-silver-500">{new Date(d.created_at).toLocaleString('pt-BR')}</p>
-                      </div>
-                    </div>
-                    <DocStatus status={d.status} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+        {tab === 'documentos' && id && (
+          <PropostaDocsUploader propostaId={id} origem="cliente" />
         )}
 
         {tab === 'historico' && (
@@ -246,14 +208,4 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
       <dd className="font-medium text-silver-900">{v}</dd>
     </div>
   )
-}
-
-function DocStatus({ status }: { status: string }) {
-  if (status === 'aprovado') {
-    return <span className="inline-flex items-center gap-1 text-xs font-medium text-success"><CheckCircle2 className="h-3.5 w-3.5" /> Aprovado</span>
-  }
-  if (status === 'rejeitado') {
-    return <span className="inline-flex items-center gap-1 text-xs font-medium text-danger"><AlertTriangle className="h-3.5 w-3.5" /> Rejeitado</span>
-  }
-  return <span className="rounded-full bg-silver-100 px-2 py-0.5 text-xs text-silver-600">Em análise</span>
 }
