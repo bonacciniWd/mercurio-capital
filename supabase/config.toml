@@ -48,3 +48,9 @@ verify_jwt = false
 
 [functions.relatorios-exportar]
 verify_jwt = true
+
+[functions.wallet-topup]
+verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false

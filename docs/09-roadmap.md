@@ -76,16 +76,16 @@
 
 ## Fase 5 — Carteira do Parceiro (M11) — pré-requisito para consultas pagas
 
-- [ ] Migrações `partner_wallets`, `wallet_ledger`, `precos_consulta`, `wallet_topups`, `stripe_payment_intents`, `stripe_webhooks_inbox`.
-- [ ] Funções `wallet_debit` / `wallet_credit` (SECURITY DEFINER, transação SERIALIZABLE).
-- [ ] Trigger de criação automática da carteira ao inserir parceiro.
-- [ ] Edge `wallet/topup`, `wallet/balance`, `wallet/extrato`, `stripe/webhook`, `wallet/ajuste`.
-- [ ] Telas parceiro: `/p/carteira`, `/p/carteira/recarga` (Stripe Elements), `/p/carteira/extrato`.
-- [ ] Telas admin: `/admin/financeiro/carteiras`, `/admin/financeiro/precos`, `/admin/financeiro/recargas`.
-- [ ] Notificações: saldo baixo, recarga concluída, bloqueio.
-- [ ] Seed de `precos_consulta` para todos os `tipo_consulta`.
+- [x] Migrações `partner_wallets`, `wallet_ledger`, `precos_consulta`, `wallet_topups`, `stripe_payment_intents`, `stripe_webhooks_inbox` (`20260513000005_wallet.sql`).
+- [x] Funções `wallet_debit` / `wallet_credit` (SECURITY DEFINER, FOR UPDATE) + RPCs `partner_wallet_summary`, `admin_wallet_ajuste`, `admin_wallet_set_bloqueio`, `admin_precos_upsert` (`20260518000010_wallet_fase5.sql`).
+- [x] Trigger de criação automática da carteira ao inserir parceiro.
+- [x] Edges `wallet-topup` (Stripe Checkout + modo dev), `stripe-webhook` (idempotente via `stripe_webhooks_inbox` + verificação de assinatura HMAC). Extrato via view `v_wallet_extrato`.
+- [x] Telas parceiro: `/p/carteira` (saldo, recarga via Checkout, extrato 50 últimas, tabela de preços vigentes).
+- [x] Telas admin: `/admin/financeiro/carteiras` (saldos, ajuste manual ±, bloquear/desbloquear), `/admin/financeiro/precos` (upsert versionado + histórico).
+- [x] Notificações: triggers `fn_notifica_wallet_movimento` (recarga + saldo baixo R$ 50) e `fn_notifica_wallet_bloqueio`.
+- [x] Seed de `precos_consulta` (já em `20260513000007_seeds.sql`).
 
-**Saída**: parceiro recarrega via Stripe; saldo + extrato funcionando; preços versionados; pronto para alimentar a Fase 6.
+**Saída**: parceiro recarrega via Stripe; saldo + extrato funcionando; preços versionados; pronto para alimentar a Fase 6. ✅ **Fase 5 fechada em 2026-05-18.**
 
 ---
 

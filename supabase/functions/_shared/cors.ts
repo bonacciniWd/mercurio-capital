@@ -5,13 +5,14 @@ export const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-export function jsonResponse(body: unknown, init: ResponseInit = {}) {
+export function jsonResponse(body: unknown, init: ResponseInit | number = {}) {
+  const resolved: ResponseInit = typeof init === 'number' ? { status: init } : init
   return new Response(JSON.stringify(body), {
-    ...init,
+    ...resolved,
     headers: {
       'content-type': 'application/json',
       ...corsHeaders,
-      ...(init.headers ?? {}),
+      ...(resolved.headers ?? {}),
     },
   })
 }
