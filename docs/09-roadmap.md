@@ -23,8 +23,8 @@
 - [x] Telas: `/registro`, `/login`, `/recuperar-senha`, `/2fa`, `/magic/:token`.
 - [x] Modal de upload de documentos do parceiro. _(componente `PartnerDocsUploader` integrado ao wizard de registro + tela admin)_
 - [x] Tela `/admin/parceiros/aprovacoes`. _(consome view `v_admin_partner_aprovacoes` + RPCs `admin_approve_partner` / `admin_reject_partner`)_
-- [ ] Edge `magic-link/issue` + `magic-link/consume`. _(Supabase Auth built-in cobre magic-link via e-mail; edge customizada adiada para Fase 2 quando entrar magic link de proposta)_
-- [ ] Edge `evolution-whatsapp` (envio simples). _(pulado — magic-link/notificação só via e-mail nesta etapa)_
+- [x] Edge `magic-link/issue` + `magic-link/consume`. _(deploy em `bhagksfvszeogtjvjtpx`: parceiro reemite via `partner_reissue_magic_link`; consume gera sessão Supabase via `auth.admin.generateLink('magiclink')` → frontend chama `verifyOtp`)_
+- [ ] Edge `evolution-whatsapp` (envio simples). _(deferido — WhatsApp segue para futuro; e-mail nativo Supabase cobre por ora)_
 
 **Saída**: parceiro consegue se registrar, anexar docs e ser aprovado pelo admin. ✅
 

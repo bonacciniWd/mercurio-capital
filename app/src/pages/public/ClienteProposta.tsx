@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
 import { Loader2, AlertTriangle, FileText, ArrowRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -42,9 +42,12 @@ interface Peek {
 
 export function ClienteProposta() {
   const { token } = useParams<{ token: string }>()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [peek, setPeek] = useState<Peek | null>(null)
+  const [consuming, setConsuming] = useState(false)
+  const [consumeError, setConsumeError] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -128,12 +131,43 @@ export function ClienteProposta() {
                 <br /><b className="text-navy">{peek.cliente_email || 'fornecido pelo parceiro'}</b>
               </p>
 
-              <Link
-                to={`/c/login?token=${encodeURIComponent(token!)}`}
-                className="btn-gold mt-6 inline-flex w-full items-center justify-center gap-2"
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!token) return
+                  setConsuming(true)
+                  setConsumeError(null)
+                  try {
+                    const { data, error: fnErr } = await supabase.functions.invoke('magic-link-consume', {
+                      body: { token },
+                    })
+                    if (fnErr) throw new Error(fnErr.message)
+                    const payload = data as { session?: { hashed_token?: string; email?: string }; reason?: string }
+                    if (payload?.session?.hashed_token) {
+                      const { error: otpErr } = await supabase.auth.verifyOtp({
+                        token_hash: payload.session.hashed_token,
+                        type: 'magiclink',
+                      })
+                      if (otpErr) throw new Error(otpErr.message)
+                      navigate('/c', { replace: true })
+                      return
+                    }
+                    // fallback: cliente sem email ou falha em generateLink — manda para login manual
+                    navigate(`/c/login?token=${encodeURIComponent(token)}`)
+                  } catch (err) {
+                    setConsumeError(err instanceof Error ? err.message : 'Falha ao entrar.')
+                  } finally {
+                    setConsuming(false)
+                  }
+                }}
+                disabled={consuming}
+                className="btn-gold mt-6 inline-flex w-full items-center justify-center gap-2 disabled:opacity-60"
               >
-                Acessar portal do cliente <ArrowRight className="h-4 w-4" />
-              </Link>
+                {consuming ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Entrar no portal <ArrowRight className="h-4 w-4" /></>}
+              </button>
+              {consumeError ? (
+                <p className="mt-2 text-center text-xs text-danger">{consumeError}</p>
+              ) : null}
 
               <p className="mt-4 text-center text-xs text-silver-400">
                 Link válido até {new Date(peek.expires_at).toLocaleDateString('pt-BR')}

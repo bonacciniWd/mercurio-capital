@@ -549,7 +549,7 @@ function Step7({ form, calc, ltv }: { form: FormState; calc: ReturnType<typeof c
         ))}
       </div>
       <div className="mt-5 rounded-lg border border-navy/30 bg-navy/5 p-4 text-sm">
-        ℹ️ Após salvar, será gerado um <b>magic link</b> com validade de 7 dias para enviar ao cliente.
+        ℹ️ Após salvar, será gerado um <b>magic link</b> com validade de 30 minutos. Você poderá reemitir um novo link a qualquer momento na página da proposta.
       </div>
     </>
   )
@@ -585,7 +585,7 @@ function SuccessPanel({ result, onNew, onDetalhe }: { result: SubmitResult; onNe
               <Copy className="h-3.5 w-3.5" /> {copied ? 'Copiado' : 'Copiar'}
             </button>
           </div>
-          <p className="mt-2 text-xs text-silver-500">Envie este link ao cliente. Validade: 7 dias.</p>
+          <p className="mt-2 text-xs text-silver-500">Envie este link ao cliente. Validade: 30 minutos (reemitir na página da proposta).</p>
         </div>
 
         <div className="mt-6 flex justify-center gap-3">

@@ -39,3 +39,9 @@ enable_signup = false
 
 [analytics]
 enabled = false
+
+[functions.magic-link-issue]
+verify_jwt = true
+
+[functions.magic-link-consume]
+verify_jwt = false

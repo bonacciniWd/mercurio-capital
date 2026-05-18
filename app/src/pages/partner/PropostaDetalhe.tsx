@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { StatusBadge } from '@/components/Badge'
 import { brl } from '@/lib/utils'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Link2, Copy, Check, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
 import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
@@ -88,6 +88,30 @@ interface HistoricoRow {
 export function PartnerPropostaDetalhe() {
   const { id } = useParams()
   const [tab, setTab] = useState<typeof TABS[number]>('Resumo')
+  const [reissuing, setReissuing] = useState(false)
+  const [reissueUrl, setReissueUrl] = useState<string | null>(null)
+  const [reissueError, setReissueError] = useState<string | null>(null)
+  const [reissueCopied, setReissueCopied] = useState(false)
+
+  async function handleReissue() {
+    if (!id) return
+    setReissuing(true)
+    setReissueError(null)
+    setReissueUrl(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('magic-link-issue', {
+        body: { proposta_id: id },
+      })
+      if (error) throw new Error(error.message)
+      const payload = data as { url?: string; magic_token?: string }
+      if (!payload?.url) throw new Error('Resposta inválida da função.')
+      setReissueUrl(payload.url)
+    } catch (err) {
+      setReissueError(err instanceof Error ? err.message : 'Falha ao reemitir.')
+    } finally {
+      setReissuing(false)
+    }
+  }
 
   const { data: proposta, isLoading, error } = useQuery({
     queryKey: ['proposta', id],
@@ -176,6 +200,35 @@ export function PartnerPropostaDetalhe() {
             <span>·</span>
             <span>Criada {new Date(proposta.created_at).toLocaleDateString('pt-BR')}</span>
           </div>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <button
+            type="button"
+            onClick={handleReissue}
+            disabled={reissuing}
+            className="btn-outline flex items-center gap-2 text-sm disabled:opacity-60"
+          >
+            {reissuing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+            Reemitir magic link
+          </button>
+          {reissueUrl ? (
+            <div className="flex items-center gap-2 rounded-md border border-silver-200 bg-silver-50 px-2 py-1 text-xs">
+              <code className="max-w-[220px] truncate font-mono text-silver-700">{reissueUrl}</code>
+              <button
+                type="button"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(reissueUrl)
+                  setReissueCopied(true)
+                  setTimeout(() => setReissueCopied(false), 2000)
+                }}
+                className="rounded p-1 text-silver-600 hover:bg-white hover:text-navy"
+                title="Copiar"
+              >
+                {reissueCopied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+          ) : null}
+          {reissueError ? <p className="text-xs text-danger">{reissueError}</p> : null}
         </div>
       </div>
 
