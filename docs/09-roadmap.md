@@ -55,8 +55,9 @@
 - [x] Upload via UI cliente/parceiro (bucket privado + RLS); pendente: upload via protocolo público (signed URLs).
 - [x] OCR pipeline (M11 parcial) — Tesseract.js client-side em imagens pós-upload + RPC `set_documento_ocr`; PDFs não cobertos.
 - [x] Notificações in-app (Realtime) + bandeja — triggers para status/pendência/doc validado, sino em todos os layouts.
+- [x] Smoke test transacional (`supabase/smoke-tests/fase-3-smoke.sql`) cobrindo proposta→doc→pendência→status→consulta pública→rate-limit.
 
-**Saída**: esteira funcional ponta a ponta até "Proposta ao Cliente".
+**Saída**: esteira funcional ponta a ponta até "Proposta ao Cliente". ✅ **Fase 3 fechada em 2026-05-18.**
 
 ---
 
