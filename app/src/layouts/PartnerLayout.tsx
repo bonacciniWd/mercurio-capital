@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
 import { ElectricBannerCard } from '@/components/ElectricBannerCard'
 import {
-  LayoutDashboard, Calculator, FileText, Users, Wallet, BarChart3,
+  LayoutDashboard, Calculator, FileText, Users, Wallet, BarChart3, Coins,
   GraduationCap, Settings, ChevronRight,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
@@ -24,6 +24,7 @@ const ITEMS = [
   { to: '/p/propostas', icon: FileText, label: 'Propostas' },
   { to: '/p/equipe', icon: Users, label: 'Equipe' },
   { to: '/p/carteira', icon: Wallet, label: 'Carteira' },
+  { to: '/p/comissoes', icon: Coins, label: 'Comissões' },
   { to: '/p/relatorios', icon: BarChart3, label: 'Relatórios' },
   { to: '/p/universidade', icon: GraduationCap, label: 'Universidade' },
   { to: '/p/configuracoes', icon: Settings, label: 'Configurações' },

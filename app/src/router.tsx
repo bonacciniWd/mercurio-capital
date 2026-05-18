@@ -38,6 +38,7 @@ import { PartnerRelatorios } from '@/pages/partner/Relatorios'
 import { PartnerConfig } from '@/pages/partner/Configuracoes'
 import { PartnerMilestones } from '@/pages/partner/Milestones'
 import { PartnerContrato } from '@/pages/partner/Contrato'
+import { PartnerComissoes } from '@/pages/partner/Comissoes'
 import { UniversidadeLista } from '@/pages/partner/UniversidadeLista'
 import { UniversidadePlayer } from '@/pages/partner/UniversidadePlayer'
 
@@ -47,6 +48,7 @@ import { AdminRede } from '@/pages/admin/Rede'
 import { AdminKanban } from '@/pages/admin/Kanban'
 import { AdminCarteiras } from '@/pages/admin/Carteiras'
 import { AdminPrecos } from '@/pages/admin/Precos'
+import { AdminFinanceiro } from '@/pages/admin/Financeiro'
 import { AdminFluxos } from '@/pages/admin/Fluxos'
 import { AdminCampanhas } from '@/pages/admin/Campanhas'
 import { AdminAuditoria } from '@/pages/admin/Auditoria'
@@ -164,6 +166,7 @@ export const router = createBrowserRouter([
                       { path: 'configuracoes', element: <PartnerConfig /> },
                       { path: 'milestones', element: <PartnerMilestones /> },
                       { path: 'contrato', element: <PartnerContrato /> },
+                      { path: 'comissoes', element: <PartnerComissoes /> },
                       { path: 'universidade', element: <UniversidadeLista /> },
                       { path: 'universidade/:cursoId/aula/:aulaId', element: <UniversidadePlayer /> },
                     ],
@@ -193,6 +196,7 @@ export const router = createBrowserRouter([
                   { path: 'propostas/:id', element: <AdminPropostaDetalhe /> },
                   { path: 'financeiro/carteiras', element: <AdminCarteiras /> },
                   { path: 'financeiro/precos', element: <AdminPrecos /> },
+                  { path: 'financeiro', element: <AdminFinanceiro /> },
                   { path: 'fluxos', element: <AdminFluxos /> },
                   { path: 'campanhas', element: <AdminCampanhas /> },
                   { path: 'auditoria', element: <AdminAuditoria /> },

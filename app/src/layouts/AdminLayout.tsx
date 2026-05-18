@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, UserCheck, Network, Kanban, FileText, Folder, DollarSign,
+  LayoutDashboard, UserCheck, Network, Kanban, FileText, Folder, DollarSign, Coins,
   BarChart3, GraduationCap, Workflow, Megaphone, Plug, Settings, ScrollText,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
@@ -14,6 +14,7 @@ const ITEMS = [
   { to: '/admin/kanban', icon: Kanban, label: 'Kanban' },
   { to: '/admin/propostas', icon: FileText, label: 'Propostas' },
   { to: '/admin/financeiro/carteiras', icon: DollarSign, label: 'Financeiro' },
+  { to: '/admin/financeiro', icon: Coins, label: 'Comissões' },
   { to: '/admin/relatorios', icon: BarChart3, label: 'Relatórios' },
   { to: '/admin/universidade', icon: GraduationCap, label: 'Universidade' },
   { to: '/admin/fluxos', icon: Workflow, label: 'Fluxos' },

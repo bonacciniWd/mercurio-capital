@@ -6,6 +6,7 @@ import { brl } from '@/lib/utils'
 import { calcularFinanciamento } from '@/lib/credito'
 import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
 import { PropostaPendencias } from '@/components/PropostaPendencias'
+import { PropostaContrato } from '@/components/PropostaContrato'
 import { useState } from 'react'
 
 const PRODUTO_LABEL: Record<string, string> = {
@@ -33,7 +34,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function ClientPropostaDetalhe() {
   const { id } = useParams<{ id: string }>()
-  const [tab, setTab] = useState<'resumo' | 'documentos' | 'pendencias' | 'historico'>('resumo')
+  const [tab, setTab] = useState<'resumo' | 'documentos' | 'pendencias' | 'contrato' | 'historico'>('resumo')
 
   const { data: proposta, isLoading } = useQuery({
     queryKey: ['client-proposta', id],
@@ -128,6 +129,7 @@ export function ClientPropostaDetalhe() {
         <TabBtn active={tab === 'resumo'} onClick={() => setTab('resumo')}>Resumo</TabBtn>
         <TabBtn active={tab === 'documentos'} onClick={() => setTab('documentos')}>Documentos</TabBtn>
         <TabBtn active={tab === 'pendencias'} onClick={() => setTab('pendencias')}>Pendências</TabBtn>
+        <TabBtn active={tab === 'contrato'} onClick={() => setTab('contrato')}>Contrato</TabBtn>
         <TabBtn active={tab === 'historico'} onClick={() => setTab('historico')}>Histórico</TabBtn>
       </div>
 
@@ -168,6 +170,10 @@ export function ClientPropostaDetalhe() {
 
         {tab === 'pendencias' && id && (
           <PropostaPendencias propostaId={id} role="cliente" />
+        )}
+
+        {tab === 'contrato' && id && (
+          <PropostaContrato propostaId={id} role="client" />
         )}
 
         {tab === 'historico' && (

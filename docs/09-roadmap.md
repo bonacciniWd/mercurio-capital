@@ -105,14 +105,17 @@
 
 ## Fase 7 — Contratos & Financeiro
 
-- [ ] Migrações `contratos`, `assinaturas_contrato`, `liberacoes_recurso`, `comissoes`.
-- [ ] Geração de PDF de contrato (template renderer).
-- [ ] Integração **Clicksign** (webhook).
-- [ ] Atualização automática de status (`em_registro`, `contrato_registrado`, `recurso_liberado`).
-- [ ] Cálculo e visualização de comissões.
-- [ ] Dashboard financeiro admin.
+- [x] Migrações `contratos`, `assinaturas_contrato`, `liberacoes_recurso`, `comissoes` (schema base já existia desde `20260513000004_operacoes.sql`; complementos em `20260518000030_contratos_fase7.sql`: colunas, RPCs, triggers, views, buckets).
+- [x] Geração de PDF/HTML de contrato (template renderer server-side em `supabase/functions/contrato-gerar/template.ts` + edge `contrato-gerar`).
+- [x] Integração **Clicksign** sandbox (edge `contrato-enviar-assinatura` + webhook `clicksign-webhook` com HMAC + idempotência via `clicksign_webhooks_inbox`). Modo dev sem token simula envelope.
+- [x] Atualização automática de status (`emissao_contrato` → `aguardando_assinatura` → `em_registro` → `contrato_registrado` → `recurso_liberado`) via RPCs e webhook; trigger de transição ajustado para permitir parceiro gerar contrato e service_role processar webhook.
+- [x] Cálculo e visualização de comissões — trigger `trg_calcular_comissao` em `liberacoes_recurso`; RPCs `comissao_aprovar` / `comissao_marcar_paga`.
+- [x] Dashboard financeiro admin (`/admin/financeiro`) consumindo view `v_financeiro_admin` + `v_comissoes_admin`; página parceiro `/p/comissoes`.
+- [x] Tab "Contrato" no detalhe de proposta (parceiro/admin/cliente) com fluxo completo: gerar → enviar → assinar → registrar → liberar → comissão.
+- [x] Notificações in-app de contrato assinado e recurso liberado.
+- [ ] ⚠️ Provedor **Clicksign em sandbox/dev** — substituir token quando ambiente de produção for habilitado.
 
-**Saída**: ciclo completo até liberação de recurso e cálculo de comissão.
+**Saída**: ciclo completo até liberação de recurso e cálculo de comissão. ✅ **Fase 7 fechada em 2026-05-18 (Clicksign sandbox).**
 
 ---
 

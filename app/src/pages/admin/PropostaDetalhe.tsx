@@ -8,8 +8,9 @@ import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
 import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
 import { PropostaPendencias } from '@/components/PropostaPendencias'
 import { PropostaConsultas } from '@/components/PropostaConsultas'
+import { PropostaContrato } from '@/components/PropostaContrato'
 
-const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Pendências', 'Consultas', 'Histórico'] as const
+const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Pendências', 'Consultas', 'Contrato', 'Histórico'] as const
 
 const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Rascunho',
@@ -459,6 +460,10 @@ export function AdminPropostaDetalhe() {
 
       {tab === 'Consultas' && id && (
         <PropostaConsultas propostaId={id} readOnly />
+      )}
+
+      {tab === 'Contrato' && id && (
+        <PropostaContrato propostaId={id} role="admin" />
       )}
 
       {tab === 'Histórico' && (
