@@ -26,6 +26,7 @@ import { ClientHome } from '@/pages/client/Home'
 import { ClientPropostaDetalhe } from '@/pages/client/PropostaDetalhe'
 import { ClientDocs } from '@/pages/client/Documentos'
 import { ClientUniversidade } from '@/pages/client/Universidade'
+import { UniversidadePlayer as ClientUniversidadePlayer } from '@/pages/partner/UniversidadePlayer'
 
 import { PartnerDashboard } from '@/pages/partner/Dashboard'
 import { PartnerSimulacoes } from '@/pages/partner/Simulacoes'
@@ -137,6 +138,7 @@ export const router = createBrowserRouter([
               { path: 'propostas/:id', element: <ClientPropostaDetalhe /> },
               { path: 'documentos', element: <ClientDocs /> },
               { path: 'universidade', element: <ClientUniversidade /> },
+              { path: 'universidade/:cursoId/aula/:aulaId', element: <ClientUniversidadePlayer /> },
             ],
           },
         ],

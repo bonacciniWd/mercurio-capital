@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Play, CheckCircle2, ArrowRight, Loader2, FileText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -58,7 +58,9 @@ export function UniversidadePlayer() {
   const cursoId = params.cursoId!
   const aulaIdParam = params.aulaId!
   const navigate = useNavigate()
+  const location = useLocation()
   const qc = useQueryClient()
+  const basePath = location.pathname.startsWith('/c/') ? '/c/universidade' : '/p/universidade'
   const [tab, setTab] = useState<'conteudo' | 'recursos' | 'notas'>('conteudo')
   const [openModulos, setOpenModulos] = useState<Set<string>>(new Set())
 
@@ -184,14 +186,14 @@ export function UniversidadePlayer() {
     return (
       <div className="card p-10 text-center text-silver-500">
         Curso sem aulas disponíveis.
-        <div className="mt-4"><Link to="/p/universidade" className="btn-outline">Voltar</Link></div>
+        <div className="mt-4"><Link to={basePath} className="btn-outline">Voltar</Link></div>
       </div>
     )
   }
 
   return (
     <>
-      <Link to="/p/universidade" className="mb-4 inline-flex items-center gap-1 text-sm text-silver-600 hover:text-navy">
+      <Link to={basePath} className="mb-4 inline-flex items-center gap-1 text-sm text-silver-600 hover:text-navy">
         <ArrowLeft className="h-4 w-4" /> Voltar ao catálogo
       </Link>
 
@@ -288,7 +290,7 @@ export function UniversidadePlayer() {
                       const done = !!a.concluida
                       return (
                         <li key={a.aula_id}>
-                          <button onClick={() => navigate(`/p/universidade/${cursoId}/aula/${a.aula_id}`)}
+                          <button onClick={() => navigate(`${basePath}/${cursoId}/aula/${a.aula_id}`)}
                             className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm ${isActive ? 'bg-gold/10 text-navy font-medium border-l-2 border-gold' : 'text-silver-700 hover:bg-silver-50'}`}>
                             {done ? <CheckCircle2 className="h-4 w-4 text-green-600" /> :
                               isActive ? <Play className="h-4 w-4 text-gold" /> :
@@ -314,7 +316,7 @@ export function UniversidadePlayer() {
           <span className="font-medium text-green-700">✓ Aula concluída{proxima ? ` — Próxima: ${proxima.aula_titulo}` : ''}</span>
           {proxima && (
             <button className="btn-gold"
-              onClick={() => navigate(`/p/universidade/${cursoId}/aula/${proxima.aula_id}`)}>
+              onClick={() => navigate(`${basePath}/${cursoId}/aula/${proxima.aula_id}`)}>
               Continuar <ArrowRight className="h-4 w-4" />
             </button>
           )}
@@ -330,7 +332,7 @@ export function UniversidadePlayer() {
           </button>
           {proxima && (
             <button className="btn-gold"
-              onClick={() => navigate(`/p/universidade/${cursoId}/aula/${proxima.aula_id}`)}>
+              onClick={() => navigate(`${basePath}/${cursoId}/aula/${proxima.aula_id}`)}>
               Próxima <ArrowRight className="h-4 w-4" />
             </button>
           )}

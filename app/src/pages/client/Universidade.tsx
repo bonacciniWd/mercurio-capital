@@ -161,7 +161,7 @@ export function ClientUniversidade() {
             {(catalogoQuery.data ?? []).map(c => {
               const capa = capaUrl(c.capa_storage_path)
               return (
-                <Link key={c.id} to={`/p/universidade/${c.id}/aula/primeira`} className="card overflow-hidden group">
+                <Link key={c.id} to={`/c/universidade/${c.id}/aula/primeira`} className="card overflow-hidden group">
                   <div className="relative flex h-32 items-center justify-center overflow-hidden bg-gradient-to-br from-navy to-navy-700 text-white">
                     {capa
                       ? <img src={capa} alt={c.titulo} className="absolute inset-0 h-full w-full object-cover" />
