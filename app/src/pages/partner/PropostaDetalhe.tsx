@@ -8,8 +8,9 @@ import { supabase } from '@/lib/supabase'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
 import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
 import { PropostaPendencias } from '@/components/PropostaPendencias'
+import { PropostaConsultas } from '@/components/PropostaConsultas'
 
-const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Pendências', 'Histórico'] as const
+const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Pendências', 'Consultas', 'Histórico'] as const
 
 const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Rascunho',
@@ -329,6 +330,10 @@ export function PartnerPropostaDetalhe() {
 
       {tab === 'Pendências' && id && (
         <PropostaPendencias propostaId={id} role="parceiro" />
+      )}
+
+      {tab === 'Consultas' && id && (
+        <PropostaConsultas propostaId={id} />
       )}
 
       {tab === 'Histórico' && (

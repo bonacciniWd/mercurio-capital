@@ -91,14 +91,15 @@
 
 ## Fase 6 — Integrações Externas Pagas (M12)
 
-- [ ] Edge `bacen-consulta`, `serasa-consulta`, `juridico-consulta`, `ri-digital-matricula`, `nacional-consultas`.
-- [ ] **Cada Edge debita carteira via `wallet_debit` antes da chamada externa**; estorno automático em falha.
-- [ ] HTTP 402 padronizado quando saldo insuficiente.
-- [ ] Telas de "Consultas" no detalhe da proposta com botão "Consultar (R$ X,XX)".
-- [ ] Logs em `logs_consultas` + tabelas específicas com `ledger_id`.
-- [ ] Webhook Jusbrasil (monitoramento).
+- [x] Edge única `consulta-executar` cobrindo `bacen_cpf/cnpj`, `serasa_pf/pj`, `jusbrasil_cnpj`, `escavador_cnpj`, `ri_digital_matricula`, `nacional_consultas_bens/certidao`.
+- [x] **Debita carteira via `wallet_debit` antes da chamada externa**; estorno automático via `consulta_estornar` em falha.
+- [x] HTTP 402 padronizado quando `saldo_insuficiente` (403 `wallet_bloqueada`, 422 `preco_nao_configurado`, 502 falha provedor com estorno).
+- [x] Telas de "Consultas" no detalhe da proposta (parceiro `editor`, admin `read-only`) com botão por tipo "Consultar (R$ X,XX)".
+- [x] Logs em `logs_consultas` (`response` jsonb + `resumo` jsonb + `ledger_debito_id` + `ledger_estorno_id`) e view `v_consultas_proposta`.
+- [ ] ⚠️ Provedores em **modo mock** — substituir por chamadas reais (Bacen, Serasa, Jusbrasil, RI Digital, Nacional) quando credenciais estiverem disponíveis. Schema, billing e UI já funcionam end-to-end.
+- [ ] Webhook Jusbrasil (monitoramento contínuo) — escopo futuro.
 
-**Saída**: proposta consulta bureaus debitando saldo do parceiro automaticamente.
+**Saída**: proposta consulta bureaus debitando saldo do parceiro automaticamente. ✅ **Fase 6 fechada em 2026-05-18 (mocks).**
 
 ---
 

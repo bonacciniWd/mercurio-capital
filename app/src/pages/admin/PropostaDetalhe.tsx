@@ -7,8 +7,9 @@ import { brl } from '@/lib/utils'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
 import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
 import { PropostaPendencias } from '@/components/PropostaPendencias'
+import { PropostaConsultas } from '@/components/PropostaConsultas'
 
-const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Pendências', 'Histórico'] as const
+const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Pendências', 'Consultas', 'Histórico'] as const
 
 const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Rascunho',
@@ -454,6 +455,10 @@ export function AdminPropostaDetalhe() {
 
       {tab === 'Pendências' && id && (
         <PropostaPendencias propostaId={id} role="admin" />
+      )}
+
+      {tab === 'Consultas' && id && (
+        <PropostaConsultas propostaId={id} readOnly />
       )}
 
       {tab === 'Histórico' && (
