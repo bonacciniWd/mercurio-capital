@@ -51,7 +51,7 @@
 - [x] Kanban global (admin) com drag-and-drop (`@dnd-kit`) e Realtime (`postgres_changes` em `propostas`). Card abre detalhe; mover dispara `admin_set_proposta_status`.
 - [x] Tela admin de propostas e detalhe (lista global + detalhe com troca de status e validação de docs).
 - [x] Pendências e ciclo de resolução (criar pelo admin/parceiro, cliente responde, admin/parceiro resolve/rejeita; RPCs `pendencia_resolver` e `cliente_responder_pendencia`).
-- [ ] Consulta pública por protocolo (M7) com CAPTCHA + rate-limit.
+- [x] Consulta pública por protocolo (M7) com rate-limit DB; CAPTCHA plug-in (hCaptcha) pendente sitekey/edge function.
 - [x] Upload via UI cliente/parceiro (bucket privado + RLS); pendente: upload via protocolo público (signed URLs).
 - [ ] OCR pipeline (M11 parcial).
 - [ ] Notificações in-app (Realtime) + bandeja.

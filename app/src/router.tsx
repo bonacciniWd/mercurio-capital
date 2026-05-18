@@ -105,6 +105,7 @@ export const router = createBrowserRouter([
         ],
       },
       { path: '/protocolo', element: <Protocolo /> },
+      { path: '/protocolo/:codigo', element: <Protocolo /> },
       { path: '/magic/:token', element: <MagicLink /> },
       { path: '/c/proposta/:token', element: <ClienteProposta /> },
       { path: '/redefinir-senha', element: <RedefinirSenha /> },
