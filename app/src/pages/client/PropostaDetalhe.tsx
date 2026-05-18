@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { calcularFinanciamento } from '@/lib/credito'
 import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
+import { PropostaPendencias } from '@/components/PropostaPendencias'
 import { useState } from 'react'
 
 const PRODUTO_LABEL: Record<string, string> = {
@@ -32,7 +33,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function ClientPropostaDetalhe() {
   const { id } = useParams<{ id: string }>()
-  const [tab, setTab] = useState<'resumo' | 'documentos' | 'historico'>('resumo')
+  const [tab, setTab] = useState<'resumo' | 'documentos' | 'pendencias' | 'historico'>('resumo')
 
   const { data: proposta, isLoading } = useQuery({
     queryKey: ['client-proposta', id],
@@ -126,6 +127,7 @@ export function ClientPropostaDetalhe() {
       <div className="mt-5 flex gap-2 border-b border-silver-200">
         <TabBtn active={tab === 'resumo'} onClick={() => setTab('resumo')}>Resumo</TabBtn>
         <TabBtn active={tab === 'documentos'} onClick={() => setTab('documentos')}>Documentos</TabBtn>
+        <TabBtn active={tab === 'pendencias'} onClick={() => setTab('pendencias')}>Pendências</TabBtn>
         <TabBtn active={tab === 'historico'} onClick={() => setTab('historico')}>Histórico</TabBtn>
       </div>
 
@@ -162,6 +164,10 @@ export function ClientPropostaDetalhe() {
 
         {tab === 'documentos' && id && (
           <PropostaDocsUploader propostaId={id} origem="cliente" />
+        )}
+
+        {tab === 'pendencias' && id && (
+          <PropostaPendencias propostaId={id} role="cliente" />
         )}
 
         {tab === 'historico' && (

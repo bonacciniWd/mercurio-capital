@@ -6,8 +6,9 @@ import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
 import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
+import { PropostaPendencias } from '@/components/PropostaPendencias'
 
-const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Histórico'] as const
+const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Pendências', 'Histórico'] as const
 
 const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Rascunho',
@@ -449,6 +450,10 @@ export function AdminPropostaDetalhe() {
 
           <PropostaDocsUploader propostaId={id} origem="parceiro" />
         </div>
+      )}
+
+      {tab === 'Pendências' && id && (
+        <PropostaPendencias propostaId={id} role="admin" />
       )}
 
       {tab === 'Histórico' && (

@@ -7,8 +7,9 @@ import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
 import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
+import { PropostaPendencias } from '@/components/PropostaPendencias'
 
-const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Histórico'] as const
+const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Pendências', 'Histórico'] as const
 
 const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Rascunho',
@@ -271,6 +272,10 @@ export function PartnerPropostaDetalhe() {
 
       {tab === 'Documentos' && id && (
         <PropostaDocsUploader propostaId={id} origem="parceiro" />
+      )}
+
+      {tab === 'Pendências' && id && (
+        <PropostaPendencias propostaId={id} role="parceiro" />
       )}
 
       {tab === 'Histórico' && (
