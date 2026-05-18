@@ -67,3 +67,9 @@ verify_jwt = true
 [functions.clicksign-webhook]
 verify_jwt = false
 
+[functions.lms-assinar]
+verify_jwt = true
+
+[functions.certificado-gerar]
+verify_jwt = true
+

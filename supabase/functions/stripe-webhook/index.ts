@@ -1,9 +1,12 @@
 // supabase/functions/stripe-webhook/index.ts
 // Recebe eventos do Stripe. Idempotente via stripe_webhooks_inbox.
 // Eventos suportados:
-//   - checkout.session.completed → confirma topup + credita carteira
-//   - payment_intent.succeeded   → fallback (mesma lógica)
-//   - payment_intent.payment_failed → marca topup como failed
+//   - checkout.session.completed       → wallet topup OU ativa assinatura LMS (decide por metadata.proposito)
+//   - payment_intent.succeeded         → fallback wallet
+//   - payment_intent.payment_failed    → marca topup/intent como failed
+//   - customer.subscription.created/updated/deleted → upsert assinaturas_universidade
+//   - invoice.payment_succeeded        → marca assinatura ativa + atualiza current_period_end
+//   - invoice.payment_failed           → marca assinatura past_due
 //
 // Em modo dev (sem STRIPE_WEBHOOK_SECRET), aceita JSON simulado.
 
@@ -57,12 +60,27 @@ Deno.serve(async (req) => {
   }
 
   try {
-    if (event.type === 'checkout.session.completed') {
-      await handleSucceeded(event)
-    } else if (event.type === 'payment_intent.succeeded') {
-      await handleSucceeded(event)
-    } else if (event.type === 'payment_intent.payment_failed') {
-      await handleFailed(event)
+    switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutCompleted(event)
+        break
+      case 'payment_intent.succeeded':
+        await handleSucceeded(event)
+        break
+      case 'payment_intent.payment_failed':
+        await handleFailed(event)
+        break
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted':
+        await handleSubscriptionChange(event)
+        break
+      case 'invoice.payment_succeeded':
+        await handleInvoicePaid(event)
+        break
+      case 'invoice.payment_failed':
+        await handleInvoiceFailed(event)
+        break
     }
 
     await service.from('stripe_webhooks_inbox')
@@ -74,12 +92,33 @@ Deno.serve(async (req) => {
   }
 })
 
+// -----------------------------------------------------------
+// CHECKOUT (decide entre wallet_topup e lms_subscription)
+// -----------------------------------------------------------
+async function handleCheckoutCompleted(event: StripeEvent) {
+  const obj = event.data.object as Record<string, unknown>
+  const metadata = (obj.metadata ?? {}) as Record<string, string>
+  const proposito = metadata.proposito ?? (obj.mode === 'subscription' ? 'lms_subscription' : 'wallet_topup')
+
+  if (proposito === 'lms_subscription') {
+    await activateLmsSubscriptionFromCheckout(obj, metadata)
+  } else {
+    await handleSucceeded(event)
+  }
+}
+
 async function handleSucceeded(event: StripeEvent) {
   const obj = event.data.object as Record<string, unknown>
   const intentId = (obj.payment_intent as string) ?? (obj.id as string)
+  if (!intentId) throw new Error('missing_intent_id')
+
+  // Se for assinatura LMS, ignora (já tratado por subscription/checkout handlers)
+  const { data: pi } = await service.from('stripe_payment_intents')
+    .select('proposito').eq('id', intentId).maybeSingle()
+  if (pi?.proposito === 'lms_subscription') return
+
   const metadata = (obj.metadata ?? {}) as Record<string, string>
   const partnerId = metadata.partner_id
-  if (!intentId) throw new Error('missing_intent_id')
 
   // Localiza topup
   const { data: topup, error: tErr } = await service.from('wallet_topups')
@@ -88,7 +127,6 @@ async function handleSucceeded(event: StripeEvent) {
   if (tErr || !topup) throw new Error('topup_nao_encontrado')
   if (topup.status === 'succeeded' && topup.ledger_id) return // já creditado
 
-  // Credita via RPC
   const { data: ledger, error: cErr } = await service.rpc('wallet_credit', {
     p_partner: topup.partner_id,
     p_tipo: 'recarga',
@@ -122,3 +160,88 @@ async function handleFailed(event: StripeEvent) {
   await service.from('stripe_payment_intents').update({ status: 'failed' })
     .eq('id', intentId)
 }
+
+// -----------------------------------------------------------
+// LMS SUBSCRIPTION
+// -----------------------------------------------------------
+async function activateLmsSubscriptionFromCheckout(
+  obj: Record<string, unknown>,
+  metadata: Record<string, string>,
+) {
+  const usuarioId = metadata.usuario_id
+  if (!usuarioId) return
+
+  const subscriptionId = obj.subscription as string | undefined
+  const customerId = obj.customer as string | undefined
+  const ciclo = (metadata.ciclo === 'anual' ? 'anual' : 'mensal') as 'mensal' | 'anual'
+
+  await service.from('assinaturas_universidade').upsert({
+    usuario_id: usuarioId,
+    status: 'ativa',
+    stripe_customer_id: customerId,
+    stripe_subscription_id: subscriptionId,
+    ciclo,
+  }, { onConflict: 'usuario_id' })
+
+  await service.from('notificacoes').insert({
+    usuario_id: usuarioId, canal: 'in_app',
+    titulo: 'Assinatura Universidade ativa',
+    mensagem: 'Bem-vindo(a) à Universidade Mercurio! Acesse os cursos.',
+    link: '/c/universidade',
+    metadata: { subscription_id: subscriptionId, ciclo },
+  })
+}
+
+async function handleSubscriptionChange(event: StripeEvent) {
+  const obj = event.data.object as Record<string, unknown>
+  const subId = obj.id as string
+  const status = (obj.status as string) ?? 'active'
+  const metadata = (obj.metadata ?? {}) as Record<string, string>
+  const usuarioId = metadata.usuario_id
+  if (!usuarioId) return
+
+  const map: Record<string, string> = {
+    active: 'ativa',
+    trialing: 'trialing',
+    past_due: 'past_due',
+    canceled: 'cancelada',
+    incomplete: 'trialing',
+    incomplete_expired: 'expirada',
+    unpaid: 'past_due',
+  }
+  const mapped = map[status] ?? 'ativa'
+  const currentPeriodEnd = obj.current_period_end as number | undefined
+  const items = (obj.items as { data?: Array<{ price?: { id?: string } }> } | undefined)?.data
+  const priceId = items?.[0]?.price?.id
+
+  await service.from('assinaturas_universidade').upsert({
+    usuario_id: usuarioId,
+    status: mapped,
+    stripe_subscription_id: subId,
+    stripe_customer_id: obj.customer as string | undefined,
+    stripe_price_id: priceId,
+    current_period_end: currentPeriodEnd ? new Date(currentPeriodEnd * 1000).toISOString() : undefined,
+    cancelada_em: mapped === 'cancelada' ? new Date().toISOString() : null,
+  }, { onConflict: 'usuario_id' })
+}
+
+async function handleInvoicePaid(event: StripeEvent) {
+  const obj = event.data.object as Record<string, unknown>
+  const subId = obj.subscription as string | undefined
+  if (!subId) return
+  const periodEnd = obj.period_end as number | undefined
+  await service.from('assinaturas_universidade').update({
+    status: 'ativa',
+    current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : undefined,
+  }).eq('stripe_subscription_id', subId)
+}
+
+async function handleInvoiceFailed(event: StripeEvent) {
+  const obj = event.data.object as Record<string, unknown>
+  const subId = obj.subscription as string | undefined
+  if (!subId) return
+  await service.from('assinaturas_universidade').update({
+    status: 'past_due',
+  }).eq('stripe_subscription_id', subId)
+}
+

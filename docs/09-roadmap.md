@@ -121,14 +121,17 @@
 
 ## Fase 8 — Universidade Mercurio (M9)
 
-- [ ] Migrações `cursos`, `modulos`, `capitulos`, `aulas`, `inscricoes`, `aula_progresso`, `certificados`, `assinaturas_universidade`.
-- [ ] CMS admin de cursos (módulos, capítulos, aulas, critérios).
-- [ ] Player de vídeo + tracking de progresso.
-- [ ] Emissão automática de certificados (PDF).
-- [ ] Integração com provedor de assinatura (Stripe/Asaas).
-- [ ] Gating por assinatura.
+- [x] Migrações `cursos`, `modulos`, `aulas`, `inscricoes`, `aula_progresso`, `certificados`, `assinaturas_universidade` (`20260518000040_universidade_fase8.sql`) — RLS, RPCs, trigger de progresso, views `v_lms_catalogo` / `v_lms_curso_estrutura`, buckets `lms-capas` (público) e `lms-recursos` (privado).
+- [x] CMS admin de cursos (`/admin/universidade`) — CRUD curso/módulo/aula, upload de capa, RPC `admin_curso_publicar` valida módulos/aulas mínimas.
+- [x] Player de vídeo com Vimeo Player SDK via CDN — embed iframe + tracking `timeupdate` (debounce 5s) + `ended` → RPC `lms_marcar_aula`.
+- [x] Emissão automática de certificado ao atingir 100% — trigger `fn_calcular_progresso_curso` chama `lms_gerar_certificado_interno`; PDF/HTML gerado on-demand pela edge `certificado-gerar`.
+- [x] Integração Stripe Subscription via edge `lms-assinar` (mode=subscription) + modo dev. Webhook `stripe-webhook` estendido para `customer.subscription.*` + `invoice.payment_*` + branch `proposito = 'lms_subscription'` no checkout.
+- [x] Gating por assinatura no portal cliente (`/c/universidade`) com paywall + ciclo mensal/anual; RLS de `aulas` respeita `app_has_lms_subscription()`, `curso.gratuito` e `aula.gratuita` (preview).
+- [x] Smoke test transacional (`supabase/smoke-tests/fase-8-smoke.sql`): publica curso → inscreve → conclui aulas → valida certificado emitido.
+- [ ] ⚠️ Stripe LMS em modo dev — substituir `STRIPE_PRICE_ID_LMS_MONTHLY` / `STRIPE_PRICE_ID_LMS_ANNUAL` quando ambiente real for habilitado.
+- [ ] ⚠️ Vimeo Player requer vídeos configurados como `unlisted` ou whitelist do domínio do app.
 
-**Saída**: LMS operacional com cursos gratuitos e premium.
+**Saída**: LMS operacional com cursos gratuitos, premium por assinatura, progresso automático e certificados emitidos. ✅ **Fase 8 fechada em 2026-05-18 (Stripe dev / Vimeo).**
 
 ---
 
