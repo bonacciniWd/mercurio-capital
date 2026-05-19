@@ -21,6 +21,7 @@ import { RecuperarSenha } from '@/pages/public/RecuperarSenha'
 import { RedefinirSenha } from '@/pages/public/RedefinirSenha'
 import { ClienteProposta } from '@/pages/public/ClienteProposta'
 import { ConviteMembro } from '@/pages/public/ConviteMembro'
+import { PartnerBootstrap } from '@/pages/public/PartnerBootstrap'
 
 import { ClientHome } from '@/pages/client/Home'
 import { ClientPropostaDetalhe } from '@/pages/client/PropostaDetalhe'
@@ -113,6 +114,7 @@ export const router = createBrowserRouter([
       { path: '/magic/:token', element: <MagicLink /> },
       { path: '/c/proposta/:token', element: <ClienteProposta /> },
       { path: '/convite/:token', element: <ConviteMembro /> },
+      { path: '/auth/partner-bootstrap', element: <PartnerBootstrap /> },
       { path: '/redefinir-senha', element: <RedefinirSenha /> },
       {
         element: <RequireAuth />,

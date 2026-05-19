@@ -73,3 +73,6 @@ verify_jwt = true
 [functions.certificado-gerar]
 verify_jwt = true
 
+[functions.admin-invite-partner]
+verify_jwt = true
+

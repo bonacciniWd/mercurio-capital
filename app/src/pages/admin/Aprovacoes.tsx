@@ -1,6 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Search, Eye, Check, X, FileText, Loader2, ExternalLink, AlertCircle } from 'lucide-react'
+import {
+  Search, Eye, Check, X, FileText, Loader2, ExternalLink, AlertCircle,
+  Phone, MapPin, UserPlus, UserCheck, Info,
+} from 'lucide-react'
 import { StatusBadge } from '@/components/Badge'
 import { supabase } from '@/lib/supabase'
 
@@ -13,10 +17,18 @@ type AprovacaoRow = {
   email: string
   telefone: string | null
   telefone_ddi: string | null
+  endereco_cidade: string | null
+  endereco_estado: string | null
+  ultimo_login_at: string | null
   created_at: string
   aprovado_em: string | null
   motivo_rejeicao: string | null
   docs_count: number
+  origem: 'convite' | 'auto_cadastro'
+  invite_observacoes: string | null
+  invite_criado_por_nome: string | null
+  invite_created_at: string | null
+  invite_status: 'sent' | 'accepted' | 'revoked' | 'expired' | null
 }
 
 type DocRow = {
@@ -47,11 +59,25 @@ function fmtDate(iso: string) {
 
 export function AdminAprovacoes() {
   const qc = useQueryClient()
-  const [statusFilter, setStatusFilter] = useState<AprovacaoRow['status'] | 'all'>('pending')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const deepLinkPartnerId = searchParams.get('partner_id')
+  const [statusFilter, setStatusFilter] = useState<AprovacaoRow['status'] | 'all'>(
+    deepLinkPartnerId ? 'all' : 'pending',
+  )
   const [search, setSearch] = useState('')
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(deepLinkPartnerId)
   const [rejectMode, setRejectMode] = useState(false)
   const [rejectMotivo, setRejectMotivo] = useState('')
+
+  // Limpa o parâmetro de deep-link após consumir, para não interferir nos filtros futuros.
+  useEffect(() => {
+    if (deepLinkPartnerId) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('partner_id')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const aprovacoes = useQuery({
     queryKey: ['admin', 'aprovacoes', statusFilter],
@@ -253,22 +279,68 @@ export function AdminAprovacoes() {
         </div>
 
         <aside className="card h-fit p-5">
-          <h3 className="font-semibold text-navy">Documentos enviados</h3>
           {active ? (
             <>
-              <p className="mt-1 text-xs text-silver-500">{active.nome} · {active.email}</p>
-              {active.telefone && (
-                <p className="text-xs text-silver-500">+{active.telefone_ddi ?? '55'} {active.telefone}</p>
+              <div className="mb-4 flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="truncate font-semibold text-navy">{active.nome}</h3>
+                  <p className="truncate text-xs text-silver-500">{active.email}</p>
+                </div>
+                <StatusBadge status={statusLabel(active.status)} />
+              </div>
+
+              <dl className="space-y-1.5 text-xs text-silver-700">
+                {active.telefone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 text-silver-400" />
+                    +{active.telefone_ddi ?? '55'} {active.telefone}
+                  </div>
+                )}
+                {(active.endereco_cidade || active.endereco_estado) && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5 text-silver-400" />
+                    {[active.endereco_cidade, active.endereco_estado].filter(Boolean).join('/')}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  {active.origem === 'convite' ? (
+                    <UserPlus className="h-3.5 w-3.5 text-gold" />
+                  ) : (
+                    <UserCheck className="h-3.5 w-3.5 text-silver-400" />
+                  )}
+                  {active.origem === 'convite'
+                    ? <>Convidado{active.invite_criado_por_nome ? ` por ${active.invite_criado_por_nome}` : ''} em {active.invite_created_at ? fmtDate(active.invite_created_at) : '—'}</>
+                    : <>Auto-cadastro · {fmtDate(active.created_at)}</>}
+                </div>
+                {active.ultimo_login_at && (
+                  <div className="flex items-center gap-2">
+                    <Info className="h-3.5 w-3.5 text-silver-400" />
+                    Último login: {fmtDate(active.ultimo_login_at)}
+                  </div>
+                )}
+              </dl>
+
+              {active.invite_observacoes && (
+                <div className="mt-3 rounded-md border border-silver-200 bg-silver-50 px-3 py-2 text-xs text-silver-700">
+                  <p className="mb-0.5 font-semibold text-silver-800">Observações do convite</p>
+                  {active.invite_observacoes}
+                </div>
               )}
 
-              <div className="mt-4 space-y-2">
+              <h4 className="mt-5 mb-2 text-xs font-semibold uppercase tracking-wide text-silver-500">
+                Documentos enviados ({active.docs_count})
+              </h4>
+
+              <div className="space-y-2">
                 {docs.isLoading ? (
                   <div className="flex items-center justify-center py-6 text-silver-400">
                     <Loader2 className="h-4 w-4 animate-spin" />
                   </div>
                 ) : (docs.data ?? []).length === 0 ? (
                   <p className="rounded-md border border-dashed border-silver-200 p-3 text-center text-xs text-silver-500">
-                    Nenhum documento enviado ainda.
+                    {active.origem === 'convite'
+                      ? 'O parceiro ainda não acessou o painel para enviar documentos.'
+                      : 'Nenhum documento enviado ainda.'}
                   </p>
                 ) : (
                   (docs.data ?? []).map((d) => (
@@ -352,7 +424,10 @@ export function AdminAprovacoes() {
               )}
             </>
           ) : (
-            <p className="mt-2 text-sm text-silver-500">Selecione um parceiro à esquerda para ver os documentos.</p>
+            <>
+              <h3 className="font-semibold text-navy">Detalhes do parceiro</h3>
+              <p className="mt-2 text-sm text-silver-500">Selecione um parceiro à esquerda para revisar.</p>
+            </>
           )}
         </aside>
       </div>
