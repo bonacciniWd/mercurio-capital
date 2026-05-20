@@ -135,19 +135,53 @@
 
 ---
 
-## Fase 9 — Fluxos Evolution & Campanhas (M10)
+## Fase 9 — Gestão de Parceiros (Admin) & Onboarding por Convite
+
+> Documentação completa em [docs/14-handoff-fase9.md](14-handoff-fase9.md).
+
+- [x] Migrations `20260518000042_admin_partner_management.sql`, `20260519000001_aprovacoes_view_enriched.sql`, `20260519000002_fix_usuarios_partner_id_refs.sql` aplicadas em `bhagksfvszeogtjvjtpx`.
+- [x] View `v_admin_partners` (KPIs por parceiro: saldo, docs, equipes, propostas, volume) + view `v_admin_partner_invites` + view enriquecida `v_admin_partner_aprovacoes` (origem `convite`/`auto_cadastro` + contexto).
+- [x] RPCs `admin_suspend_partner`, `admin_reactivate_partner`, `admin_invite_partner_record`, `admin_revoke_partner_invite`.
+- [x] Tabela `partner_invites` para auditoria de convites (status `sent/accepted/revoked/expired`).
+- [x] Edge `admin-invite-partner` com fallback resiliente: `inviteUserByEmail` → `magiclink` (usuário existente) → `createUser`+`generateLink` (rate-limit/SMTP), sempre retornando `action_link` ao admin.
+- [x] Tela `/admin/parceiros` real (busca, filtros, KPIs, painel lateral, suspender/reativar, convidar, listar convites com revogação).
+- [x] Tela `/admin/aprovacoes` com deep-link `?partner_id=`, contexto do convite e fluxo aprovação mesmo sem docs.
+- [x] Onboarding do convidado: `/auth/partner-bootstrap` (consome magic-link, define senha, refresh JWT) + `/acesso-pendente` (etapa 2: upload de documentos para análise + reenvio em caso de rejeição).
+- [x] Bugfix crítico: helper `app_partner_user_ids()` corrigindo 5 funções de notificação que liam `usuarios.partner_id`/`usuarios.deleted_at` (colunas inexistentes) — destravou `admin_suspend_partner` e gatilhos de wallet/contrato.
+- [x] Seed `supabase/seeds/test-fluxo-completo.sql` (idempotente) para popular ambiente E2E.
+
+**Saída**: ciclo completo de vida do parceiro pelo admin — convite → ativação → docs → aprovação → suspensão/reativação — com auditoria. ✅ **Fase 9 fechada em 2026-05-19.**
+
+---
+
+## Fase 10 — Mobile Onboarding & Métricas de Funil
+
+> Detalhamento técnico em [docs/15-handoff-fase10.md](15-handoff-fase10.md).
+
+- [ ] Replicar `/auth/partner-bootstrap` + `/acesso-pendente` no Expo (`mobile/app/(parceiro)/`) consumindo Supabase com deep-link.
+- [ ] Substituir mocks em `mobile/app/(admin)/aprovacoes.tsx` e `parceiros.tsx` pelas views/RPCs de `v_admin_partners` / `v_admin_partner_aprovacoes`.
+- [ ] UI admin de **equipes do parceiro** consumindo `equipes` + `equipe_membros` (visualizar, aprovar, suspender membros, ver convites pendentes).
+- [ ] Webhook de bounce do SMTP customizado → marca `partner_invites.status='expired'` automaticamente.
+- [ ] View `v_admin_funil_parceiros` (convidado → ativou → docs → aprovado → 1ª proposta → 1ª comissão) + card no dashboard admin.
+- [ ] Smoke test E2E para o fluxo mobile (`supabase/smoke-tests/fase-10-mobile.sql`).
+
+**Saída**: parceiro convidado faz onboarding completo pelo mobile; admin tem visão de funil real do programa. 
+
+---
+
+## Fase 11 — Fluxos Evolution & Campanhas (M10)
 
 - [ ] Editor visual de fluxos JSON.
 - [ ] `fluxos_evolution`, `fluxo_execucoes`.
 - [ ] Catálogo de templates aprovados.
 - [ ] `campanhas` com agendamento.
-- [ ] Push web (FCM).
+- [ ] Push web (FCM) e push mobile (Expo Notifications).
 
 **Saída**: comunicação automatizada e campanhas pelo admin.
 
 ---
 
-## Fase 10 — Analytics, React Flow & Polimento
+## Fase 12 — Analytics, React Flow & Polimento
 
 - [ ] `/admin/rede` com React Flow (network map).
 - [ ] Views materializadas para dashboards pesados.
@@ -158,7 +192,7 @@
 
 ---
 
-## Fase 11 — Hardening & LGPD
+## Fase 13 — Hardening & LGPD
 
 - [ ] Pen test interno (OWASP).
 - [ ] Política LGPD: exportação e anonimização.
