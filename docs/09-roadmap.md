@@ -184,13 +184,14 @@
 
 ## Fase 12 — Fluxos Evolution & Campanhas (M10)
 
-- [ ] Editor visual de fluxos JSON.
-- [ ] `fluxos_evolution`, `fluxo_execucoes`.
-- [ ] Catálogo de templates aprovados.
-- [ ] `campanhas` com agendamento.
-- [ ] Push web (FCM) e push mobile (Expo Notifications).
+- [x] Editor visual de fluxos (React Flow / `@xyflow/react`) com nodes Trigger + Action e persistência de layout.
+- [x] `fluxos_evolution`, `fluxo_execucoes` + RPCs `admin_fluxo_upsert/_delete/_executar`.
+- [x] Catálogo de `templates_mensagem` + UI `/admin/templates`.
+- [x] `campanhas` com agendamento + `admin_campanha_disparar/_cancelar` (públicos por roles/partners).
+- [x] `email_outbox` + edge function `email-dispatcher` (SMTP via denomailer, RPCs `email_outbox_pull/_marcar`).
+- [ ] Push web (FCM) e push mobile (Expo Notifications) _(deferido — depende do setup mobile da Fase 11)_.
 
-**Saída**: comunicação automatizada e campanhas pelo admin.
+**Saída**: comunicação automatizada (in-app + e-mail) e campanhas pelo admin com fila SMTP processada por worker.
 
 ---
 

@@ -53,6 +53,7 @@ import { AdminPrecos } from '@/pages/admin/Precos'
 import { AdminFinanceiro } from '@/pages/admin/Financeiro'
 import { AdminFluxos } from '@/pages/admin/Fluxos'
 import { AdminCampanhas } from '@/pages/admin/Campanhas'
+import { AdminTemplates } from '@/pages/admin/Templates'
 import { AdminAuditoria } from '@/pages/admin/Auditoria'
 import { AdminIntegracoes } from '@/pages/admin/Integracoes'
 import { AdminParceiros } from '@/pages/admin/Parceiros'
@@ -205,6 +206,7 @@ export const router = createBrowserRouter([
                   { path: 'financeiro', element: <AdminFinanceiro /> },
                   { path: 'fluxos', element: <AdminFluxos /> },
                   { path: 'campanhas', element: <AdminCampanhas /> },
+                  { path: 'templates', element: <AdminTemplates /> },
                   { path: 'auditoria', element: <AdminAuditoria /> },
                   { path: 'integracoes', element: <AdminIntegracoes /> },
                   { path: 'configuracoes', element: <AdminConfiguracoes /> },

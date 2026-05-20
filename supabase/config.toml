@@ -79,3 +79,6 @@ verify_jwt = true
 [functions.email-bounce-webhook]
 verify_jwt = false
 
+[functions.email-dispatcher]
+verify_jwt = false
+

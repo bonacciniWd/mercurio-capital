@@ -19,6 +19,7 @@ const ITEMS = [
   { to: '/admin/universidade', icon: GraduationCap, label: 'Universidade' },
   { to: '/admin/fluxos', icon: Workflow, label: 'Fluxos' },
   { to: '/admin/campanhas', icon: Megaphone, label: 'Campanhas' },
+  { to: '/admin/templates', icon: FileText, label: 'Templates' },
   { to: '/admin/integracoes', icon: Plug, label: 'Integrações' },
   { to: '/admin/auditoria', icon: ScrollText, label: 'Auditoria' },
   { to: '/admin/configuracoes', icon: Settings, label: 'Configurações' },
