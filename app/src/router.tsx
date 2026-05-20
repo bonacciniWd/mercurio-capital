@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { lazy } from 'react'
 import { PublicLayout } from '@/layouts/PublicLayout'
 import { ClientLayout } from '@/layouts/ClientLayout'
 import { PartnerLayout } from '@/layouts/PartnerLayout'
@@ -45,24 +46,27 @@ import { UniversidadeLista } from '@/pages/partner/UniversidadeLista'
 import { UniversidadePlayer } from '@/pages/partner/UniversidadePlayer'
 
 import { AdminDashboard } from '@/pages/admin/Dashboard'
-import { AdminAprovacoes } from '@/pages/admin/Aprovacoes'
-import { AdminRede } from '@/pages/admin/Rede'
-import { AdminKanban } from '@/pages/admin/Kanban'
-import { AdminCarteiras } from '@/pages/admin/Carteiras'
-import { AdminPrecos } from '@/pages/admin/Precos'
-import { AdminFinanceiro } from '@/pages/admin/Financeiro'
-import { AdminFluxos } from '@/pages/admin/Fluxos'
-import { AdminCampanhas } from '@/pages/admin/Campanhas'
-import { AdminTemplates } from '@/pages/admin/Templates'
-import { AdminAuditoria } from '@/pages/admin/Auditoria'
-import { AdminIntegracoes } from '@/pages/admin/Integracoes'
-import { AdminParceiros } from '@/pages/admin/Parceiros'
-import { AdminPartnerEquipes } from '@/pages/admin/PartnerEquipes'
-import { AdminPropostas } from '@/pages/admin/Propostas'
-import { AdminPropostaDetalhe } from '@/pages/admin/PropostaDetalhe'
-import { AdminRelatorios } from '@/pages/admin/Relatorios'
-import { AdminConfiguracoes } from '@/pages/admin/Configuracoes'
-import { AdminUniversidade } from '@/pages/admin/Universidade'
+
+// Admin pages — lazy loaded (code-splitting)
+const AdminAprovacoes      = lazy(() => import('@/pages/admin/Aprovacoes').then(m => ({ default: m.AdminAprovacoes })))
+const AdminRede            = lazy(() => import('@/pages/admin/Rede').then(m => ({ default: m.AdminRede })))
+const AdminKanban          = lazy(() => import('@/pages/admin/Kanban').then(m => ({ default: m.AdminKanban })))
+const AdminCarteiras       = lazy(() => import('@/pages/admin/Carteiras').then(m => ({ default: m.AdminCarteiras })))
+const AdminPrecos          = lazy(() => import('@/pages/admin/Precos').then(m => ({ default: m.AdminPrecos })))
+const AdminFinanceiro      = lazy(() => import('@/pages/admin/Financeiro').then(m => ({ default: m.AdminFinanceiro })))
+const AdminFluxos          = lazy(() => import('@/pages/admin/Fluxos').then(m => ({ default: m.AdminFluxos })))
+const AdminCampanhas       = lazy(() => import('@/pages/admin/Campanhas').then(m => ({ default: m.AdminCampanhas })))
+const AdminTemplates       = lazy(() => import('@/pages/admin/Templates').then(m => ({ default: m.AdminTemplates })))
+const AdminFeatureFlags    = lazy(() => import('@/pages/admin/FeatureFlags').then(m => ({ default: m.AdminFeatureFlags })))
+const AdminAuditoria       = lazy(() => import('@/pages/admin/Auditoria').then(m => ({ default: m.AdminAuditoria })))
+const AdminIntegracoes     = lazy(() => import('@/pages/admin/Integracoes').then(m => ({ default: m.AdminIntegracoes })))
+const AdminParceiros       = lazy(() => import('@/pages/admin/Parceiros').then(m => ({ default: m.AdminParceiros })))
+const AdminPartnerEquipes  = lazy(() => import('@/pages/admin/PartnerEquipes').then(m => ({ default: m.AdminPartnerEquipes })))
+const AdminPropostas       = lazy(() => import('@/pages/admin/Propostas').then(m => ({ default: m.AdminPropostas })))
+const AdminPropostaDetalhe = lazy(() => import('@/pages/admin/PropostaDetalhe').then(m => ({ default: m.AdminPropostaDetalhe })))
+const AdminRelatorios      = lazy(() => import('@/pages/admin/Relatorios').then(m => ({ default: m.AdminRelatorios })))
+const AdminConfiguracoes   = lazy(() => import('@/pages/admin/Configuracoes').then(m => ({ default: m.AdminConfiguracoes })))
+const AdminUniversidade    = lazy(() => import('@/pages/admin/Universidade').then(m => ({ default: m.AdminUniversidade })))
 
 export const router = createBrowserRouter([
   { path: '/', element: <Landing /> },
@@ -207,6 +211,7 @@ export const router = createBrowserRouter([
                   { path: 'fluxos', element: <AdminFluxos /> },
                   { path: 'campanhas', element: <AdminCampanhas /> },
                   { path: 'templates', element: <AdminTemplates /> },
+                  { path: 'feature-flags', element: <AdminFeatureFlags /> },
                   { path: 'auditoria', element: <AdminAuditoria /> },
                   { path: 'integracoes', element: <AdminIntegracoes /> },
                   { path: 'configuracoes', element: <AdminConfiguracoes /> },

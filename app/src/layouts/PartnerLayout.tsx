@@ -41,6 +41,9 @@ export function PartnerLayout() {
 
   return (
     <div className="flex min-h-screen bg-silver-50">
+      <a href="#partner-main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-navy focus:px-3 focus:py-2 focus:text-sm focus:text-white">
+        Pular para o conteúdo
+      </a>
       <aside className="relative flex h-screen w-64 shrink-0 flex-col overflow-hidden text-white" style={{
         background: 'linear-gradient(180deg, #07101e 0%, #0a1628 50%, #0d1c32 100%)',
         borderRight: '1px solid rgba(255,255,255,0.055)',
@@ -107,7 +110,7 @@ export function PartnerLayout() {
           v0.1 · Mercurio Capital
         </div>
       </aside>
-      <main className="flex flex-1 flex-col">
+      <main className="flex flex-1 flex-col" id="partner-main" aria-label="Conteúdo principal">
         <header className="flex h-16 items-center justify-between border-b border-silver-200 bg-white px-6">
           <div className="flex items-center gap-2 text-sm text-silver-500">
             <span>Parceiro</span>

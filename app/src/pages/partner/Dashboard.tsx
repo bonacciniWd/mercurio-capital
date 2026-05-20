@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LineCh
 import { Plus, AlertTriangle, TrendingUp, FileText, CheckCircle2, Banknote, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
+import { PartnerOnboardingTour } from '@/components/PartnerOnboardingTour'
 
 interface KpiRow {
   partner_id: string
@@ -110,6 +111,7 @@ export function PartnerDashboard() {
 
   return (
     <>
+      <PartnerOnboardingTour />
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold text-navy">Dashboard</h1>

@@ -1,7 +1,8 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Suspense } from 'react'
 import {
   LayoutDashboard, UserCheck, Network, Kanban, FileText, Folder, DollarSign, Coins,
-  BarChart3, GraduationCap, Workflow, Megaphone, Plug, Settings, ScrollText,
+  BarChart3, GraduationCap, Workflow, Megaphone, Plug, Settings, ScrollText, Flag, Loader2,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { NotificationBell } from '@/components/NotificationBell'
@@ -20,6 +21,7 @@ const ITEMS = [
   { to: '/admin/fluxos', icon: Workflow, label: 'Fluxos' },
   { to: '/admin/campanhas', icon: Megaphone, label: 'Campanhas' },
   { to: '/admin/templates', icon: FileText, label: 'Templates' },
+  { to: '/admin/feature-flags', icon: Flag, label: 'Feature flags' },
   { to: '/admin/integracoes', icon: Plug, label: 'Integrações' },
   { to: '/admin/auditoria', icon: ScrollText, label: 'Auditoria' },
   { to: '/admin/configuracoes', icon: Settings, label: 'Configurações' },
@@ -38,6 +40,9 @@ export function AdminLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-silver-50">
+      <a href="#admin-main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-navy focus:px-3 focus:py-2 focus:text-sm focus:text-white">
+        Pular para o conteúdo
+      </a>
       <aside className="flex h-screen w-64 shrink-0 flex-col text-white" style={{
         background: 'linear-gradient(180deg, #0c0f14 0%, #10141b 55%, #13181f 100%)',
         borderRight: '1px solid rgba(255,255,255,0.05)',
@@ -77,7 +82,7 @@ export function AdminLayout() {
           Admin · v0.1
         </div>
       </aside>
-      <main className="flex flex-1 flex-col overflow-hidden">
+      <main className="flex flex-1 flex-col overflow-hidden" id="admin-main" aria-label="Conteúdo principal">
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-silver-200 bg-white px-6">
           <p className="text-sm font-medium text-silver-700">Administração</p>
           <div className="flex items-center gap-3">
@@ -87,7 +92,13 @@ export function AdminLayout() {
           </div>
         </header>
         <div className="flex-1 overflow-y-auto p-6">
-          <Outlet />
+          <Suspense fallback={
+            <div className="flex h-64 items-center justify-center text-silver-500">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          }>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
     </div>

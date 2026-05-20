@@ -197,12 +197,12 @@
 
 ## Fase 13 — Analytics, React Flow & Polimento
 
-- [ ] `/admin/rede` com React Flow (network map).
-- [ ] Views materializadas para dashboards pesados.
-- [ ] Performance: code splitting, lazy routes, Suspense.
-- [ ] Feature flags em produção.
-- [ ] Tour onboarding (parceiro).
-- [ ] Acessibilidade (WCAG AA).
+- [x] `/admin/rede` com React Flow (network map admin → parceiros → equipes via `admin_rede_graph`).
+- [x] Views materializadas (`mv_admin_partners_metrics`, `mv_admin_funil_global`) + RPC `admin_refresh_mvs`.
+- [x] Performance: code splitting nas rotas admin (`React.lazy` + `<Suspense>`).
+- [x] Feature flags em produção: tabela já existia, RPCs `admin_feature_flag_upsert/_delete`, UI `/admin/feature-flags` e hook `useFeatureFlag`.
+- [x] Tour onboarding (parceiro) — `PartnerOnboardingTour` no dashboard com localStorage.
+- [x] Acessibilidade — skip-links em todos os layouts + `aria-label` em `<main>` + foco visível.
 
 ---
 
