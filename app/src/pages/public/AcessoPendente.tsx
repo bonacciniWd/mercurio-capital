@@ -35,12 +35,31 @@ export function AcessoPendente() {
     async function load() {
       const { data, error } = await supabase.rpc('me')
       if (cancelled) return
-      if (error) setError(error.message)
-      else {
-        const m = (data ?? {}) as Me
-        setMe(m)
-        if (m.approved && m.role === 'partner') navigate('/p', { replace: true })
+      if (error) {
+        setError(error.message)
+        setLoading(false)
+        return
       }
+      let m = (data ?? {}) as Me
+      // Auto-cadastro: usuário fez signup mas o partners row não foi criado
+      // (ex.: signUp exigiu confirmação de email e Registro.tsx interrompeu
+      // antes de chamar partner_self_register). Cria agora e recarrega.
+      if (m.role === 'partner' && !m.partner_id) {
+        const { error: regErr } = await supabase.rpc('partner_self_register', {
+          p_cpf: null,
+          p_dados_bancarios: null,
+        })
+        if (cancelled) return
+        if (regErr) {
+          setError(regErr.message)
+        } else {
+          const { data: data2 } = await supabase.rpc('me')
+          if (cancelled) return
+          m = (data2 ?? {}) as Me
+        }
+      }
+      setMe(m)
+      if (m.approved && m.role === 'partner') navigate('/p', { replace: true })
       setLoading(false)
     }
     void load()
