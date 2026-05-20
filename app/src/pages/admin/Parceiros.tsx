@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Search, Lock, Unlock, Plus, Loader2, AlertCircle, X,
   Mail, Copy, CheckCircle2, MailPlus, Phone, MapPin, Wallet,
@@ -91,13 +91,24 @@ void _legacyDemo
 
 export function AdminParceiros() {
   const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const deepLinkPartnerId = searchParams.get('partner_id')
   const [filter, setFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<PartnerStatus | 'all'>('all')
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(deepLinkPartnerId)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [suspendMode, setSuspendMode] = useState(false)
   const [suspendMotivo, setSuspendMotivo] = useState('')
   const [showInvites, setShowInvites] = useState(false)
+
+  useEffect(() => {
+    if (deepLinkPartnerId) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('partner_id')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const partners = useQuery({
     queryKey: ['admin', 'partners'],

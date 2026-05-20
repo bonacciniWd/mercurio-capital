@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Search, Eye, Check, X, FileText, Loader2, ExternalLink, AlertCircle,
@@ -59,6 +59,7 @@ function fmtDate(iso: string) {
 
 export function AdminAprovacoes() {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const deepLinkPartnerId = searchParams.get('partner_id')
   const [statusFilter, setStatusFilter] = useState<AprovacaoRow['status'] | 'all'>(
@@ -243,9 +244,9 @@ export function AdminAprovacoes() {
                       <div className="flex gap-1">
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); setActiveId(r.partner_id) }}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/admin/parceiros?partner_id=${r.partner_id}`) }}
                           className="rounded-md p-1.5 hover:bg-silver-100"
-                          title="Ver"
+                          title="Ver perfil"
                         >
                           <Eye className="h-4 w-4 text-silver-600" />
                         </button>
@@ -352,7 +353,7 @@ export function AdminAprovacoes() {
                     >
                       <FileText className="h-5 w-5 text-silver-400" />
                       <div className="flex-1">
-                        <p className="font-medium text-silver-900">{d.tipo}</p>
+                        <p className="font-medium text-red-600">{d.tipo}</p>
                         <p className="text-silver-500">
                           {d.mime_type ?? '—'} · {d.tamanho_bytes ? Math.round(d.tamanho_bytes / 1024) + ' KB' : ''}
                         </p>

@@ -195,7 +195,7 @@ export function PartnerWizard() {
         {STEPS.map((s, i) => (
           <div key={s} className="flex flex-1 items-center gap-2">
             <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-              i < step ? 'bg-success text-white' : i === step ? 'bg-gold text-navy' : 'bg-silver-200 text-silver-500'
+              i < step ? 'bg-success text-white' : i === step ? 'bg-red-600 text-white' : 'bg-silver-200 text-silver-500'
             }`}>
               {i < step ? <Check className="h-4 w-4" /> : i + 1}
             </div>
@@ -252,18 +252,18 @@ function Step1({ form, patch }: { form: FormState; patch: (p: Partial<FormState>
           <button key={o.id} type="button" onClick={() => patch({ produto: o.id })}
             className={`btn-no-liquid group relative flex flex-col rounded-lg border-2 p-5 text-left transition-all ${
               form.produto === o.id
-                ? 'border-gold bg-gradient-to-br from-gold/12 to-gold/6 shadow-md'
-                : 'border-silver-200 bg-white hover:border-gold/50 hover:shadow-sm'
+                ? 'border-red-600 bg-gradient-to-br from-red-600/12 to-red-600/6 shadow-md'
+                : 'border-silver-200 bg-white hover:border-red-600/50 hover:shadow-sm'
             }`}>
             <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-              form.produto === o.id ? 'bg-gold/20' : 'bg-silver-100 group-hover:bg-silver-200'
+              form.produto === o.id ? 'bg-red-600/20' : 'bg-silver-100 group-hover:bg-silver-200'
             }`}>
-              <o.icon className={`h-5 w-5 ${form.produto === o.id ? 'text-gold-600' : 'text-silver-600'}`} />
+              <o.icon className={`h-5 w-5 ${form.produto === o.id ? 'text-red-600' : 'text-silver-600'}`} />
             </div>
             <p className="mt-3 font-semibold text-navy">{o.label}</p>
             <p className="mt-2 flex-1 text-xs text-silver-700">{o.desc}</p>
             {form.produto === o.id && (
-              <div className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-gold">
+              <div className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-red-600">
                 <Check className="h-4 w-4 text-white" />
               </div>
             )}
@@ -275,7 +275,7 @@ function Step1({ form, patch }: { form: FormState; patch: (p: Partial<FormState>
         <div className="inline-flex gap-2">
           {(['PF', 'PJ'] as const).map(t => (
             <button key={t} type="button" onClick={() => patch({ pessoa_tipo: t })}
-              className={`rounded-md border-2 px-6 py-2 text-sm font-medium transition-all ${form.pessoa_tipo === t ? 'border-gold-600 bg-gold text-navy shadow-md' : 'border-silver-300 bg-silver-100 text-silver-600 hover:border-gold/50'}`}>
+              className={`btn-no-liquid rounded-md border-2 px-6 py-2 text-sm font-medium transition-all ${form.pessoa_tipo === t ? 'border-gold-600 bg-gold text-navy shadow-md' : 'border-silver-300 bg-silver-100 text-silver-600 hover:border-gold/50'}`}>
               {t === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'}
             </button>
           ))}
@@ -356,7 +356,7 @@ function Step4({
             <div className="inline-flex gap-2">
               {(['pos_fixado', 'pre_fixado'] as const).map(c => (
                 <button key={c} type="button" onClick={() => patch({ correcao: c })}
-                  className={`rounded-md border px-4 py-1.5 text-sm font-medium transition ${form.correcao === c ? 'border-gold-600 bg-gold text-white' : 'border-silver-300 bg-silver-100 text-silver-600'}`}>
+                  className={`btn-no-liquid rounded-md border px-4 py-1.5 text-sm font-medium transition ${form.correcao === c ? 'border-gold-600 bg-gold text-white' : 'border-silver-300 bg-silver-100 text-silver-600'}`}>
                   {c === 'pos_fixado' ? 'Pós (IPCA)' : 'Pré-fixado'}
                 </button>
               ))}
@@ -367,7 +367,7 @@ function Step4({
             <div className="inline-flex gap-2">
               {(['price', 'sac'] as const).map(a => (
                 <button key={a} type="button" onClick={() => patch({ amortizacao: a })}
-                  className={`rounded-md border px-4 py-1.5 text-sm font-medium transition ${form.amortizacao === a ? 'border-gold-600 bg-gold text-white' : 'border-silver-300 bg-silver-100 text-silver-600'}`}>
+                  className={`btn-no-liquid rounded-md border px-4 py-1.5 text-sm font-medium transition ${form.amortizacao === a ? 'border-gold-600 bg-gold text-white' : 'border-silver-300 bg-silver-100 text-silver-600'}`}>
                   {a.toUpperCase()}
                 </button>
               ))}
