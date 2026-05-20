@@ -62,7 +62,7 @@ begin
     p_nome := 'Smoke Campanha F12',
     p_template := 'smoke_f12_tpl',
     p_publico_alvo := jsonb_build_object('roles', array['admin']),
-    p_canais := array['in_app']::notificacao_canal[]
+    p_canais := array['in_app']::text[]
   );
   raise notice 'campanha criada: %', v_camp_id;
 
@@ -75,7 +75,12 @@ begin
   end if;
 
   -- 5) Verifica que notificação foi criada
-  if not exists (select 1 from notificacoes where usuario_id = v_admin and tipo = 'campanha_smoke_f12_tpl') then
+  if not exists (
+    select 1 from notificacoes
+     where usuario_id = v_admin
+       and metadata->>'origem' = 'campanha'
+       and (metadata->>'campanha_id')::uuid = v_camp_id
+  ) then
     raise exception 'notificação da campanha não foi criada';
   end if;
 
