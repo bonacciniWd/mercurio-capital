@@ -345,6 +345,12 @@ export function AdminParceiros() {
                   <p className="text-silver-500">Equipes</p>
                   <p className="text-base font-bold text-navy">{active.equipes_count}</p>
                   <p className="text-silver-500">{active.membros_count} membros</p>
+                  <Link
+                    to={`/admin/parceiros/${active.partner_id}/equipes`}
+                    className="mt-1 inline-block text-[11px] font-semibold text-gold-600 hover:underline"
+                  >
+                    Gerenciar →
+                  </Link>
                 </div>
                 <div className="rounded-md bg-silver-50 p-3">
                   <p className="text-silver-500">Comissão</p>

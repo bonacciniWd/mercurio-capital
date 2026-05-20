@@ -56,6 +56,7 @@ import { AdminCampanhas } from '@/pages/admin/Campanhas'
 import { AdminAuditoria } from '@/pages/admin/Auditoria'
 import { AdminIntegracoes } from '@/pages/admin/Integracoes'
 import { AdminParceiros } from '@/pages/admin/Parceiros'
+import { AdminPartnerEquipes } from '@/pages/admin/PartnerEquipes'
 import { AdminPropostas } from '@/pages/admin/Propostas'
 import { AdminPropostaDetalhe } from '@/pages/admin/PropostaDetalhe'
 import { AdminRelatorios } from '@/pages/admin/Relatorios'
@@ -194,6 +195,7 @@ export const router = createBrowserRouter([
                   { index: true, element: <AdminDashboard /> },
                   { path: 'aprovacoes', element: <AdminAprovacoes /> },
                   { path: 'parceiros', element: <AdminParceiros /> },
+                  { path: 'parceiros/:partnerId/equipes', element: <AdminPartnerEquipes /> },
                   { path: 'rede', element: <AdminRede /> },
                   { path: 'kanban', element: <AdminKanban /> },
                   { path: 'propostas', element: <AdminPropostas /> },

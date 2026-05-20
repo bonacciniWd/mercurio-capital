@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, Cartes
 import { Loader2, Users, FileText, TrendingUp, Banknote, CheckCircle2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
+import { FunilParceirosCard } from '@/components/FunilParceirosCard'
 
 interface KpiRow {
   total_propostas: number
@@ -69,6 +70,10 @@ export function AdminDashboard() {
             <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label="Ganhas" value={String(kpi?.ganhas ?? 0)} accent="#0EA5E9" />
             <Kpi icon={<Banknote className="h-4 w-4" />} label="Volume ganho" value={brl(Number(kpi?.volume_ganho ?? 0) * 100)} accent="#DC2626" />
             <Kpi icon={<Users className="h-4 w-4" />} label="Parceiros ativos" value={String(kpi?.parceiros_ativos ?? 0)} accent="#F59E0B" />
+          </div>
+
+          <div className="mb-6">
+            <FunilParceirosCard />
           </div>
 
           <div className="mb-6 grid gap-4 lg:grid-cols-3">

@@ -76,3 +76,6 @@ verify_jwt = true
 [functions.admin-invite-partner]
 verify_jwt = true
 
+[functions.email-bounce-webhook]
+verify_jwt = false
+

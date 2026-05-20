@@ -154,22 +154,35 @@
 
 ---
 
-## Fase 10 — Mobile Onboarding & Métricas de Funil
+## Fase 10 — Equipes (Admin) & Métricas de Funil de Parceiros
 
 > Detalhamento técnico em [docs/15-handoff-fase10.md](15-handoff-fase10.md).
+> Escopo **web-only** — mobile (`mobile/`) permanece 100% mock e será portado em fase futura.
 
-- [ ] Replicar `/auth/partner-bootstrap` + `/acesso-pendente` no Expo (`mobile/app/(parceiro)/`) consumindo Supabase com deep-link.
-- [ ] Substituir mocks em `mobile/app/(admin)/aprovacoes.tsx` e `parceiros.tsx` pelas views/RPCs de `v_admin_partners` / `v_admin_partner_aprovacoes`.
-- [ ] UI admin de **equipes do parceiro** consumindo `equipes` + `equipe_membros` (visualizar, aprovar, suspender membros, ver convites pendentes).
-- [ ] Webhook de bounce do SMTP customizado → marca `partner_invites.status='expired'` automaticamente.
-- [ ] View `v_admin_funil_parceiros` (convidado → ativou → docs → aprovado → 1ª proposta → 1ª comissão) + card no dashboard admin.
-- [ ] Smoke test E2E para o fluxo mobile (`supabase/smoke-tests/fase-10-mobile.sql`).
+- [x] UI admin de **equipes do parceiro** (`/admin/parceiros/:partnerId/equipes`) consumindo `equipes` + `v_equipe_membros_detalhe` + `v_equipe_convites_pendentes` (tudo já criado na Fase 4).
+- [x] RPCs admin para revogar convite pendente de membro e suspender membro ativo.
+- [x] View `v_admin_funil_parceiros` (convidado → ativou → enviou docs → aprovado → 1ª proposta → 1ª comissão paga).
+- [x] Card de funil no `/admin` (dashboard global) com taxa de conversão por etapa.
+- [x] Tabela `email_bounces_inbox` + Edge `email-bounce-webhook` (verify_jwt=false, HMAC) marcando `partner_invites.status='expired'` automaticamente — pronta para SMTP customizado (SendGrid/Postmark) sem dependência.
+- [x] Smoke test E2E `supabase/smoke-tests/fase-10-funil.sql`.
 
-**Saída**: parceiro convidado faz onboarding completo pelo mobile; admin tem visão de funil real do programa. 
+**Saída**: admin enxerga e age sobre equipes dos parceiros, tem visão de funil real do programa, e o ciclo de convites se auto-limpa quando o e-mail rejeitar.
 
 ---
 
-## Fase 11 — Fluxos Evolution & Campanhas (M10)
+## Fase 11 — Mobile (replicar web no Expo)
+
+- [ ] Instalar `@supabase/supabase-js` + `expo-secure-store` em `mobile/` (hoje 100% mock).
+- [ ] Cliente Supabase com `SecureStore` para tokens + `AuthContext` espelhando o web.
+- [ ] Login real + deep-link `mercurio://magic/partner-bootstrap` (replicar `/auth/partner-bootstrap`).
+- [ ] Tela `(parceiro)/pendente.tsx` com `PartnerDocsUploader` (expo-document-picker + storage `partner-docs`).
+- [ ] Substituir mocks em `(admin)/aprovacoes.tsx`, `(admin)/parceiros.tsx` e `(parceiro)/dashboard.tsx` pelas views/RPCs já existentes.
+
+**Saída**: parceiro convidado faz onboarding completo pelo mobile; admin opera fluxo principal pelo celular.
+
+---
+
+## Fase 12 — Fluxos Evolution & Campanhas (M10)
 
 - [ ] Editor visual de fluxos JSON.
 - [ ] `fluxos_evolution`, `fluxo_execucoes`.
@@ -181,7 +194,7 @@
 
 ---
 
-## Fase 12 — Analytics, React Flow & Polimento
+## Fase 13 — Analytics, React Flow & Polimento
 
 - [ ] `/admin/rede` com React Flow (network map).
 - [ ] Views materializadas para dashboards pesados.
@@ -192,7 +205,7 @@
 
 ---
 
-## Fase 13 — Hardening & LGPD
+## Fase 14 — Hardening & LGPD
 
 - [ ] Pen test interno (OWASP).
 - [ ] Política LGPD: exportação e anonimização.
