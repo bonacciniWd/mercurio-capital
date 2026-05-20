@@ -137,7 +137,7 @@
 
 ## Fase 9 — Gestão de Parceiros (Admin) & Onboarding por Convite
 
-> Documentação completa em [docs/14-handoff-fase9.md](14-handoff-fase9.md).
+> Documentação completa em [docs/handoffs/14-handoff-fase9.md](./handoffs/14-handoff-fase9.md).
 
 - [x] Migrations `20260518000042_admin_partner_management.sql`, `20260519000001_aprovacoes_view_enriched.sql`, `20260519000002_fix_usuarios_partner_id_refs.sql` aplicadas em `bhagksfvszeogtjvjtpx`.
 - [x] View `v_admin_partners` (KPIs por parceiro: saldo, docs, equipes, propostas, volume) + view `v_admin_partner_invites` + view enriquecida `v_admin_partner_aprovacoes` (origem `convite`/`auto_cadastro` + contexto).
@@ -156,7 +156,7 @@
 
 ## Fase 10 — Equipes (Admin) & Métricas de Funil de Parceiros
 
-> Detalhamento técnico em [docs/15-handoff-fase10.md](15-handoff-fase10.md).
+> Detalhamento técnico em [docs/handoffs/15-handoff-fase10.md](./handoffs/15-handoff-fase10.md).
 > Escopo **web-only** — mobile (`mobile/`) permanece 100% mock e será portado em fase futura.
 
 - [x] UI admin de **equipes do parceiro** (`/admin/parceiros/:partnerId/equipes`) consumindo `equipes` + `v_equipe_membros_detalhe` + `v_equipe_convites_pendentes` (tudo já criado na Fase 4).
@@ -208,11 +208,11 @@
 
 ## Fase 14 — Hardening & LGPD
 
-- [x] Pen test interno (OWASP) — checklist em `docs/security-checklist.md`.
+- [x] Pen test interno (OWASP) — checklist em `docs/operacao/security-checklist.md`.
 - [x] Política LGPD: `lgpd_export_meus_dados` + `lgpd_anonimizar_conta` + view auditoria.
 - [x] Mascaramento de PII em logs — helpers `mask_email/mask_cpf/mask_cnpj/mask_phone`.
-- [x] Documentação operacional — `docs/runbooks.md`.
-- [x] Plano de DR (PITR + drill semestral) — `docs/dr-plan.md`.
+- [x] Documentação operacional — `docs/operacao/runbooks.md`.
+- [x] Plano de DR (PITR + drill semestral) — `docs/operacao/dr-plan.md`.
 
 ---
 

@@ -18,7 +18,7 @@
 | 6 | **Consultas externas pagas** com débito/estorno automático |
 | 7 | **Contratos + Clicksign + Liberação + Comissões + Financeiro Admin** |
 
-Tudo descrito em [docs/09-roadmap.md](09-roadmap.md). **Sua tarefa começa exatamente na seção "Fase 8 — Universidade Mercurio (M9)".**
+Tudo descrito em [docs/09-roadmap.md](../09-roadmap.md). **Sua tarefa começa exatamente na seção "Fase 8 — Universidade Mercurio (M9)".**
 
 A UI da Universidade já existe em **mock** (arrays hardcoded em `app/src/pages/partner/UniversidadeLista.tsx`, `app/src/pages/partner/UniversidadePlayer.tsx`, `app/src/pages/admin/Universidade.tsx`, `app/src/pages/client/Universidade.tsx`). **Sua tarefa é trocar os mocks por dados reais do Supabase**, criar o schema, o player real, o tracking de progresso, certificados e gating por assinatura Stripe.
 
@@ -408,13 +408,13 @@ git push
 
 - **Repositório:** https://github.com/bonacciniWd/mercurio-capital
 - **Documentação técnica:** pasta [docs/](.)
-  - [01-architecture.md](01-architecture.md)
-  - [02-roles-permissions.md](02-roles-permissions.md)
-  - [03-routes-navigation.md](03-routes-navigation.md)
-  - [04-database-schema.md](04-database-schema.md)
-  - [06-modules-features.md](06-modules-features.md)
-  - [08-security-compliance.md](08-security-compliance.md)
-  - [09-roadmap.md](09-roadmap.md)
+  - [01-architecture.md](../blueprint/01-architecture.md)
+  - [02-roles-permissions.md](../blueprint/02-roles-permissions.md)
+  - [03-routes-navigation.md](../blueprint/03-routes-navigation.md)
+  - [04-database-schema.md](../blueprint/04-database-schema.md)
+  - [06-modules-features.md](../blueprint/06-modules-features.md)
+  - [08-security-compliance.md](../blueprint/08-security-compliance.md)
+  - [09-roadmap.md](../09-roadmap.md)
   - [12-handoff-fase7.md](12-handoff-fase7.md) — fase anterior, ótimo modelo de referência.
 - **Supabase Dashboard:** https://supabase.com/dashboard/project/bhagksfvszeogtjvjtpx
 - **Vimeo Player JS:** https://github.com/vimeo/player.js

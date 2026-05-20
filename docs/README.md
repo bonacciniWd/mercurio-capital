@@ -4,16 +4,36 @@ Esta pasta consolida o escopo inicial da plataforma **Mercurio Capital**, antes 
 
 ## Índice
 
-1. [01 — Visão Geral & Arquitetura](./01-architecture.md)
-2. [02 — Papéis (RBAC) & Permissões](./02-roles-permissions.md)
-3. [03 — Rotas & Navegação por Perfil](./03-routes-navigation.md)
-4. [04 — Modelagem do Banco (PostgreSQL/Supabase)](./04-database-schema.md)
-5. [05 — Mapa Visual da Aplicação (Mermaid)](./05-visual-map.md)
-6. [06 — Módulos & Funcionalidades](./06-modules-features.md)
-7. [07 — Integrações & Fluxos Operacionais](./07-integrations-flows.md)
-8. [08 — Segurança, Storage & Compliance](./08-security-compliance.md)
-9. [09 — Roadmap de Entregas (Fases)](./09-roadmap.md)
-10. [10 — Blueprint Visual Completo (Mermaid)](./10-blueprint-visual.md)
+### Principal (raiz)
+- [09 — Roadmap de Entregas (Fases)](./09-roadmap.md)
+- [12 — Finalização do MVP](./12-finalizacao.md)
+
+### 📐 Blueprint — escopo & arquitetura ([`blueprint/`](./blueprint/))
+1. [01 — Visão Geral & Arquitetura](./blueprint/01-architecture.md)
+2. [02 — Papéis (RBAC) & Permissões](./blueprint/02-roles-permissions.md)
+3. [03 — Rotas & Navegação por Perfil](./blueprint/03-routes-navigation.md)
+4. [04 — Modelagem do Banco (PostgreSQL/Supabase)](./blueprint/04-database-schema.md)
+5. [06 — Módulos & Funcionalidades](./blueprint/06-modules-features.md)
+6. [07 — Integrações & Fluxos Operacionais](./blueprint/07-integrations-flows.md)
+7. [08 — Segurança, Storage & Compliance](./blueprint/08-security-compliance.md)
+8. [11 — Proposta de Desenvolvimento](./blueprint/11-dev-proposal.md)
+
+### 🎨 Design ([`design/`](./design/))
+- [05 — Mapa Visual da Aplicação (Mermaid)](./design/05-visual-map.md)
+- [10 — Blueprint Visual Completo (Mermaid)](./design/10-blueprint-visual.md)
+- [Figma Make — Prompts](./design/figma-make-prompts.md)
+
+### ⚙️ Operação ([`operacao/`](./operacao/))
+- [Runbooks operacionais](./operacao/runbooks.md)
+- [Plano de Disaster Recovery (PITR + dumps)](./operacao/dr-plan.md)
+- [Checklist de segurança (OWASP Top 10)](./operacao/security-checklist.md)
+- [Setup Stripe](./operacao/stripe-setup.md)
+
+### 🔁 Handoffs entre fases ([`handoffs/`](./handoffs/))
+- [Fase 7 → 8](./handoffs/12-handoff-fase7.md)
+- [Fase 8 → 9](./handoffs/13-handoff-fase8.md)
+- [Fase 9 → 10](./handoffs/14-handoff-fase9.md)
+- [Fase 10 → 11](./handoffs/15-handoff-fase10.md)
 
 ## Convenções
 

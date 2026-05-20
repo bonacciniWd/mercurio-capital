@@ -78,9 +78,9 @@ Toda a pasta `mobile/` está em **mock**. Para ativar:
 - ✅ `lgpd_anonimizar_conta(p_user_id, p_motivo)` — admin-only, preserva ledger.
 - ✅ View `v_admin_lgpd_solicitacoes` — auditoria automática.
 - ✅ Helpers `mask_email`, `mask_cpf`, `mask_cnpj`, `mask_phone`.
-- ✅ Checklist OWASP em `docs/security-checklist.md`.
-- ✅ Runbooks operacionais em `docs/runbooks.md`.
-- ✅ Plano de DR em `docs/dr-plan.md` (RTO 1h / RPO 5min via PITR).
+- ✅ Checklist OWASP em `docs/operacao/security-checklist.md`.
+- ✅ Runbooks operacionais em `docs/operacao/runbooks.md`.
+- ✅ Plano de DR em `docs/operacao/dr-plan.md` (RTO 1h / RPO 5min via PITR).
 
 **Itens recorrentes** (cronograma mensal/trimestral/semestral) no `security-checklist.md`.
 
@@ -129,9 +129,9 @@ Toda a pasta `mobile/` está em **mock**. Para ativar:
 - Acessibilidade: skip-links + `aria-label` em `<main>` + Suspense fallback.
 
 ### 5.4 Documentação
-- `docs/01-architecture.md` … `docs/12-finalizacao.md`
-- `docs/security-checklist.md` · `docs/runbooks.md` · `docs/dr-plan.md`
-- Handoffs específicos: `docs/14-handoff-fase9.md`, `docs/15-handoff-fase10.md`.
+- `docs/blueprint/01-architecture.md` … `docs/12-finalizacao.md`
+- `docs/operacao/security-checklist.md` · `docs/operacao/runbooks.md` · `docs/operacao/dr-plan.md`
+- Handoffs específicos: `docs/handoffs/14-handoff-fase9.md`, `docs/handoffs/15-handoff-fase10.md`.
 
 ### 5.5 Smoke tests
 - `fase-3-smoke.sql` · `fase-8-smoke.sql` · `fase-10-funil.sql` · `fase-12-fluxos.sql` · `fase-13-analytics.sql` · `fase-14-lgpd.sql`.

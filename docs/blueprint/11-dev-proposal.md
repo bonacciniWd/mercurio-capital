@@ -1,6 +1,6 @@
 # 11 — Proposta de Desenvolvimento (Sprints & Prazos)
 
-> Documento-base para a proposta comercial de desenvolvimento do **Mercurio Capital**, derivado do [09-roadmap.md](09-roadmap.md).
+> Documento-base para a proposta comercial de desenvolvimento do **Mercurio Capital**, derivado do [09-roadmap.md](../09-roadmap.md).
 > Ordem das entregas segue dependências técnicas reais (origem → contrato → financeiro → polimento).
 
 ## Premissas

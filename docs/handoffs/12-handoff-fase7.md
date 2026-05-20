@@ -17,7 +17,7 @@
 | 5 | **Carteira Stripe** + preços versionados + ajustes admin |
 | 6 | **Consultas externas pagas** com débito/estorno automático |
 
-Tudo descrito em [docs/09-roadmap.md](09-roadmap.md). **Sua tarefa começa exatamente na seção "Fase 7 — Contratos & Financeiro".**
+Tudo descrito em [docs/09-roadmap.md](../09-roadmap.md). **Sua tarefa começa exatamente na seção "Fase 7 — Contratos & Financeiro".**
 
 ---
 
@@ -252,7 +252,7 @@ git push
 
 7. **Centavos vs reais**: `wallet_*` usa **bigint centavos**. `contratos`/`comissoes`/`liberacoes_recurso` usa **numeric(14,2) reais**. Cuidado ao formatar — `brl()` espera centavos, então `brl(Number(comissao.valor) * 100)`.
 
-8. **Ambiente Stripe está em modo dev** (sem `STRIPE_SECRET_KEY`). Não precisa ativar real para Fase 7 funcionar. Documentação em [docs/stripe-setup.md](stripe-setup.md).
+8. **Ambiente Stripe está em modo dev** (sem `STRIPE_SECRET_KEY`). Não precisa ativar real para Fase 7 funcionar. Documentação em [docs/operacao/stripe-setup.md](../operacao/stripe-setup.md).
 
 ---
 
@@ -260,12 +260,12 @@ git push
 
 - **Repositório:** https://github.com/bonacciniWd/mercurio-capital
 - **Documentação técnica:** pasta [docs/](.)
-  - [01-architecture.md](01-architecture.md)
-  - [02-roles-permissions.md](02-roles-permissions.md)
-  - [03-routes-navigation.md](03-routes-navigation.md)
-  - [04-database-schema.md](04-database-schema.md)
-  - [06-modules-features.md](06-modules-features.md)
-  - [08-security-compliance.md](08-security-compliance.md)
+  - [01-architecture.md](../blueprint/01-architecture.md)
+  - [02-roles-permissions.md](../blueprint/02-roles-permissions.md)
+  - [03-routes-navigation.md](../blueprint/03-routes-navigation.md)
+  - [04-database-schema.md](../blueprint/04-database-schema.md)
+  - [06-modules-features.md](../blueprint/06-modules-features.md)
+  - [08-security-compliance.md](../blueprint/08-security-compliance.md)
 - **Supabase Dashboard:** https://supabase.com/dashboard/project/bhagksfvszeogtjvjtpx
 - **Provedor assinatura sugerido:** Clicksign sandbox — https://developers.clicksign.com
 

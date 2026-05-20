@@ -1,6 +1,6 @@
 # Handoff — Fase 10 (Equipes Admin & Funil de Parceiros)
 
-> Documento de transferência para o desenvolvedor que assume a Fase 10 a partir do estado atual (após Fase 9 — Gestão de Parceiros & Onboarding por Convite, descrita em [docs/14-handoff-fase9.md](14-handoff-fase9.md)).
+> Documento de transferência para o desenvolvedor que assume a Fase 10 a partir do estado atual (após Fase 9 — Gestão de Parceiros & Onboarding por Convite, descrita em [docs/handoffs/14-handoff-fase9.md](14-handoff-fase9.md)).
 > **Data:** 2026-05-20 · **Branch:** `main` · **Escopo:** WEB ONLY (mobile permanece mock).
 
 ---
@@ -21,7 +21,7 @@
 | 8 | Universidade Mercurio (LMS) |
 | 9 | **Gestão de Parceiros (Admin) + Convite + Bootstrap** |
 
-Roadmap completo: [docs/09-roadmap.md](09-roadmap.md). **Mobile (Expo) está 100% mock** e foi adiado para a Fase 11 — não tocar nele nesta fase.
+Roadmap completo: [docs/09-roadmap.md](../09-roadmap.md). **Mobile (Expo) está 100% mock** e foi adiado para a Fase 11 — não tocar nele nesta fase.
 
 ---
 
@@ -287,7 +287,7 @@ git push
 
 - **Repositório:** https://github.com/bonacciniWd/mercurio-capital
 - **Documentação:**
-  - [09-roadmap.md](09-roadmap.md) — fonte da verdade do escopo.
+  - [09-roadmap.md](../09-roadmap.md) — fonte da verdade do escopo.
   - [12-handoff-fase7.md](12-handoff-fase7.md), [13-handoff-fase8.md](13-handoff-fase8.md), [14-handoff-fase9.md](14-handoff-fase9.md) — handoffs anteriores; padrão a seguir aqui.
 - **Supabase Dashboard:** https://supabase.com/dashboard/project/bhagksfvszeogtjvjtpx
 - **Padrão Edge HMAC:** ver [`supabase/functions/stripe-webhook/index.ts`](../supabase/functions/stripe-webhook/index.ts).
