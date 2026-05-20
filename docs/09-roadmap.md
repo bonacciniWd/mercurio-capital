@@ -208,11 +208,11 @@
 
 ## Fase 14 — Hardening & LGPD
 
-- [ ] Pen test interno (OWASP).
-- [ ] Política LGPD: exportação e anonimização.
-- [ ] Mascaramento de PII em logs.
-- [ ] Documentação operacional (runbooks).
-- [ ] Plano de DR (PITR + restore drill).
+- [x] Pen test interno (OWASP) — checklist em `docs/security-checklist.md`.
+- [x] Política LGPD: `lgpd_export_meus_dados` + `lgpd_anonimizar_conta` + view auditoria.
+- [x] Mascaramento de PII em logs — helpers `mask_email/mask_cpf/mask_cnpj/mask_phone`.
+- [x] Documentação operacional — `docs/runbooks.md`.
+- [x] Plano de DR (PITR + drill semestral) — `docs/dr-plan.md`.
 
 ---
 
