@@ -7,6 +7,11 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { NotificationBell } from '@/components/NotificationBell'
+import {
+  usePartnerProfile,
+  partnerAvatarInitial,
+  partnerDisplayName,
+} from '@/lib/partnerProfile'
 
 const logoSquare = new URL('../assets/logos/logo-square.png', import.meta.url).href
 
@@ -33,6 +38,11 @@ const ITEMS = [
 export function PartnerLayout() {
   const { session, logout } = useAuth()
   const navigate = useNavigate()
+  const profileQ = usePartnerProfile()
+  const profile = profileQ.data ?? null
+  const displayName = profile ? partnerDisplayName(profile) : session?.nome ?? 'Parceiro'
+  const initial = profile ? partnerAvatarInitial(profile) : (session?.nome?.charAt(0).toUpperCase() ?? 'P')
+  const roleLabel = session?.role === 'team_member' ? 'Membro de equipe' : 'Parceiro'
 
   async function handleLogout() {
     await logout()
@@ -45,7 +55,7 @@ export function PartnerLayout() {
         Pular para o conteúdo
       </a>
       <aside className="relative flex h-screen w-64 shrink-0 flex-col overflow-hidden text-white" style={{
-        background: 'linear-gradient(180deg, #07101e 0%, #0a1628 50%, #0d1c32 100%)',
+        background: 'linear-gradient(180deg, #27272a 0%, #09090b 50%, #000000 100%)',
         borderRight: '1px solid rgba(255,255,255,0.055)',
         boxShadow: '4px 0 24px rgba(0,0,0,0.45)',
       }}>
@@ -57,14 +67,22 @@ export function PartnerLayout() {
         {/* Perfil */}
         <div className="p-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-navy text-sm font-bold shadow-md">
-              C
-            </div>
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={displayName}
+                className="h-10 w-10 shrink-0 rounded-full object-cover shadow-md"
+              />
+            ) : (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold text-navy text-sm font-bold shadow-md">
+                {initial}
+              </div>
+            )}
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-white">Construtora Aurora</p>
+              <p className="truncate text-sm font-semibold text-white">{displayName}</p>
               <span className="mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
                 style={{ background: 'rgba(44,154,76,0.18)', color: '#4ade80', border: '1px solid rgba(44,154,76,0.25)' }}>
-                Parceiro
+                {roleLabel}
               </span>
             </div>
           </div>
@@ -83,13 +101,13 @@ export function PartnerLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
                   isActive
-                    ? 'text-gold'
+                    ? 'text-white'
                     : 'text-white/50 hover:text-white/90'
                 }`
               }
               style={({ isActive }) => isActive ? {
-                background: 'linear-gradient(90deg, rgba(212,175,55,0.14) 0%, rgba(212,175,55,0.04) 100%)',
-                borderLeft: '2px solid #D4AF37',
+                background: 'linear-gradient(90deg, rgba(255,0,0,0.14) 0%, rgba(255,0,0,0.04) 100%)',
+                borderLeft: '2px solid #ff0000',
                 paddingLeft: '10px',
               } : {
                 borderLeft: '2px solid transparent',
@@ -119,7 +137,7 @@ export function PartnerLayout() {
           </div>
           <div className="flex items-center gap-3">
             <NotificationBell />
-            <span className="text-xs text-silver-500">{session?.nome ?? 'Parceiro'}</span>
+            <span className="text-xs text-silver-500">{displayName}</span>
             <button className="btn-outline text-xs" onClick={handleLogout}>Sair</button>
           </div>
         </header>

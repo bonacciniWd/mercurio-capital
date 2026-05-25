@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Search, AlertTriangle, CheckCircle2, XCircle, RotateCcw, Eye } from 'lucide-react'
+import {
+  Loader2, AlertTriangle, CheckCircle2, XCircle, RotateCcw, Eye,
+  Building2, ShieldCheck, Scale, Globe, FileSearch, Landmark, Play,
+} from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 
@@ -11,9 +14,21 @@ const TIPO_LABEL: Record<string, string> = {
   serasa_pj: 'Serasa PJ',
   jusbrasil_cnpj: 'Jusbrasil CNPJ',
   escavador_cnpj: 'Escavador CNPJ',
-  ri_digital_matricula: 'RI Digital · matrícula',
-  nacional_consultas_bens: 'Nacional · bens',
-  nacional_consultas_certidao: 'Nacional · certidão',
+  ri_digital_matricula: 'RI Digital · Matrícula',
+  nacional_consultas_bens: 'Nacional · Bens',
+  nacional_consultas_certidao: 'Nacional · Certidão',
+}
+
+const TIPO_META: Record<string, { Icon: typeof Building2; cor: string; grupo: string; hint: string }> = {
+  bacen_cpf:               { Icon: Landmark,    cor: 'text-blue-600 bg-blue-50',    grupo: 'Banco Central', hint: 'Relacionamentos bancários PF' },
+  bacen_cnpj:              { Icon: Landmark,    cor: 'text-blue-600 bg-blue-50',    grupo: 'Banco Central', hint: 'Relacionamentos bancários PJ' },
+  serasa_pf:               { Icon: ShieldCheck, cor: 'text-orange-600 bg-orange-50', grupo: 'Serasa',       hint: 'Score e restrições PF' },
+  serasa_pj:               { Icon: ShieldCheck, cor: 'text-orange-600 bg-orange-50', grupo: 'Serasa',       hint: 'Score e restrições PJ' },
+  jusbrasil_cnpj:          { Icon: Scale,       cor: 'text-purple-600 bg-purple-50', grupo: 'Jusbrasil',    hint: 'Processos judiciais CNPJ' },
+  escavador_cnpj:          { Icon: Scale,       cor: 'text-purple-600 bg-purple-50', grupo: 'Escavador',    hint: 'Processos e sócios CNPJ' },
+  ri_digital_matricula:    { Icon: FileSearch,  cor: 'text-teal-600 bg-teal-50',    grupo: 'RI Digital',   hint: 'Matrícula e ônus do imóvel' },
+  nacional_consultas_bens: { Icon: Building2,   cor: 'text-navy bg-navy/10',        grupo: 'Nacional',     hint: 'Pesquisa de bens patrimoniais' },
+  nacional_consultas_certidao: { Icon: Globe,   cor: 'text-emerald-600 bg-emerald-50', grupo: 'Nacional',  hint: 'Certidões nacionais' },
 }
 
 interface Preco {
@@ -126,33 +141,73 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
     <div className="space-y-6">
       {!readOnly && (
         <div className="card p-5">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-silver-500">Disponíveis</h3>
-          <p className="mb-4 text-xs text-silver-500">
-            Cada consulta debita o valor da carteira do parceiro. Em caso de falha do provedor, o valor é estornado automaticamente.
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {precos.map(p => (
-              <button
-                key={p.tipo}
-                onClick={() => executar.mutate(p.tipo)}
-                disabled={executar.isPending}
-                className="flex items-center justify-between rounded-lg border border-silver-200 p-3 text-left transition hover:border-gold hover:bg-gold/5 disabled:opacity-50"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-navy">{TIPO_LABEL[p.tipo] ?? p.tipo}</p>
-                  {p.descricao && <p className="text-xs text-silver-500">{p.descricao}</p>}
-                  <p className="mt-1 text-xs font-bold text-gold">{brl(p.preco_centavos)}</p>
-                </div>
-                {executingTipo === p.tipo ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-gold" />
-                ) : (
-                  <Search className="h-5 w-5 text-silver-400" />
-                )}
-              </button>
-            ))}
+          <div className="mb-4 flex items-start justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-navy">Consultas disponíveis</h3>
+              <p className="mt-0.5 text-xs text-silver-500">
+                Cada consulta debita a carteira. Em caso de falha do provedor o valor é estornado automaticamente.
+              </p>
+            </div>
           </div>
+
+          {precosQuery.isLoading ? (
+            <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-silver-400" /></div>
+          ) : precos.length === 0 ? (
+            <p className="py-6 text-center text-sm text-silver-400">Nenhum serviço de consulta configurado.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {precos.map(p => {
+                const meta = TIPO_META[p.tipo]
+                const Icon = meta?.Icon ?? FileSearch
+                const isRunning = executingTipo === p.tipo
+                return (
+                  <button
+                    key={p.tipo}
+                    onClick={() => executar.mutate(p.tipo)}
+                    disabled={executar.isPending}
+                    className="btn-no-liquid group flex w-full flex-col rounded-2xl border border-silver-200 bg-white p-4 text-left transition-all hover:border-gold/50 hover:shadow-[0_4px_16px_rgba(0,0,0,0.07)] disabled:opacity-50"
+                  >
+                    {/* header: ícone + preço */}
+                    <div className="flex items-center justify-between">
+                      <div className={`flex h-9 w-9 mr-4 items-center justify-center rounded-xl ${meta?.cor ?? 'text-silver-500 bg-silver-100'}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <span className="text-[11px] font-semibold text-silver-400">
+                        {meta?.grupo ?? ''}
+                      </span>
+                    </div>
+
+                    {/* nome */}
+                    <p className="mt-3 text-sm font-semibold leading-snug text-navy">
+                      {TIPO_LABEL[p.tipo] ?? p.tipo}
+                    </p>
+
+                    {/* hint / descricao */}
+                    <p className="mt-0.5 flex-1 text-xs leading-relaxed text-silver-500">
+                      {p.descricao ?? meta?.hint ?? ''}
+                    </p>
+
+                    {/* rodapé: preço + status */}
+                    <div className="mt-4 flex items-center justify-between border-t border-silver-100 pt-3">
+                      <span className="text-sm font-bold text-red-600">{brl(p.preco_centavos)}</span>
+                      {isRunning ? (
+                        <span className="flex items-center gap-1 text-xs text-red-600">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Consultando…
+                        </span>
+                      ) : (
+                        <span className="flex items-center ml-4 bg-slate-800 p-[2px] rounded-md gap-1 text-xs text-silver-400 transition group-hover:text-red-600">
+                          <Play className="h-3 w-3" /> Executar
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
           {erro && (
-            <div className="mt-3 flex items-start gap-2 rounded border border-danger/30 bg-danger/5 p-2 text-xs text-danger">
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/5 p-3 text-xs text-danger">
               <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" /> {erro}
             </div>
           )}

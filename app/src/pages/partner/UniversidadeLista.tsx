@@ -117,9 +117,9 @@ export function UniversidadeLista() {
 
   return (
     <>
-      <div className="mb-6 overflow-hidden rounded-lg bg-gradient-to-br from-navy via-navy-600 to-navy-700 p-8 text-white">
+      <div className="mb-6 overflow-hidden rounded-lg bg-gradient-to-bl from-zinc-800 via-zinc-950 to-black p-8 text-white">
         <div className="flex items-center gap-3">
-          <Award className="h-8 w-8 text-gold" />
+          <Award className="h-12 w-12 text-red-600" />
           <div>
             <h1 className="text-2xl font-bold">Universidade Mercurio</h1>
             <p className="text-sm text-white/80">Capacitação para parceiros de excelência.</p>
@@ -174,11 +174,11 @@ export function UniversidadeLista() {
           return (
             <div key={c.id} className="card group overflow-hidden transition hover:-translate-y-0.5 hover:shadow-md">
               <Link to={`/p/universidade/${c.id}/aula/primeira`}
-                className="relative flex h-32 items-center justify-center overflow-hidden bg-gradient-to-br from-navy to-navy-700 text-white">
+                className="relative flex h-80 items-center justify-center overflow-hidden bg-gradient-to-br from-navy to-navy-700 text-white">
                 {capa
                   ? <img src={capa} alt={c.titulo} className="absolute inset-0 h-full w-full object-cover" />
                   : <Play className="h-10 w-10 opacity-80 group-hover:scale-110 transition" />}
-                {c.categoria && <span className="absolute left-3 top-3 badge bg-gold text-navy">{c.categoria}</span>}
+                {c.categoria && <span className="absolute left-3 top-3 badge bg-red-600 text-white">{c.categoria}</span>}
                 <span className="absolute right-3 top-3 badge bg-white/20 text-white capitalize">{c.nivel}</span>
               </Link>
               <div className="p-4">
@@ -189,7 +189,7 @@ export function UniversidadeLista() {
                 {inscrito && c.percentual_concluido > 0 && (
                   <>
                     <div className="mt-3 h-1.5 rounded-full bg-silver-200">
-                      <div className="h-full rounded-full bg-gold" style={{ width: `${c.percentual_concluido}%` }} />
+                      <div className="h-full rounded-full bg-red-600" style={{ width: `${c.percentual_concluido}%` }} />
                     </div>
                     <p className="mt-1 text-xs text-silver-500">{Math.round(c.percentual_concluido)}% concluído</p>
                   </>

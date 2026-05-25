@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { Building, Home as HomeIcon, Hammer, Check, Plus, Trash2, MapPin, ChevronDown, Copy } from 'lucide-react'
+import { Building, Home as HomeIcon, Hammer, Check, Plus, Trash2, MapPin, ChevronDown, Copy, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
@@ -33,8 +33,13 @@ interface ImovelForm {
   valor: number
   vagas_garagem: number
   alugado: boolean
+  valor_aluguel: number
   financiado: boolean
+  instituicao_financiadora: string
+  saldo_devedor: number
   possui_debitos: boolean
+  debitos_iptu: number
+  debitos_condominio: number
 }
 
 interface FormState {
@@ -72,7 +77,9 @@ const initialState: FormState = {
   imoveis: [{
     tipo: 'apartamento', cep: '', estado: '', cidade: '', bairro: '', logradouro: '',
     numero: '', complemento: '', valor: 850_000, vagas_garagem: 0,
-    alugado: false, financiado: false, possui_debitos: false,
+    alugado: false, valor_aluguel: 0,
+    financiado: false, instituicao_financiadora: '', saldo_devedor: 0,
+    possui_debitos: false, debitos_iptu: 0, debitos_condominio: 0,
   }],
 }
 
@@ -275,7 +282,7 @@ function Step1({ form, patch }: { form: FormState; patch: (p: Partial<FormState>
         <div className="inline-flex gap-2">
           {(['PF', 'PJ'] as const).map(t => (
             <button key={t} type="button" onClick={() => patch({ pessoa_tipo: t })}
-              className={`btn-no-liquid rounded-md border-2 px-6 py-2 text-sm font-medium transition-all ${form.pessoa_tipo === t ? 'border-gold-600 bg-gold text-navy shadow-md' : 'border-silver-300 bg-silver-100 text-silver-600 hover:border-gold/50'}`}>
+              className={`btn-no-liquid rounded-md border-2 px-6 py-2 text-sm font-medium transition-all ${form.pessoa_tipo === t ? 'border-red-600 bg-red-600 text-white shadow-md' : 'border-silver-300 bg-silver-100 text-silver-600 hover:border-red-600/50'}`}>
               {t === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'}
             </button>
           ))}
@@ -313,13 +320,84 @@ function Step2({ form, patchCliente }: { form: FormState; patchCliente: (p: Part
 
 function Step3({ form, setForm }: { form: FormState; setForm: React.Dispatch<React.SetStateAction<FormState>> }) {
   const im = form.imoveis[0]
+  const [cepLoading, setCepLoading] = useState(false)
+  const [cepError, setCepError] = useState<string | null>(null)
+  const [mapCoords, setMapCoords] = useState<{ lat: number; lng: number } | null>(null)
+
   const patch = (p: Partial<ImovelForm>) =>
     setForm(f => ({ ...f, imoveis: [{ ...f.imoveis[0], ...p }, ...f.imoveis.slice(1)] }))
+
+  async function geocodificar(query: string) {
+    try {
+      const params = new URLSearchParams({ q: query, format: 'json', limit: '1', countrycodes: 'br' })
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+        headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'MercurioCapital/1.0' },
+      })
+      const results = await res.json() as Array<{ lat: string; lon: string }>
+      if (results.length > 0) {
+        setMapCoords({ lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) })
+      }
+    } catch {
+      // mapa não é crítico — falha silenciosa
+    }
+  }
+
+  async function buscarCep(digits: string) {
+    setCepLoading(true)
+    setCepError(null)
+    setMapCoords(null)
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
+      if (!res.ok) throw new Error()
+      const data = await res.json() as Record<string, string>
+      if (data['erro']) { setCepError('CEP não encontrado.'); return }
+      const logradouro = data['logradouro'] ?? ''
+      const bairro     = data['bairro'] ?? ''
+      const cidade     = data['localidade'] ?? ''
+      const estado     = data['uf'] ?? ''
+      patch({ estado, cidade, bairro, logradouro })
+      void geocodificar(`${logradouro}, ${bairro}, ${cidade}, ${estado}, Brasil`)
+    } catch {
+      setCepError('Não foi possível consultar o CEP.')
+    } finally {
+      setCepLoading(false)
+    }
+  }
+
+  function handleCep(raw: string) {
+    const digits = raw.replace(/\D/g, '').slice(0, 8)
+    const formatted = digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits
+    patch({ cep: formatted })
+    setCepError(null)
+    if (digits.length === 8) void buscarCep(digits)
+  }
+
+  const osmSrc = mapCoords
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${mapCoords.lng - 0.012},${mapCoords.lat - 0.008},${mapCoords.lng + 0.012},${mapCoords.lat + 0.008}&layer=mapnik&marker=${mapCoords.lat},${mapCoords.lng}`
+    : null
+
   return (
     <>
       <h2 className="text-lg font-semibold text-navy">Localização do imóvel principal</h2>
       <div className="mt-5 grid gap-4 md:grid-cols-3">
-        <Field label="CEP" value={im.cep} onChange={v => patch({ cep: v })} />
+        {/* CEP com busca automática */}
+        <div>
+          <label className="label">CEP</label>
+          <div className="relative">
+            <input
+              className="input pr-8"
+              value={im.cep}
+              onChange={e => handleCep(e.target.value)}
+              placeholder="00000-000"
+              maxLength={9}
+              inputMode="numeric"
+            />
+            {cepLoading && (
+              <Loader2 className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-silver-400" />
+            )}
+          </div>
+          {cepError && <p className="mt-1 text-xs text-danger">{cepError}</p>}
+        </div>
         <Field label="Estado *" value={im.estado} onChange={v => patch({ estado: v.toUpperCase().slice(0, 2) })} placeholder="SP" />
         <Field label="Cidade *" value={im.cidade} onChange={v => patch({ cidade: v })} />
         <Field label="Bairro" value={im.bairro} onChange={v => patch({ bairro: v })} />
@@ -327,9 +405,52 @@ function Step3({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
         <Field label="Número" value={im.numero} onChange={v => patch({ numero: v })} />
         <div className="md:col-span-3"><Field label="Complemento" value={im.complemento} onChange={v => patch({ complemento: v })} /></div>
       </div>
-      <div className="mt-4 flex items-center gap-2 rounded-lg border border-silver-200 bg-silver-50 p-4 text-sm text-silver-600">
-        <MapPin className="h-4 w-4" /> Mapa será integrado em fase futura.
-      </div>
+
+      {/* Mapa */}
+      {osmSrc ? (
+        <div className="mt-5 overflow-hidden rounded-lg border border-silver-200 shadow-sm">
+          <iframe
+            title="Localização do imóvel"
+            src={osmSrc}
+            width="100%"
+            height="240"
+            loading="lazy"
+            className="block"
+            style={{ border: 0 }}
+          />
+          <div className="flex items-center justify-between bg-silver-50 px-3 py-2 text-xs text-silver-500">
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-3 w-3 shrink-0 text-red-600" />
+              {[im.logradouro, im.numero].filter(Boolean).join(', ')}
+              {im.bairro ? ` — ${im.bairro}` : ''}
+              {im.cidade ? `, ${im.cidade}/${im.estado}` : ''}
+            </span>
+            <div className="ml-3 flex shrink-0 items-center gap-3">
+              <a
+                href={`https://maps.google.com/maps?q=&layer=c&cbll=${mapCoords!.lat},${mapCoords!.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-navy hover:underline"
+              >
+                🚶 Street View ↗
+              </a>
+              <a
+                href={`https://www.openstreetmap.org/?mlat=${mapCoords!.lat}&mlon=${mapCoords!.lng}#map=17/${mapCoords!.lat}/${mapCoords!.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-navy hover:underline"
+              >
+                Abrir no mapa ↗
+              </a>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-5 flex items-center gap-2 rounded-lg border border-dashed border-silver-200 bg-silver-50 p-4 text-sm text-silver-500">
+          <MapPin className="h-4 w-4 shrink-0" />
+          Preencha o CEP para visualizar o mapa automaticamente.
+        </div>
+      )}
     </>
   )
 }
@@ -356,7 +477,7 @@ function Step4({
             <div className="inline-flex gap-2">
               {(['pos_fixado', 'pre_fixado'] as const).map(c => (
                 <button key={c} type="button" onClick={() => patch({ correcao: c })}
-                  className={`btn-no-liquid rounded-md border px-4 py-1.5 text-sm font-medium transition ${form.correcao === c ? 'border-gold-600 bg-gold text-white' : 'border-silver-300 bg-silver-100 text-silver-600'}`}>
+                  className={`btn-no-liquid rounded-md border px-4 py-1.5 text-sm font-medium transition ${form.correcao === c ? 'border-red-600 bg-red-600 text-white' : 'border-silver-300 bg-silver-100 text-silver-600'}`}>
                   {c === 'pos_fixado' ? 'Pós (IPCA)' : 'Pré-fixado'}
                 </button>
               ))}
@@ -367,7 +488,7 @@ function Step4({
             <div className="inline-flex gap-2">
               {(['price', 'sac'] as const).map(a => (
                 <button key={a} type="button" onClick={() => patch({ amortizacao: a })}
-                  className={`btn-no-liquid rounded-md border px-4 py-1.5 text-sm font-medium transition ${form.amortizacao === a ? 'border-gold-600 bg-gold text-white' : 'border-silver-300 bg-silver-100 text-silver-600'}`}>
+                  className={`btn-no-liquid rounded-md border px-4 py-1.5 text-sm font-medium transition ${form.amortizacao === a ? 'border-red-600 bg-red-600 text-white' : 'border-silver-300 bg-silver-100 text-silver-600'}`}>
                   {a.toUpperCase()}
                 </button>
               ))}
@@ -377,18 +498,18 @@ function Step4({
             <label className="label">Prazo: {form.prazo_meses} meses</label>
             <input type="range" min={12} max={240} step={6} value={form.prazo_meses}
               onChange={e => patch({ prazo_meses: Number(e.target.value) })}
-              className="w-full accent-gold" />
+              className="w-full accent-red-600" />
           </div>
           <div>
             <label className="label">Carência: {form.carencia_meses} meses</label>
             <input type="range" min={0} max={3} value={form.carencia_meses}
               onChange={e => patch({ carencia_meses: Number(e.target.value) })}
-              className="w-full accent-gold" />
+              className="w-full accent-red-600" />
           </div>
         </div>
       </div>
-      <div className="rounded-lg border-2 border-gold/40 bg-gold/5 p-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gold-600">Simulação em tempo real</p>
+      <div className="rounded-lg border-2 border-red-600/40 bg-red-600/5 p-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-red-600">Simulação em tempo real</p>
         <h3 className="mt-1 text-base font-semibold text-navy">Resultado</h3>
         <dl className="mt-4 space-y-3 text-sm">
           <Row k="LTV" v={
@@ -473,7 +594,9 @@ function Step6({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
       imoveis: [...f.imoveis, {
         tipo: 'apartamento', cep: '', estado: '', cidade: '', bairro: '', logradouro: '',
         numero: '', complemento: '', valor: 0, vagas_garagem: 0,
-        alugado: false, financiado: false, possui_debitos: false,
+        alugado: false, valor_aluguel: 0,
+        financiado: false, instituicao_financiadora: '', saldo_devedor: 0,
+        possui_debitos: false, debitos_iptu: 0, debitos_condominio: 0,
       }],
     }))
   const removeIm = (idx: number) =>
@@ -506,13 +629,32 @@ function Step6({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
                   <option value="vaga">Vaga</option>
                 </select>
               </div>
-              <NumberField label="Valor do imóvel (R$) *" value={im.valor} onChange={v => patchIm(idx, { valor: v })} />
+              <MoneyField label="Valor do imóvel *" value={im.valor} onChange={v => patchIm(idx, { valor: v })} />
               <NumberField label="Vagas de garagem" value={im.vagas_garagem} onChange={v => patchIm(idx, { vagas_garagem: v })} />
             </div>
             <div className="mt-4 space-y-2">
-              <Toggle label="Imóvel alugado?" value={im.alugado} onChange={v => patchIm(idx, { alugado: v })} />
-              <Toggle label="Imóvel financiado?" value={im.financiado} onChange={v => patchIm(idx, { financiado: v })} />
-              <Toggle label="Possui débitos?" value={im.possui_debitos} onChange={v => patchIm(idx, { possui_debitos: v })} />
+              <Toggle label="Imóvel alugado?" value={im.alugado} onChange={v => patchIm(idx, { alugado: v, valor_aluguel: v ? im.valor_aluguel : 0 })} />
+              {im.alugado && (
+                <div className="rounded-md border border-silver-200 bg-white p-3 pl-4">
+                  <MoneyField label="Valor do aluguel mensal" value={im.valor_aluguel} onChange={v => patchIm(idx, { valor_aluguel: v })} />
+                </div>
+              )}
+
+              <Toggle label="Imóvel financiado?" value={im.financiado} onChange={v => patchIm(idx, { financiado: v, instituicao_financiadora: v ? im.instituicao_financiadora : '', saldo_devedor: v ? im.saldo_devedor : 0 })} />
+              {im.financiado && (
+                <div className="grid gap-3 rounded-md border border-silver-200 bg-white p-3 pl-4 md:grid-cols-2">
+                  <Field label="Instituição financiadora" value={im.instituicao_financiadora} onChange={v => patchIm(idx, { instituicao_financiadora: v })} placeholder="Ex.: Caixa, Itaú…" />
+                  <MoneyField label="Saldo devedor" value={im.saldo_devedor} onChange={v => patchIm(idx, { saldo_devedor: v })} />
+                </div>
+              )}
+
+              <Toggle label="Possui débitos?" value={im.possui_debitos} onChange={v => patchIm(idx, { possui_debitos: v, debitos_iptu: v ? im.debitos_iptu : 0, debitos_condominio: v ? im.debitos_condominio : 0 })} />
+              {im.possui_debitos && (
+                <div className="grid gap-3 rounded-md border border-silver-200 bg-white p-3 pl-4 md:grid-cols-2">
+                  <MoneyField label="Débitos de IPTU" value={im.debitos_iptu} onChange={v => patchIm(idx, { debitos_iptu: v })} />
+                  <MoneyField label="Débitos de condomínio" value={im.debitos_condominio} onChange={v => patchIm(idx, { debitos_condominio: v })} />
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -646,6 +788,43 @@ function NumberField({
 
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return <div className="flex items-center justify-between"><span className="text-silver-600">{k}</span><span>{v}</span></div>
+}
+
+function MoneyField({
+  label, value, onChange, disabled, hint,
+}: {
+  label: string
+  value: number
+  onChange?: (v: number) => void
+  disabled?: boolean
+  hint?: string
+}) {
+  const display = value > 0
+    ? new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
+    : ''
+  const handleChange = (raw: string) => {
+    const digits = raw.replace(/\D/g, '')
+    if (!digits) { onChange?.(0); return }
+    onChange?.(Number(digits) / 100)
+  }
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <div className="relative">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-silver-500">R$</span>
+        <input
+          className="input pl-9"
+          type="text"
+          inputMode="numeric"
+          value={display}
+          disabled={disabled}
+          placeholder="0,00"
+          onChange={e => handleChange(e.target.value)}
+        />
+      </div>
+      {hint && <p className="mt-1 text-xs text-silver-500">{hint}</p>}
+    </div>
+  )
 }
 
 function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
