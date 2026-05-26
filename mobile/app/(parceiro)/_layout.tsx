@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { View, Pressable, Text, TouchableWithoutFeedback, StyleSheet } from 'react-native'
+import { useEffect, useState } from 'react'
+import { View, Pressable, Text, TouchableWithoutFeedback, StyleSheet, ActivityIndicator } from 'react-native'
 import { Tabs, router } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   LayoutDashboard, FileText, Sparkles, Wallet, User,
   SquareArrowUpLeft, X, Calculator, UserPlus,
 } from 'lucide-react-native'
+import { useAuth } from '@/lib/auth'
 
 // ─── Tab definitions ────────────────────────────────────────────────────────
 const TABS = [
@@ -17,8 +19,10 @@ const TABS = [
 
 // ─── Liquid Glass Tab Bar ────────────────────────────────────────────────────
 function LiquidGlassTabBar({ state, navigation }: { state: any; navigation: any }) {
+  const insets = useSafeAreaInsets()
+  const bottomOffset = Math.max(insets.bottom, TAB_BAR_BOTTOM_MIN)
   return (
-    <View style={styles.tabBarWrapper}>
+    <View style={[styles.tabBarWrapper, { bottom: bottomOffset }]}>
       {/* Shadow frame (outside overflow:hidden) */}
       <View style={styles.tabBarShadow} />
 
@@ -69,7 +73,10 @@ const DIAL_ACTIONS = [
 ]
 
 function SpeedDial() {
+  const insets = useSafeAreaInsets()
   const [open, setOpen] = useState(false)
+  const bottomOffset = Math.max(insets.bottom, TAB_BAR_BOTTOM_MIN)
+  const fabBottom = bottomOffset + TAB_BAR_HEIGHT + 14
   return (
     <>
       {open && (
@@ -79,7 +86,7 @@ function SpeedDial() {
       )}
 
       {open && (
-        <View style={styles.chipStack}>
+        <View style={[styles.chipStack, { bottom: fabBottom + 58 }]}>
           {DIAL_ACTIONS.map(({ icon: Icon, label, route }) => (
             <Pressable
               key={label}
@@ -95,7 +102,7 @@ function SpeedDial() {
         </View>
       )}
 
-      <Pressable onPress={() => setOpen(v => !v)} style={styles.fab}>
+      <Pressable onPress={() => setOpen(v => !v)} style={[styles.fab, { bottom: fabBottom }]}>
         {open ? <X size={22} color="white" /> : <SquareArrowUpLeft size={22} color="white" />}
       </Pressable>
     </>
@@ -103,16 +110,14 @@ function SpeedDial() {
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
-const TAB_BAR_BOTTOM = 24
+const TAB_BAR_BOTTOM_MIN = 16
 const TAB_BAR_HEIGHT = 60
 const TAB_BAR_H_MARGIN = 16
-const FAB_BOTTOM = TAB_BAR_BOTTOM + TAB_BAR_HEIGHT + 14  // 106
 
 const styles = StyleSheet.create({
   // Tab bar
   tabBarWrapper: {
     position: 'absolute',
-    bottom: TAB_BAR_BOTTOM,
     left: TAB_BAR_H_MARGIN,
     right: TAB_BAR_H_MARGIN,
     height: TAB_BAR_HEIGHT,
@@ -168,7 +173,6 @@ const styles = StyleSheet.create({
   },
   chipStack: {
     position: 'absolute',
-    bottom: FAB_BOTTOM + 58,
     right: TAB_BAR_H_MARGIN,
     gap: 10,
     alignItems: 'flex-end',
@@ -184,7 +188,6 @@ const styles = StyleSheet.create({
   chipIcon: { backgroundColor: '#DC2626', borderRadius: 16, padding: 7 },
   fab: {
     position: 'absolute',
-    bottom: FAB_BOTTOM,
     right: TAB_BAR_H_MARGIN,
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#DC2626',
@@ -196,6 +199,37 @@ const styles = StyleSheet.create({
 
 // ─── Layout ──────────────────────────────────────────────────────────────────
 export default function ParceiroLayout() {
+  const { session, loading } = useAuth()
+
+  // Redireciona se não-parceiro tentar acessar
+  useEffect(() => {
+    if (loading) return
+    if (!session) {
+      router.replace('/login')
+      return
+    }
+    const role = session.role
+    if (role === 'admin') router.replace('/(admin)' as any)
+    else if (role === 'client') router.replace('/(cliente)' as any)
+  }, [loading, session])
+
+  if (loading || !session) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8F9FA' }}>
+        <ActivityIndicator color="#DC2626" />
+      </View>
+    )
+  }
+
+  // Para roles erradas, mostra spinner enquanto o efeito redireciona
+  if (session.role && session.role !== 'partner' && session.role !== 'team_member') {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8F9FA' }}>
+        <ActivityIndicator color="#DC2626" />
+      </View>
+    )
+  }
+
   return (
     <View style={{ flex: 1 }}>
       <Tabs

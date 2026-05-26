@@ -53,9 +53,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false)
       }
     })
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_e, s) => {
-      const ext = await loadProfile(s)
-      if (mounted) setSession(ext)
+    // IMPORTANTE: não fazer await de queries supabase DENTRO do callback de
+    // onAuthStateChange — o cliente mantém um lock interno e qualquer query
+    // dispara um deadlock (login fica em "carregando infinito"). Deferimos
+    // com setTimeout(0) para sair do escopo do listener.
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      setTimeout(async () => {
+        const ext = await loadProfile(s)
+        if (mounted) setSession(ext)
+      }, 0)
     })
     return () => {
       mounted = false

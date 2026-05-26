@@ -1,17 +1,29 @@
-import { ScrollView, View, Text, Pressable, TextInput } from 'react-native'
+import { useState } from 'react'
+import { ScrollView, View, Text, Pressable, TextInput, ActivityIndicator } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import { ArrowLeft, Plus, Search, ArrowRightCircle } from 'lucide-react-native'
+import { ArrowLeft, Plus, Search } from 'lucide-react-native'
+import { useQuery } from '@tanstack/react-query'
 import { brl } from '@/lib/utils'
 import { StatusBadge } from '@/components/Badge'
+import { supabase } from '@/lib/supabase'
+import { STATUS_LABEL, PRODUTO_LABEL } from '@/lib/partner'
+import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
 
-const sims = [
-  { id: 1, data: '12/04', cliente: 'João Silva',  produto: 'Home Equity',     credito: 35000000, ltv: 41, parcela: 423000, status: 'Convertida em Proposta' },
-  { id: 2, data: '11/04', cliente: 'Beatriz N.',  produto: 'Construção',      credito: 48000000, ltv: 53, parcela: 461000, status: 'Rascunho' },
-  { id: 3, data: '10/04', cliente: 'Carlos M.',   produto: 'Financiamento',   credito: 62000000, ltv: 65, parcela: 558000, status: 'Rascunho' },
-  { id: 4, data: '09/04', cliente: 'Renata P.',   produto: 'Home Equity',     credito: 28000000, ltv: 38, parcela: 339000, status: 'Convertida em Proposta' },
-  { id: 5, data: '08/04', cliente: 'Pedro A.',    produto: 'Home Equity',     credito: 45000000, ltv: 58, parcela: 544000, status: 'Rascunho' },
-]
+interface SimRow {
+  id: string
+  protocolo: string | null
+  produto: string
+  status: string
+  valor_solicitado: number
+  valor_imoveis_total: number
+  prazo_meses: number
+  carencia_meses: number
+  taxa_juros_mensal: number
+  amortizacao: 'price' | 'sac'
+  created_at: string
+  cliente: { nome_completo: string | null; cpf: string | null } | null
+}
 
 function ltvTone(v: number) {
   if (v <= 60) return { bg: '#16A34A20', tx: '#16A34A' }
@@ -20,8 +32,31 @@ function ltvTone(v: number) {
 }
 
 export default function Simulacoes() {
+  const [busca, setBusca] = useState('')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['p-simulacoes'],
+    queryFn: async (): Promise<SimRow[]> => {
+      const { data, error } = await supabase
+        .from('propostas')
+        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, created_at, cliente:clientes(nome_completo, cpf)')
+        .in('status', ['simulacao', 'pre_analise', 'analise_credito'])
+        .order('created_at', { ascending: false })
+        .limit(100)
+      if (error) throw error
+      return (data ?? []) as unknown as SimRow[]
+    },
+  })
+
+  const sims = (data ?? []).filter(s => {
+    if (!busca) return true
+    const q = busca.toLowerCase()
+    const nome = s.cliente?.nome_completo?.toLowerCase() ?? ''
+    return nome.includes(q) || (s.cliente?.cpf ?? '').includes(busca)
+  })
+
   return (
-    <SafeAreaView className="flex-1 bg-silver-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-silver-50" edges={['top', 'bottom']}>
       <View className="bg-navy px-5 py-4">
         <View className="flex-row items-center gap-3">
           <Pressable onPress={() => router.back()} className="-ml-2 p-2">
@@ -47,43 +82,65 @@ export default function Simulacoes() {
           <TextInput
             placeholder="Buscar por cliente ou CPF"
             placeholderTextColor="#9CA3AF"
+            value={busca}
+            onChangeText={setBusca}
             className="flex-1 px-2 py-2.5 text-sm text-silver-900"
           />
         </View>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 32 }}>
-        {sims.map((s) => {
-          const ltv = ltvTone(s.ltv)
+        {isLoading ? (
+          <ActivityIndicator color="#DC2626" />
+        ) : sims.length === 0 ? (
+          <View className="rounded-xl border border-silver-200 bg-white p-8">
+            <Text className="text-center text-sm text-silver-500">Nenhuma simulação encontrada.</Text>
+          </View>
+        ) : sims.map(s => {
+          const valor = Number(s.valor_solicitado)
+          const valorImovel = Number(s.valor_imoveis_total)
+          const ltvFrac = calcularLTV(valor, valorImovel)
+          const ltv = Math.round(ltvFrac * 100)
+          const calc = calcularFinanciamento({
+            valor,
+            prazoMeses: s.prazo_meses,
+            taxaMensal: Number(s.taxa_juros_mensal) / 100,
+            amortizacao: s.amortizacao,
+            carenciaMeses: s.carencia_meses,
+          })
+          const ltvCol = ltvTone(ltv)
           return (
-            <View key={s.id} className="rounded-xl border border-silver-200 bg-white p-4">
+            <Pressable
+              key={s.id}
+              onPress={() => router.push(`/(parceiro)/propostas/${s.id}` as any)}
+              className="rounded-xl border border-silver-200 bg-white p-4 active:opacity-70"
+            >
               <View className="flex-row items-center justify-between">
-                <Text className="text-[11px] text-silver-500">{s.data}/2026 · {s.produto}</Text>
-                <StatusBadge status={s.status} />
+                <Text className="text-[11px] text-silver-500">
+                  {new Date(s.created_at).toLocaleDateString('pt-BR')} · {PRODUTO_LABEL[s.produto] ?? s.produto}
+                </Text>
+                <StatusBadge status={STATUS_LABEL[s.status] ?? s.status} />
               </View>
-              <Text className="mt-1 text-base font-semibold text-silver-900">{s.cliente}</Text>
+              <Text className="mt-1 text-base font-semibold text-silver-900">
+                {s.cliente?.nome_completo ?? '—'}
+              </Text>
 
               <View className="mt-3 flex-row items-end justify-between">
                 <View>
                   <Text className="text-[11px] text-silver-500">Crédito</Text>
-                  <Text className="text-base font-bold text-navy">{brl(s.credito)}</Text>
+                  <Text className="text-base font-bold text-navy">{brl(valor * 100)}</Text>
                 </View>
                 <View>
                   <Text className="text-[11px] text-silver-500">Parcela</Text>
-                  <Text className="text-sm font-semibold text-silver-800">{brl(s.parcela)}</Text>
+                  <Text className="text-sm font-semibold text-silver-800">
+                    {brl(calc.primeiraParcela * 100)}
+                  </Text>
                 </View>
-                <View className="items-center rounded-full px-2 py-0.5" style={{ backgroundColor: ltv.bg }}>
-                  <Text className="text-[11px] font-bold" style={{ color: ltv.tx }}>LTV {s.ltv}%</Text>
+                <View className="items-center rounded-full px-2 py-0.5" style={{ backgroundColor: ltvCol.bg }}>
+                  <Text className="text-[11px] font-bold" style={{ color: ltvCol.tx }}>LTV {ltv}%</Text>
                 </View>
               </View>
-
-              {s.status === 'Rascunho' && (
-                <Pressable className="mt-3 flex-row items-center justify-center gap-1.5 rounded-lg border border-gold py-2 active:bg-gold/10">
-                  <ArrowRightCircle size={14} color="#991B1B" />
-                  <Text className="text-xs font-bold text-gold">Converter em proposta</Text>
-                </Pressable>
-              )}
-            </View>
+            </Pressable>
           )
         })}
       </ScrollView>

@@ -4,7 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Lock, CheckCircle2, Trophy, InfoIcon } from 'lucide-react-native'
 import { SvgUri } from 'react-native-svg'
 import { Asset } from 'expo-asset'
+import { useQuery } from '@tanstack/react-query'
 import { brl } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function MilestoneSvg({ module: mod, height, opacity }: { module: any; height: number; opacity: number }) {
@@ -19,7 +21,7 @@ function MilestoneSvg({ module: mod, height, opacity }: { module: any; height: n
   return <SvgUri uri={uri} width="100%" height={height} style={{ opacity }} />
 }
 
-const CURRENT_CGI = 1_250_000_000 // R$ 12.500.000,00
+const CURRENT_CGI_FALLBACK = 0
 
 const MILESTONES = [
   {
@@ -52,6 +54,23 @@ const MILESTONES = [
 ]
 
 export default function Promocoes() {
+  const cgiQ = useQuery({
+    queryKey: ['p-cgi-volume'],
+    queryFn: async () => {
+      // Soma volume das propostas com status de liberação (centavos)
+      const { data, error } = await supabase
+        .from('v_partner_funil_status')
+        .select('status, volume')
+      if (error) throw error
+      const liberados = (data ?? []).filter((r: { status: string; volume: number }) =>
+        r.status === 'recurso_liberado' || r.status === 'contrato_registrado',
+      )
+      const totalReais = liberados.reduce((acc, r) => acc + Number(r.volume), 0)
+      return Math.round(totalReais * 100) // converter para centavos
+    },
+  })
+
+  const CURRENT_CGI = cgiQ.data ?? CURRENT_CGI_FALLBACK
   const overallPct = Math.min(100, (CURRENT_CGI / 10_000_000_000) * 100)
   return (
     <SafeAreaView className="flex-1 bg-silver-50" edges={['top']}>
@@ -79,7 +98,7 @@ export default function Promocoes() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 32 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 130 }}>
         <View className="mt-2 rounded-xl border border-silver-200 bg-white p-4">
           <View className="flex-row items-center gap-1.5">
             <Text className="text-xs uppercase tracking-wider text-silver-500">Como funciona</Text>

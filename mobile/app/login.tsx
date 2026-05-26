@@ -27,14 +27,14 @@ export default function Login() {
     if (!email || !pwd) return Alert.alert('Atenção', 'Informe e-mail e senha.')
     setLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: pwd })
+      const { data: signin, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: pwd })
       if (error) throw error
-      // descobrir role
-      const { data: u } = await supabase.auth.getUser()
+      const userId = signin.user?.id
+      if (!userId) throw new Error('Sessão inválida.')
       const { data: prof } = await supabase
         .from('usuarios')
         .select('role')
-        .eq('id', u.user?.id ?? '')
+        .eq('id', userId)
         .maybeSingle()
       const role = prof?.role as string | undefined
       if (role === 'admin') router.replace('/(admin)' as any)
