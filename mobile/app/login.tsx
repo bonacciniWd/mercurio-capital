@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, Image } from 'react-native'
+import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, Image, Alert, ActivityIndicator } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { Mail, Lock, Fingerprint } from 'lucide-react-native'
 import AntDesign from '@expo/vector-icons/AntDesign'
+import { supabase } from '@/lib/supabase'
 
 function MicrosoftIcon() {
   // 2×2 colored squares
@@ -20,6 +21,31 @@ function MicrosoftIcon() {
 export default function Login() {
   const [email, setEmail] = useState('')
   const [pwd, setPwd] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleLogin() {
+    if (!email || !pwd) return Alert.alert('Atenção', 'Informe e-mail e senha.')
+    setLoading(true)
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: pwd })
+      if (error) throw error
+      // descobrir role
+      const { data: u } = await supabase.auth.getUser()
+      const { data: prof } = await supabase
+        .from('usuarios')
+        .select('role')
+        .eq('id', u.user?.id ?? '')
+        .maybeSingle()
+      const role = prof?.role as string | undefined
+      if (role === 'admin') router.replace('/(admin)' as any)
+      else if (role === 'client') router.replace('/(cliente)' as any)
+      else router.replace('/(parceiro)/dashboard')
+    } catch (e) {
+      Alert.alert('Falha no login', e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -71,10 +97,13 @@ export default function Login() {
 
           {/* Botão Entrar */}
           <Pressable
-            onPress={() => router.replace('/(parceiro)/dashboard')}
+            onPress={handleLogin}
+            disabled={loading}
             className="mt-6 items-center rounded-lg bg-gold py-3.5 active:opacity-80"
           >
-            <Text className="text-base font-bold text-white">Entrar</Text>
+            {loading
+              ? <ActivityIndicator color="white" />
+              : <Text className="text-base font-bold text-white">Entrar</Text>}
           </Pressable>
 
           {/* Acesso rápido por perfil (mock / dev) */}
