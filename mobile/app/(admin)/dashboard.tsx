@@ -1,18 +1,27 @@
-import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native'
+import { ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import { router } from 'expo-router'
+import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft, TrendingUp, TrendingDown, Users, AlertTriangle,
   Building2, FileStack, BarChart3, Clock, Banknote, BadgeCheck,
 } from 'lucide-react-native'
 import { brl } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 
-// ─── Inline KPI card for admin (dark theme) ──────────────────────────────────
+type KpiRow = {
+  total_propostas: number; propostas_mes: number; ativas: number
+  ganhas: number; canceladas: number; taxa_conversao: number
+  volume_ganho: number; volume_total: number; parceiros_ativos: number
+}
+type TopRow = { partner_id: string; partner_nome: string; total: number; ganhas: number; volume: number }
+type AprovacaoRow = { partner_id: string; nome: string; status: string; created_at: string; docs_count: number }
+type GargaloRow = { id: string; status: string; dias_parada: number; cliente_nome: string | null }
+
 type Trend = 'up' | 'down' | 'neutral'
 function StatCard({
-  icon: Icon, iconColor, accent,
-  label, value, sub, trend, trendValue,
+  icon: Icon, iconColor, accent, label, value, sub, trend, trendValue,
 }: {
   icon: any; iconColor: string; accent: string
   label: string; value: string; sub?: string
@@ -26,25 +35,82 @@ function StatCard({
         <View style={[s.iconBadge, { backgroundColor: accent + '22' }]}>
           <Icon size={16} color={iconColor} />
         </View>
-        {trend && trendValue && (
+        {trend && trendValue ? (
           <View style={[s.trendPill, { backgroundColor: trendColor + '18' }]}>
             <TrendIcon size={11} color={trendColor} />
             <Text style={[s.trendText, { color: trendColor }]}>{trendValue}</Text>
           </View>
-        )}
+        ) : null}
       </View>
       <Text style={s.statValue}>{value}</Text>
       <Text style={s.statLabel}>{label}</Text>
-      {sub && <Text style={s.statSub}>{sub}</Text>}
+      {sub ? <Text style={s.statSub}>{sub}</Text> : null}
     </View>
   )
 }
 
 export default function AdminDashboard() {
+  const kpiQuery = useQuery({
+    queryKey: ['admin-mobile-kpis'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('v_admin_dashboard_kpis').select('*').maybeSingle()
+      if (error) throw error
+      return data as KpiRow | null
+    },
+  })
+
+  const topQuery = useQuery({
+    queryKey: ['admin-mobile-top-partners'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('v_admin_top_partners')
+        .select('partner_id, partner_nome, total, ganhas, volume')
+        .limit(5)
+      if (error) throw error
+      return (data ?? []) as TopRow[]
+    },
+  })
+
+  const aprovQuery = useQuery({
+    queryKey: ['admin-mobile-aprov-count'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('v_admin_partner_aprovacoes')
+        .select('partner_id, nome, status, created_at, docs_count')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(3)
+      if (error) throw error
+      return (data ?? []) as AprovacaoRow[]
+    },
+  })
+
+  const gargaloQuery = useQuery({
+    queryKey: ['admin-mobile-gargalos'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('v_partner_gargalos')
+        .select('id, status, dias_parada, cliente_nome')
+        .order('dias_parada', { ascending: false })
+        .limit(50)
+      if (error) throw error
+      return (data ?? []) as GargaloRow[]
+    },
+  })
+
+  const kpi = kpiQuery.data
+  const top = topQuery.data ?? []
+  const aprov = aprovQuery.data ?? []
+  const gargalos = gargaloQuery.data ?? []
+  const loading = kpiQuery.isLoading || topQuery.isLoading
+
+  const volumeEmAnalise = Math.max(0, Number(kpi?.volume_total ?? 0) - Number(kpi?.volume_ganho ?? 0)) * 100
+  const maxVol = Math.max(1, ...top.map(t => Number(t.volume) || 0))
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0A0A0A' }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0A0A0A' }} edges={['top', 'bottom']}>
       <StatusBar style="light" />
-      {/* Header */}
       <View style={s.header}>
         <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace('/(admin)' as any)} style={s.backBtn}>
           <ArrowLeft size={20} color="white" />
@@ -55,116 +121,117 @@ export default function AdminDashboard() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 48 }}>
-
-        {/* Hero metric */}
-        <View style={s.heroCard}>
-          <View style={s.heroLeft}>
-            <Text style={s.heroLabel}>VOLUME EM ANÁLISE</Text>
-            <Text style={s.heroValue}>{brl(8_700_000_000)}</Text>
-            <View style={s.heroBadge}>
-              <TrendingUp size={13} color="#16A34A" />
-              <Text style={s.heroBadgeText}>+18% vs mês anterior</Text>
+      {loading ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color="#DC2626" />
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 48 }}>
+          <View style={s.heroCard}>
+            <View style={s.heroLeft}>
+              <Text style={s.heroLabel}>VOLUME EM ANÁLISE</Text>
+              <Text style={s.heroValue}>{brl(volumeEmAnalise)}</Text>
+              <View style={s.heroBadge}>
+                <TrendingUp size={13} color="#16A34A" />
+                <Text style={s.heroBadgeText}>{kpi?.taxa_conversao ?? 0}% conversão</Text>
+              </View>
+            </View>
+            <View style={s.heroBar}>
+              {top.slice(0, 8).map((t, i) => (
+                <View key={t.partner_id} style={[s.bar, { height: `${Math.max(15, (Number(t.volume) / maxVol) * 100) * 0.85}%` as any, opacity: 0.4 + i * 0.07 }]} />
+              ))}
             </View>
           </View>
-          <View style={s.heroBar}>
-            {[40, 55, 48, 70, 65, 82, 75, 90, 88, 95, 100, 110].map((h, i) => (
-              <View key={i} style={[s.bar, { height: `${h * 0.75}%` as any }]} />
+
+          <View style={s.grid}>
+            <StatCard icon={Users} iconColor="#16A34A" accent="#16A34A"
+              label="Parceiros ativos" value={String(kpi?.parceiros_ativos ?? 0)} />
+            <StatCard icon={FileStack} iconColor="#DC2626" accent="#DC2626"
+              label="Propostas no mês" value={String(kpi?.propostas_mes ?? 0)} sub={`${kpi?.total_propostas ?? 0} no total`} />
+            <StatCard icon={Clock} iconColor="#F59E0B" accent="#F59E0B"
+              label="Ativas" value={String(kpi?.ativas ?? 0)} sub="em andamento" />
+            <StatCard icon={BadgeCheck} iconColor="#16A34A" accent="#16A34A"
+              label="Ganhas" value={String(kpi?.ganhas ?? 0)} sub="contratos" />
+            <StatCard icon={Banknote} iconColor="#A3A3A3" accent="#A3A3A3"
+              label="Volume ganho" value={brl(Number(kpi?.volume_ganho ?? 0) * 100)} />
+            <StatCard icon={BarChart3} iconColor="#F87171" accent="#F87171"
+              label="Conversão" value={`${kpi?.taxa_conversao ?? 0}%`} sub={`${kpi?.canceladas ?? 0} canceladas`} />
+          </View>
+
+          <View style={s.card}>
+            <View style={s.cardHeader}>
+              <View style={s.cardHeaderLeft}>
+                <BarChart3 size={18} color="#DC2626" />
+                <Text style={s.cardTitle}>Top parceiros · volume</Text>
+              </View>
+              <Pressable onPress={() => router.push('/(admin)/parceiros' as any)}>
+                <Text style={s.listAction}>Ver →</Text>
+              </Pressable>
+            </View>
+            {top.length === 0 ? (
+              <Text style={s.empty}>Sem dados.</Text>
+            ) : top.map(t => (
+              <View key={t.partner_id} style={s.listRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.listName} numberOfLines={1}>{t.partner_nome}</Text>
+                  <Text style={s.listSub}>{t.total} propostas · {t.ganhas} ganhas</Text>
+                </View>
+                <Text style={[s.listName, { color: '#DC2626' }]}>{brl(Number(t.volume) * 100)}</Text>
+              </View>
             ))}
           </View>
-        </View>
 
-        {/* KPI grid */}
-        <View style={s.grid}>
-          <StatCard
-            icon={Users} iconColor="#16A34A" accent="#16A34A"
-            label="Parceiros ativos" value="47" sub="+ 3 este mês"
-            trend="up" trendValue="+6,8%"
-          />
-          <StatCard
-            icon={FileStack} iconColor="#DC2626" accent="#DC2626"
-            label="Propostas" value="312" sub="em carteira"
-            trend="up" trendValue="+12%"
-          />
-          <StatCard
-            icon={Clock} iconColor="#F59E0B" accent="#F59E0B"
-            label="Pendências" value="41" sub="aguardando ação"
-            trend="down" trendValue="-5"
-          />
-          <StatCard
-            icon={BadgeCheck} iconColor="#16A34A" accent="#16A34A"
-            label="Contratos/mês" value="23" sub="fechamentos"
-            trend="up" trendValue="+4,5%"
-          />
-          <StatCard
-            icon={Banknote} iconColor="#A3A3A3" accent="#A3A3A3"
-            label="Saldo carteiras" value={brl(1_850_000)} sub="liberado"
-          />
-          <StatCard
-            icon={BarChart3} iconColor="#F87171" accent="#F87171"
-            label="Ticket médio" value={brl(427_000)} sub="por proposta"
-            trend="up" trendValue="+2,1%"
-          />
-        </View>
-
-        {/* Aprovações pendentes */}
-        <View style={s.card}>
-          <View style={s.cardHeader}>
-            <View style={s.cardHeaderLeft}>
-              <Building2 size={18} color="#DC2626" />
-              <Text style={s.cardTitle}>Aprovações pendentes</Text>
-            </View>
-            <View style={s.badge}>
-              <Text style={s.badgeText}>8</Text>
-            </View>
-          </View>
-          {[
-            { name: 'Construtora Aurora', sub: 'Aguarda doc. jurídica' },
-            { name: 'Imobiliária Vista Sul', sub: 'Análise de crédito' },
-            { name: 'Capital + Crédito', sub: 'Vistoria pendente' },
-          ].map(p => (
-            <View key={p.name} style={s.listRow}>
-              <View>
-                <Text style={s.listName}>{p.name}</Text>
-                <Text style={s.listSub}>{p.sub}</Text>
+          <Pressable onPress={() => router.push('/(admin)/aprovacoes' as any)} style={s.card}>
+            <View style={s.cardHeader}>
+              <View style={s.cardHeaderLeft}>
+                <Building2 size={18} color="#F59E0B" />
+                <Text style={s.cardTitle}>Aprovações pendentes</Text>
               </View>
-              <Text style={s.listAction}>Revisar</Text>
+              <View style={s.badge}>
+                <Text style={s.badgeText}>{aprov.length}</Text>
+              </View>
             </View>
-          ))}
-        </View>
+            {aprov.length === 0 ? (
+              <Text style={s.empty}>Nenhuma aprovação pendente.</Text>
+            ) : aprov.map(p => (
+              <View key={p.partner_id} style={s.listRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.listName}>{p.nome}</Text>
+                  <Text style={s.listSub}>{p.docs_count} doc(s) anexado(s)</Text>
+                </View>
+                <Text style={s.listAction}>Revisar</Text>
+              </View>
+            ))}
+          </Pressable>
 
-        {/* Gargalo */}
-        <View style={s.alertCard}>
-          <AlertTriangle size={18} color="#F59E0B" />
-          <View style={{ flex: 1 }}>
-            <Text style={s.alertTitle}>Gargalo: Análise Jurídica</Text>
-            <Text style={s.alertSub}>32 propostas paradas há mais de 7 dias</Text>
-          </View>
-        </View>
-
-      </ScrollView>
+          {gargalos.length > 0 ? (
+            <View style={s.alertCard}>
+              <AlertTriangle size={18} color="#F59E0B" />
+              <View style={{ flex: 1 }}>
+                <Text style={s.alertTitle}>{gargalos.length} propostas paradas há mais de 7 dias</Text>
+                <Text style={s.alertSub}>Maior tempo: {gargalos[0]?.dias_parada} dias · {gargalos[0]?.cliente_nome ?? '—'}</Text>
+              </View>
+            </View>
+          ) : null}
+        </ScrollView>
+      )}
     </SafeAreaView>
   )
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1f1f1f' },
   backBtn: { padding: 8, marginLeft: -8 },
   headerEyebrow: { fontSize: 10, letterSpacing: 1.5, color: '#DC2626', fontWeight: '700' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', marginTop: 1 },
-
-  // Hero
   heroCard: { backgroundColor: '#141414', borderRadius: 16, padding: 20, flexDirection: 'row', alignItems: 'flex-end', gap: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#2a2a2a' },
   heroLeft: { flex: 1 },
   heroLabel: { fontSize: 10, letterSpacing: 1.2, color: '#737373', fontWeight: '600' },
-  heroValue: { fontSize: 28, fontWeight: '800', color: '#fff', marginTop: 4, letterSpacing: -0.5 },
+  heroValue: { fontSize: 26, fontWeight: '800', color: '#fff', marginTop: 4, letterSpacing: -0.5 },
   heroBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8, backgroundColor: '#16A34A18', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, alignSelf: 'flex-start' },
   heroBadgeText: { fontSize: 12, color: '#16A34A', fontWeight: '600' },
   heroBar: { flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 60, width: 80 },
-  bar: { flex: 1, borderRadius: 3, backgroundColor: '#DC2626', opacity: 0.7 },
-
-  // Grid
+  bar: { flex: 1, borderRadius: 3, backgroundColor: '#DC2626' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   statCard: { width: '47.5%', backgroundColor: '#141414', borderRadius: 14, padding: 14, borderTopWidth: 2, borderWidth: 1, borderColor: '#2a2a2a' },
   statHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
@@ -174,20 +241,17 @@ const s = StyleSheet.create({
   statValue: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
   statLabel: { fontSize: 11, color: '#737373', fontWeight: '500', marginTop: 2 },
   statSub: { fontSize: 10, color: '#525252', marginTop: 2 },
-
-  // Card
   card: { backgroundColor: '#141414', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#2a2a2a' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderBottomColor: '#1f1f1f' },
   cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardTitle: { fontSize: 14, fontWeight: '700', color: '#fff' },
   badge: { backgroundColor: '#F59E0B22', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
   badgeText: { fontSize: 12, fontWeight: '700', color: '#F59E0B' },
-  listRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#1f1f1f' },
-  listName: { fontSize: 13, color: '#e5e5e5', fontWeight: '500' },
+  listRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#1f1f1f', gap: 10 },
+  listName: { fontSize: 13, color: '#e5e5e5', fontWeight: '600' },
   listSub: { fontSize: 11, color: '#525252', marginTop: 1 },
   listAction: { fontSize: 12, fontWeight: '700', color: '#DC2626' },
-
-  // Alert
+  empty: { padding: 16, textAlign: 'center', color: '#525252', fontSize: 12 },
   alertCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#F59E0B0D', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#F59E0B30' },
   alertTitle: { fontSize: 13, fontWeight: '700', color: '#F59E0B' },
   alertSub: { fontSize: 12, color: '#737373', marginTop: 2 },
