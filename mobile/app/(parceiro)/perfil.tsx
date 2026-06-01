@@ -1,7 +1,7 @@
 import { ScrollView, View, Text, Pressable, Image, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import { ChevronRight, Bell, Users, Settings, LogOut, Shield, HelpCircle, ShieldCheck, Calculator, BarChart3, GraduationCap } from 'lucide-react-native'
+import { ChevronRight, Bell, Users, Settings, LogOut, Shield, HelpCircle, ShieldCheck, Calculator, BarChart3, GraduationCap, Coins, FileText } from 'lucide-react-native'
 import { useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/Badge'
 import { brl } from '@/lib/utils'
@@ -97,9 +97,11 @@ export default function Perfil() {
           <Text className="text-xs uppercase tracking-wider text-silver-500">Operação</Text>
           <View className="mt-2 overflow-hidden rounded-xl border border-silver-200 bg-white">
             <Item icon={Calculator} label="Simulações" onPress={() => router.push('/(parceiro)/simulacoes' as any)} />
+            <Item icon={Coins} label="Comissões" onPress={() => router.push('/(parceiro)/comissoes' as any)} />
             <Item icon={Users} label="Equipe" badge={`${totalMembros} membros`} onPress={() => router.push('/(parceiro)/equipe' as any)} />
             <Item icon={BarChart3} label="Relatórios" onPress={() => router.push('/(parceiro)/relatorios' as any)} />
             <Item icon={GraduationCap} label="Universidade" onPress={() => router.push('/(parceiro)/universidade' as any)} />
+            <Item icon={FileText} label="Contrato de parceria" onPress={() => router.push('/(parceiro)/contrato' as any)} />
           </View>
         </View>
 

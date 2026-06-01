@@ -21,7 +21,7 @@ export default function Configuracoes() {
   const [toggles, setToggles] = useState({ mfa: true, ipLock: false, audit: true, push: true, email: true })
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0A0A0A' }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0A0A0A' }} edges={['top', 'bottom']}>
       <StatusBar style="light" />
 
       {/* Header */}

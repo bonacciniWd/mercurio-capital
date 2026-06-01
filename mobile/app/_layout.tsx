@@ -18,7 +18,14 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
         <Stack.Screen name="cadastro" />
+        <Stack.Screen name="recuperar-senha" />
+        <Stack.Screen name="redefinir-senha" />
+        <Stack.Screen name="acesso-pendente" />
+        <Stack.Screen name="partner-bootstrap" />
         <Stack.Screen name="magic/[token]" />
+        <Stack.Screen name="convite/[token]" />
+        <Stack.Screen name="2fa/challenge" />
+        <Stack.Screen name="2fa/setup" />
         <Stack.Screen name="protocolo" />
         <Stack.Screen name="(parceiro)" />
         <Stack.Screen name="(cliente)" />

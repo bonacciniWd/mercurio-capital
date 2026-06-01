@@ -181,13 +181,17 @@ export default function ClienteHome() {
 
           <Image source={require('../../assets/general/clientlogo.png')} className="absolute -top-2 -right-2" style={{ width: 180, height: 180, opacity: 0.6 }} />
 
-          <View className="mt-4 rounded-xl border-[0.5px] border-gold bg-white/10 p-4">
+          <Pressable
+            onPress={() => router.push(`/(cliente)/propostas/${proposta.id}` as any)}
+            className="mt-4 rounded-xl border-[0.5px] border-gold bg-white/10 p-4 active:opacity-80"
+          >
             <Text className="text-xs text-white/70">Valor solicitado</Text>
             <Text className="mt-1 text-3xl font-bold text-white">{brl(valor * 100)}</Text>
             <Text className="text-xs text-white/70">
               {proposta.prazo_meses} meses{taxa ? ` · ${taxa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}% a.m.` : ''}
             </Text>
-          </View>
+            <Text className="mt-2 text-[11px] font-semibold text-gold">Ver detalhes →</Text>
+          </Pressable>
 
           <View className="mt-3 self-start rounded-full bg-white/20 px-3 py-1">
             <Text className="text-xs font-semibold text-white">{STATUS_LABEL[proposta.status] || proposta.status}</Text>
@@ -273,13 +277,17 @@ export default function ClienteHome() {
             <Text className="text-xs font-semibold uppercase tracking-wider text-silver-500">Outras propostas</Text>
             <View className="mt-2 gap-2">
               {propostasQ.data!.slice(1).map(p => (
-                <View key={p.id} className="rounded-xl border border-silver-200 bg-white p-4">
+                <Pressable
+                  key={p.id}
+                  onPress={() => router.push(`/(cliente)/propostas/${p.id}` as any)}
+                  className="rounded-xl border border-silver-200 bg-white p-4 active:opacity-70"
+                >
                   <Text className="font-mono text-[11px] text-silver-500">{p.protocolo}</Text>
                   <Text className="font-semibold text-navy">{PRODUTO_LABEL[p.produto] || p.produto}</Text>
                   <Text className="text-xs text-silver-600">
                     {brl(Number(p.valor_solicitado) * 100)} · {STATUS_LABEL[p.status] || p.status}
                   </Text>
-                </View>
+                </Pressable>
               ))}
             </View>
           </View>

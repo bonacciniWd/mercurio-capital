@@ -163,6 +163,10 @@ export default function Parceiros() {
                     <Eye size={14} color="#e5e5e5" />
                     <Text style={s.btnOutlineText}>Detalhes</Text>
                   </Pressable>
+                  <Pressable style={s.btnOutline} onPress={() => router.push({ pathname: '/(admin)/partner-equipes' as any, params: { partnerId: p.partner_id } })}>
+                    <Users size={14} color="#38BDF8" />
+                    <Text style={[s.btnOutlineText, { color: '#38BDF8' }]}>Equipes</Text>
+                  </Pressable>
                   {suspended ? (
                     <Pressable style={[s.btnOutline, { borderColor: '#16A34A60' }]} onPress={() => reactivate.mutate(p.partner_id)} disabled={reactivate.isPending}>
                       {reactivate.isPending && reactivate.variables === p.partner_id ? <ActivityIndicator size="small" color="#16A34A" /> : <Unlock size={14} color="#16A34A" />}
@@ -243,7 +247,7 @@ const s = StyleSheet.create({
   headerEyebrow: { fontSize: 10, letterSpacing: 1.5, color: '#DC2626', fontWeight: '700' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', marginTop: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  statCard: { width: '47.5%', backgroundColor: '#141414', borderRadius: 14, padding: 14, borderTopWidth: 2, borderWidth: 1, borderColor: '#2a2a2a' },
+  statCard: { flexBasis: '47%', flexGrow: 1, minWidth: 0, minHeight: 116, backgroundColor: '#141414', borderRadius: 14, padding: 14, borderTopWidth: 2, borderWidth: 1, borderColor: '#2a2a2a' },
   iconBadge: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   statValue: { fontSize: 18, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
   statLabel: { fontSize: 11, color: '#737373', fontWeight: '500', marginTop: 2 },

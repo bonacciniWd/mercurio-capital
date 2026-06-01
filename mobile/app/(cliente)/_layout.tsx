@@ -20,6 +20,7 @@ export default function ClienteLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="documentos" />
       <Stack.Screen name="universidade" />
+      <Stack.Screen name="propostas/[id]" />
     </Stack>
   )
 }

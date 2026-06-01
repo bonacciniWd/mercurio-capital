@@ -31,15 +31,34 @@ export default function Login() {
       if (error) throw error
       const userId = signin.user?.id
       if (!userId) throw new Error('Sessão inválida.')
+
+      // 1) Verifica nível de garantia (AAL) — se houver fator TOTP verificado e AAL < 2,
+      //    redireciona para challenge 2FA.
+      try {
+        const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+        if (aal && aal.currentLevel === 'aal1' && aal.nextLevel === 'aal2') {
+          return router.replace('/2fa/challenge' as any)
+        }
+      } catch { /* MFA opcional: prossegue se a checagem falhar */ }
+
+      // 2) Verifica perfil/role + status do parceiro
       const { data: prof } = await supabase
         .from('usuarios')
         .select('role')
         .eq('id', userId)
         .maybeSingle()
       const role = prof?.role as string | undefined
-      if (role === 'admin') router.replace('/(admin)' as any)
-      else if (role === 'client') router.replace('/(cliente)' as any)
-      else router.replace('/(parceiro)/dashboard')
+
+      if (role === 'admin') return router.replace('/(admin)' as any)
+      if (role === 'client') return router.replace('/(cliente)' as any)
+
+      // partner | team_member: checa se está aprovado
+      const { data: meData } = await supabase.rpc('me')
+      const me = (meData ?? {}) as { partner_status?: string; approved?: boolean }
+      if (role === 'partner' && (me.partner_status !== 'approved' || !me.approved)) {
+        return router.replace('/acesso-pendente' as any)
+      }
+      router.replace('/(parceiro)/dashboard')
     } catch (e) {
       Alert.alert('Falha no login', e instanceof Error ? e.message : String(e))
     } finally {
@@ -90,7 +109,7 @@ export default function Login() {
               </View>
             </View>
 
-            <Pressable className="self-end">
+            <Pressable onPress={() => router.push('/recuperar-senha' as any)} className="self-end">
               <Text className="text-sm font-medium text-gold-600">Esqueci minha senha</Text>
             </Pressable>
           </View>

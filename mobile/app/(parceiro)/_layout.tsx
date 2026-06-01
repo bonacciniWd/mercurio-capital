@@ -246,6 +246,8 @@ export default function ParceiroLayout() {
         <Tabs.Screen name="simulacoes"     options={{ href: null }} />
         <Tabs.Screen name="equipe"         options={{ href: null }} />
         <Tabs.Screen name="relatorios"     options={{ href: null }} />
+        <Tabs.Screen name="comissoes"      options={{ href: null }} />
+        <Tabs.Screen name="contrato"       options={{ href: null }} />
         <Tabs.Screen name="configuracoes"  options={{ href: null }} />
         <Tabs.Screen name="propostas/[id]" options={{ href: null }} />
         <Tabs.Screen name="aula/[id]"      options={{ href: null }} />

@@ -31,7 +31,7 @@ export default function Integracoes() {
   const erros      = integracoes.filter(i => i.status === 'Erro').length
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0A0A0A' }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0A0A0A' }} edges={['top', 'bottom']}>
       <StatusBar style="light" />
 
       {/* Header */}

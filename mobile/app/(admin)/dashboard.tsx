@@ -100,9 +100,9 @@ export default function AdminDashboard() {
   })
 
   const kpi = kpiQuery.data
-  const top = topQuery.data ?? []
-  const aprov = aprovQuery.data ?? []
-  const gargalos = gargaloQuery.data ?? []
+  const top = Array.isArray(topQuery.data) ? topQuery.data : []
+  const aprov = Array.isArray(aprovQuery.data) ? aprovQuery.data : []
+  const gargalos = Array.isArray(gargaloQuery.data) ? gargaloQuery.data : []
   const loading = kpiQuery.isLoading || topQuery.isLoading
 
   const volumeEmAnalise = Math.max(0, Number(kpi?.volume_total ?? 0) - Number(kpi?.volume_ganho ?? 0)) * 100
@@ -233,7 +233,7 @@ const s = StyleSheet.create({
   heroBar: { flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 60, width: 80 },
   bar: { flex: 1, borderRadius: 3, backgroundColor: '#DC2626' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  statCard: { width: '47.5%', backgroundColor: '#141414', borderRadius: 14, padding: 14, borderTopWidth: 2, borderWidth: 1, borderColor: '#2a2a2a' },
+  statCard: { flexBasis: '47%', flexGrow: 1, minWidth: 0, minHeight: 124, backgroundColor: '#141414', borderRadius: 14, padding: 14, borderTopWidth: 2, borderWidth: 1, borderColor: '#2a2a2a' },
   statHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   iconBadge: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   trendPill: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 20, paddingHorizontal: 7, paddingVertical: 3 },

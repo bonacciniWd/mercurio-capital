@@ -127,7 +127,9 @@ export default function Propostas() {
             const ltvHigh = ltvPct > 60
             const color = STATUS_COLOR[p.status] ?? '#737373'
             return (
-              <Pressable style={[s.card, { borderTopColor: color }]}>
+              <Pressable
+                onPress={() => router.push(`/(admin)/proposta/${p.id}` as any)}
+                style={[s.card, { borderTopColor: color }]}>
                 <View style={s.cardTop}>
                   <Text style={s.cardId} numberOfLines={1}>{p.protocolo ?? p.id.slice(0, 8)}</Text>
                   <View style={[s.statusPill, { backgroundColor: color + '22' }]}>
