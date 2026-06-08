@@ -108,10 +108,16 @@ export default function Carteira() {
       const token = sess.session?.access_token
       if (!token) throw new Error('Sessão expirada')
       const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL
+      // Deep-link de retorno para fechar o WebBrowser e voltar ao app
+      const returnUrl = 'mercurio://carteira/recarga'
       const res = await fetch(`${baseUrl}/functions/v1/wallet-topup`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-        body: JSON.stringify({ valor_centavos: centavos }),
+        body: JSON.stringify({
+          valor_centavos: centavos,
+          success_url: `${returnUrl}?status=success&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${returnUrl}?status=cancel`,
+        }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'falha_topup')
@@ -123,7 +129,36 @@ export default function Carteira() {
         await qc.invalidateQueries({ queryKey: ['wallet-extrato'] })
         return
       }
-      await WebBrowser.openBrowserAsync(data.checkout_url)
+      // openAuthSessionAsync fecha o browser automaticamente ao bater no returnUrl
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.checkout_url,
+        'mercurio://carteira/recarga',
+      )
+      if (result.type === 'success' && result.url.includes('status=success')) {
+        // Polla por até 60s aguardando o webhook confirmar
+        const deadline = Date.now() + 60_000
+        while (Date.now() < deadline) {
+          await new Promise(r => setTimeout(r, 2_000))
+          await qc.invalidateQueries({ queryKey: ['wallet-resumo-carteira'] })
+          const { data: topups } = await supabase
+            .from('wallet_topups')
+            .select('status, valor_centavos')
+            .gte('created_at', new Date(Date.now() - 30 * 60_000).toISOString())
+            .order('created_at', { ascending: false })
+            .limit(1)
+          const t = topups?.[0]
+          if (t?.status === 'succeeded') {
+            Alert.alert('Recarga confirmada', `Saldo creditado: + ${brl(t.valor_centavos)}`)
+            break
+          }
+          if (t?.status === 'failed' || t?.status === 'canceled') {
+            Alert.alert('Pagamento recusado', 'Nenhum valor foi debitado.')
+            break
+          }
+        }
+      } else if (result.type === 'success' && result.url.includes('status=cancel')) {
+        Alert.alert('Recarga cancelada', 'Nenhum valor foi debitado.')
+      }
       await qc.invalidateQueries({ queryKey: ['wallet-resumo-carteira'] })
       await qc.invalidateQueries({ queryKey: ['wallet-extrato'] })
     },

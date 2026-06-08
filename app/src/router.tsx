@@ -36,6 +36,7 @@ import { PartnerWizard } from '@/pages/partner/Wizard'
 import { PartnerPropostas } from '@/pages/partner/Propostas'
 import { PartnerPropostaDetalhe } from '@/pages/partner/PropostaDetalhe'
 import { PartnerCarteira } from '@/pages/partner/Carteira'
+import { PartnerCarteiraRecarga } from '@/pages/partner/CarteiraRecarga'
 import { PartnerEquipe } from '@/pages/partner/Equipe'
 import { PartnerRelatorios } from '@/pages/partner/Relatorios'
 import { PartnerConfig } from '@/pages/partner/Configuracoes'
@@ -170,7 +171,7 @@ export const router = createBrowserRouter([
                       { path: 'propostas/nova', element: <PartnerWizard /> },
                       { path: 'propostas/:id', element: <PartnerPropostaDetalhe /> },
                       { path: 'carteira', element: <PartnerCarteira /> },
-                      { path: 'carteira/recarga', element: <PartnerCarteira /> },
+                      { path: 'carteira/recarga', element: <PartnerCarteiraRecarga /> },
                       { path: 'equipe', element: <PartnerEquipe /> },
                       { path: 'relatorios', element: <PartnerRelatorios /> },
                       { path: 'configuracoes', element: <PartnerConfig /> },

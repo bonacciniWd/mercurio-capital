@@ -13,7 +13,8 @@ const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const STRIPE_SECRET = Deno.env.get('STRIPE_SECRET_KEY') ?? ''
 const APP_URL = Deno.env.get('APP_URL') ?? 'http://localhost:5173'
 
-const MIN_VALOR = 2000 // R$ 20,00
+// const MIN_VALOR = 2000 // R$ 20,00
+const MIN_VALOR = 50 // R$ 0,50
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
@@ -38,23 +39,44 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'valor_invalido', detail: `mínimo ${MIN_VALOR} centavos` }, 400)
   }
 
-  // Resolve partner_id a partir do usuário
+  // Resolve usuário + partner_id
+  // A tabela `usuarios` NÃO possui `partner_id`. O vínculo correto é:
+  //   partners.usuario_id → usuarios.id  (dono do parceiro)
   const { data: usuario, error: uErr } = await service
-    .from('usuarios').select('id, partner_id, role, email')
+    .from('usuarios').select('id, role, email, nome_completo')
     .eq('id', ures.user.id).maybeSingle()
-  if (uErr || !usuario) return jsonResponse({ error: 'usuario_nao_encontrado' }, 404)
+  if (uErr || !usuario) {
+    return jsonResponse({ error: 'usuario_nao_encontrado', detail: uErr?.message }, 404)
+  }
   if (usuario.role !== 'partner') return jsonResponse({ error: 'somente_partner' }, 403)
-  if (!usuario.partner_id) return jsonResponse({ error: 'partner_nao_vinculado' }, 403)
 
-  const { data: wallet, error: wErr } = await service
+  const { data: partnerRow, error: pErr } = await service
+    .from('partners').select('id, status')
+    .eq('usuario_id', usuario.id).maybeSingle()
+  if (pErr) return jsonResponse({ error: 'partner_lookup_fail', detail: pErr.message }, 500)
+  if (!partnerRow) return jsonResponse({ error: 'partner_nao_vinculado' }, 403)
+  if (partnerRow.status !== 'approved') {
+    return jsonResponse({ error: 'partner_nao_aprovado', detail: partnerRow.status }, 403)
+  }
+  const partnerId = partnerRow.id
+
+  // Garante wallet (idempotente — trigger cria, mas fallback aqui se faltar)
+  let { data: wallet, error: wErr } = await service
     .from('partner_wallets').select('id, bloqueada, motivo_bloqueio')
-    .eq('partner_id', usuario.partner_id).maybeSingle()
-  if (wErr || !wallet) return jsonResponse({ error: 'wallet_nao_encontrada' }, 404)
+    .eq('partner_id', partnerId).maybeSingle()
+  if (wErr) return jsonResponse({ error: 'wallet_lookup_fail', detail: wErr.message }, 500)
+  if (!wallet) {
+    const ins = await service.from('partner_wallets')
+      .insert({ partner_id: partnerId })
+      .select('id, bloqueada, motivo_bloqueio').single()
+    if (ins.error) return jsonResponse({ error: 'wallet_create_fail', detail: ins.error.message }, 500)
+    wallet = ins.data
+  }
   if (wallet.bloqueada) return jsonResponse({ error: 'wallet_bloqueada', detail: wallet.motivo_bloqueio }, 423)
 
-  // Rate-limit: 5 recargas pendentes/h
+  // Rate-limit: 10 recargas/h
   const { data: rl } = await service.rpc('check_and_increment', {
-    chave: `topup:${usuario.partner_id}`, limite: 10, janela: '1 hour',
+    chave: `topup:${partnerId}`, limite: 10, janela: '1 hour',
   })
   if (rl === false) return jsonResponse({ error: 'rate_limited' }, 429)
 
@@ -62,13 +84,13 @@ Deno.serve(async (req) => {
   if (!STRIPE_SECRET) {
     const intentId = `pi_dev_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`
     const { error: piErr } = await service.from('stripe_payment_intents').insert({
-      id: intentId, usuario_id: usuario.id, partner_id: usuario.partner_id,
+      id: intentId, usuario_id: usuario.id, partner_id: partnerId,
       proposito: 'wallet_topup', valor_centavos: valor, status: 'processing',
       payload: { dev: true, email: usuario.email },
     })
     if (piErr) return jsonResponse({ error: 'falha_intent', detail: piErr.message }, 500)
     const { data: topup, error: tErr } = await service.from('wallet_topups').insert({
-      partner_id: usuario.partner_id, wallet_id: wallet.id, valor_centavos: valor,
+      partner_id: partnerId, wallet_id: wallet.id, valor_centavos: valor,
       provedor: 'stripe', provider_intent_id: intentId, status: 'processing',
       metadata: { dev: true },
     }).select('id').single()
@@ -81,8 +103,10 @@ Deno.serve(async (req) => {
   }
 
   // ---- Stripe real ----
-  const successUrl = body.success_url ?? `${APP_URL}/p/carteira?topup=success`
-  const cancelUrl = body.cancel_url ?? `${APP_URL}/p/carteira?topup=cancel`
+  const successUrl = body.success_url
+    ?? `${APP_URL}/p/carteira/recarga?status=success&session_id={CHECKOUT_SESSION_ID}`
+  const cancelUrl = body.cancel_url
+    ?? `${APP_URL}/p/carteira/recarga?status=cancel`
 
   const form = new URLSearchParams()
   form.append('mode', 'payment')
@@ -94,7 +118,7 @@ Deno.serve(async (req) => {
   form.append('line_items[0][price_data][unit_amount]', String(valor))
   form.append('line_items[0][price_data][product_data][name]', 'Recarga Carteira Mercurio')
   form.append('line_items[0][quantity]', '1')
-  form.append('metadata[partner_id]', usuario.partner_id)
+  form.append('metadata[partner_id]', partnerId)
   form.append('metadata[usuario_id]', usuario.id)
   form.append('metadata[wallet_id]', wallet.id)
   form.append('metadata[proposito]', 'wallet_topup')
@@ -115,12 +139,12 @@ Deno.serve(async (req) => {
   const intentId = session.payment_intent ?? session.id
 
   await service.from('stripe_payment_intents').insert({
-    id: intentId, usuario_id: usuario.id, partner_id: usuario.partner_id,
+    id: intentId, usuario_id: usuario.id, partner_id: partnerId,
     proposito: 'wallet_topup', valor_centavos: valor, status: 'processing',
     payload: { session_id: session.id, email: usuario.email },
   })
   const { data: topup } = await service.from('wallet_topups').insert({
-    partner_id: usuario.partner_id, wallet_id: wallet.id, valor_centavos: valor,
+    partner_id: partnerId, wallet_id: wallet.id, valor_centavos: valor,
     provedor: 'stripe', provider_intent_id: intentId, status: 'processing',
     metadata: { session_id: session.id },
   }).select('id').single()
