@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  ScrollView, View, Text, Pressable, Image, ActivityIndicator, Alert,
+  ScrollView, View, Text, Pressable, Image, ActivityIndicator, Alert, Platform,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ArrowDown, ArrowUp, RotateCcw } from 'lucide-react-native'
@@ -221,26 +221,38 @@ export default function Carteira() {
         {/* Recarga rápida */}
         <View className="px-5 py-4">
           <Text className="text-base font-bold text-navy">Recarga rápida</Text>
-          <View className="mt-2 flex-row flex-wrap gap-2">
-            {QUICK_VALUES.map(v => (
-              <Pressable
-                key={v}
-                onPress={() => onRecarregar(v)}
-                disabled={bloqueada || recarregar.isPending}
-                className="rounded-full border border-silver-300 bg-white px-4 py-2 active:opacity-70"
-                style={{ opacity: bloqueada ? 0.5 : 1 }}
-              >
-                <Text className="text-sm font-semibold text-navy">{brl(v)}</Text>
-              </Pressable>
-            ))}
-          </View>
-          {recarregar.isPending && (
-            <View className="mt-2 flex-row items-center gap-2">
-              <ActivityIndicator size="small" color="#DC2626" />
-              <Text className="text-xs text-silver-600">Gerando checkout…</Text>
+          {Platform.OS === 'ios' ? (
+            <View className="mt-2 rounded-xl border border-silver-200 bg-white p-4">
+              <Text className="text-sm font-semibold text-navy">Recarga indisponível no app iOS</Text>
+              <Text className="mt-1 text-xs text-silver-600">
+                Por exigência da Apple (compras dentro do app), a recarga de carteira é feita
+                pela versão web. Acesse pelo navegador para adicionar saldo.
+              </Text>
             </View>
+          ) : (
+            <>
+              <View className="mt-2 flex-row flex-wrap gap-2">
+                {QUICK_VALUES.map(v => (
+                  <Pressable
+                    key={v}
+                    onPress={() => onRecarregar(v)}
+                    disabled={bloqueada || recarregar.isPending}
+                    className="rounded-full border border-silver-300 bg-white px-4 py-2 active:opacity-70"
+                    style={{ opacity: bloqueada ? 0.5 : 1 }}
+                  >
+                    <Text className="text-sm font-semibold text-navy">{brl(v)}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              {recarregar.isPending && (
+                <View className="mt-2 flex-row items-center gap-2">
+                  <ActivityIndicator size="small" color="#DC2626" />
+                  <Text className="text-xs text-silver-600">Gerando checkout…</Text>
+                </View>
+              )}
+              {erro && <Text className="mt-2 text-xs text-danger">{erro}</Text>}
+            </>
           )}
-          {erro && <Text className="mt-2 text-xs text-danger">{erro}</Text>}
         </View>
 
         {/* Preços */}

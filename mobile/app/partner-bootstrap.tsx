@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { Lock, CheckCircle2, AlertTriangle, KeyRound } from 'lucide-react-native'
 import { supabase } from '@/lib/supabase'
+import { getSenhaMinLength, validarSenha } from '@/lib/securityConfig'
 import { useAuth } from '@/lib/auth'
 
 type Phase = 'loading' | 'set_password' | 'redirecting' | 'error'
@@ -70,7 +71,8 @@ export default function PartnerBootstrap() {
 
   async function onSubmit() {
     setError(null)
-    if (pwd.length < 8) return setError('A senha precisa ter ao menos 8 caracteres.')
+    const erroSenha = validarSenha(pwd, await getSenhaMinLength())
+    if (erroSenha) return setError(erroSenha)
     if (pwd !== pwd2) return setError('As senhas não conferem.')
 
     setSubmitting(true)

@@ -1,4 +1,4 @@
-import { ScrollView, View, Text, Pressable, ActivityIndicator, Alert, Image } from 'react-native'
+import { ScrollView, View, Text, Pressable, ActivityIndicator, Alert, Image, Platform } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { GraduationCap, Lock, Play, ArrowLeft, CheckCircle2 } from 'lucide-react-native'
@@ -125,22 +125,35 @@ export default function ClientUniversidade() {
               <Bullet text="Certificado digital validado" />
               <Bullet text="Atualizações semanais" />
             </View>
-            <Pressable
-              disabled={assinarMut.isPending}
-              onPress={() => assinarMut.mutate('mensal')}
-              className="mt-6 self-stretch rounded-lg bg-gold py-3 active:opacity-80"
-            >
-              {assinarMut.isPending
-                ? <ActivityIndicator color="white" />
-                : <Text className="text-center text-sm font-bold text-white">Assinar por R$ 49,90/mês</Text>}
-            </Pressable>
-            <Pressable
-              disabled={assinarMut.isPending}
-              onPress={() => assinarMut.mutate('anual')}
-              className="mt-2 self-stretch rounded-lg border border-silver-300 py-3"
-            >
-              <Text className="text-center text-sm font-bold text-navy">Anual — R$ 499,00 (2 meses grátis)</Text>
-            </Pressable>
+            {Platform.OS === 'ios' ? (
+              <View className="mt-6 self-stretch rounded-lg border border-silver-200 bg-silver-50 p-4">
+                <Text className="text-sm font-bold text-navy">Assinatura indisponível no app iOS</Text>
+                <Text className="mt-1 text-xs text-silver-600">
+                  Por exigência da Apple (compras dentro do app), a assinatura da Universidade
+                  é feita pela versão web. Acesse pelo navegador para assinar e o acesso será
+                  liberado automaticamente aqui.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Pressable
+                  disabled={assinarMut.isPending}
+                  onPress={() => assinarMut.mutate('mensal')}
+                  className="mt-6 self-stretch rounded-lg bg-gold py-3 active:opacity-80"
+                >
+                  {assinarMut.isPending
+                    ? <ActivityIndicator color="white" />
+                    : <Text className="text-center text-sm font-bold text-white">Assinar por R$ 49,90/mês</Text>}
+                </Pressable>
+                <Pressable
+                  disabled={assinarMut.isPending}
+                  onPress={() => assinarMut.mutate('anual')}
+                  className="mt-2 self-stretch rounded-lg border border-silver-300 py-3"
+                >
+                  <Text className="text-center text-sm font-bold text-navy">Anual — R$ 499,00 (2 meses grátis)</Text>
+                </Pressable>
+              </>
+            )}
             {assinaturaQ.data?.status === 'past_due' && (
               <Text className="mt-3 text-xs text-danger">Sua assinatura está atrasada. Renove para recuperar o acesso.</Text>
             )}

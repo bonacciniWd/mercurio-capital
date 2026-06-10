@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { Lock, CheckCircle2, AlertTriangle } from 'lucide-react-native'
 import { supabase } from '@/lib/supabase'
+import { getSenhaMinLength, validarSenha } from '@/lib/securityConfig'
 
 export default function RedefinirSenha() {
   const [hasRecovery, setHasRecovery] = useState(false)
@@ -34,7 +35,8 @@ export default function RedefinirSenha() {
 
   async function handleSubmit() {
     setError(null)
-    if (password.length < 8) return setError('A senha deve ter ao menos 8 caracteres.')
+    const erroSenha = validarSenha(password, await getSenhaMinLength())
+    if (erroSenha) return setError(erroSenha)
     if (password !== confirm) return setError('As senhas não conferem.')
 
     setLoading(true)

@@ -1,6 +1,8 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { AppState, type AppStateStatus } from 'react-native'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { getIdleConfig } from './securityConfig'
 
 type Role = 'admin' | 'partner' | 'team_member' | 'client' | null
 
@@ -43,6 +45,7 @@ async function loadProfile(s: Session | null): Promise<SessionExt | null> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<SessionExt | null>(null)
   const [loading, setLoading] = useState(true)
+  const backgroundedAt = useRef<number | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -68,6 +71,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sub.subscription.unsubscribe()
     }
   }, [])
+
+  // Auto-logout por inatividade: ao voltar do background após exceder o limite
+  // (admin → sessao_idle_admin_min · demais → sessao_idle_geral_min), encerra a sessão.
+  useEffect(() => {
+    const onChange = async (state: AppStateStatus) => {
+      if (state === 'background' || state === 'inactive') {
+        backgroundedAt.current = Date.now()
+        return
+      }
+      if (state === 'active' && backgroundedAt.current && session) {
+        const elapsed = Date.now() - backgroundedAt.current
+        backgroundedAt.current = null
+        const { adminMin, geralMin } = await getIdleConfig()
+        const limite = (session.role === 'admin' ? adminMin : geralMin) * 60_000
+        if (elapsed > limite) {
+          await supabase.auth.signOut()
+          setSession(null)
+        }
+      }
+    }
+    const subscription = AppState.addEventListener('change', onChange)
+    return () => subscription.remove()
+  }, [session])
 
   return (
     <Ctx.Provider

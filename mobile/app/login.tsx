@@ -27,7 +27,31 @@ export default function Login() {
     if (!email || !pwd) return Alert.alert('Atenção', 'Informe e-mail e senha.')
     setLoading(true)
     try {
-      const { data: signin, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: pwd })
+      // Login via edge `auth-login` (rate limit server-side por e-mail + IP).
+      const { data: result, error: fnError } = await supabase.functions.invoke('auth-login', {
+        body: { email: email.trim(), password: pwd },
+      })
+      if (fnError) {
+        let parsed: { error?: string; retry_after_min?: number } | null = null
+        try {
+          const ctx = (fnError as { context?: Response }).context
+          if (ctx && typeof ctx.json === 'function') parsed = await ctx.json()
+        } catch { /* ignore */ }
+        if (parsed?.error === 'rate_limited') {
+          throw new Error(`Muitas tentativas de login. Tente novamente em ${parsed.retry_after_min ?? 15} minutos.`)
+        }
+        if (parsed?.error === 'credenciais_invalidas') {
+          throw new Error('E-mail ou senha inválidos.')
+        }
+        throw new Error('Falha ao autenticar.')
+      }
+      const tokens = result as { access_token?: string; refresh_token?: string } | null
+      if (!tokens?.access_token || !tokens?.refresh_token) throw new Error('Falha ao autenticar.')
+
+      const { data: signin, error } = await supabase.auth.setSession({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+      })
       if (error) throw error
       const userId = signin.user?.id
       if (!userId) throw new Error('Sessão inválida.')
