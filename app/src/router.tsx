@@ -11,6 +11,7 @@ import { Require2FA } from '@/guards/Require2FA'
 import { RedirectIfAuthenticated } from '@/guards/RedirectIfAuthenticated'
 
 import { Landing } from '@/pages/Landing'
+import { Download } from '@/pages/Download'
 import { Login } from '@/pages/public/Login'
 import { Protocolo } from '@/pages/public/Protocolo'
 import { MagicLink } from '@/pages/public/MagicLink'
@@ -71,6 +72,7 @@ const AdminUniversidade    = lazy(() => import('@/pages/admin/Universidade').the
 
 export const router = createBrowserRouter([
   { path: '/', element: <Landing /> },
+  { path: '/download', element: <Download /> },
   {
     element: <PublicLayout />,
     children: [

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Loader2, CheckCircle2, AlertTriangle, KeyRound } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth/AuthContext'
+import { getSenhaMinLength, validarSenha } from '@/lib/securityConfig'
 
 type Phase = 'loading' | 'set_password' | 'redirecting' | 'error'
 
@@ -68,7 +69,8 @@ export function PartnerBootstrap() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    if (pwd.length < 8) { setError('A senha precisa ter ao menos 8 caracteres.'); return }
+    const erroSenha = validarSenha(pwd, await getSenhaMinLength())
+    if (erroSenha) { setError(erroSenha); return }
     if (pwd !== pwd2) { setError('As senhas não conferem.'); return }
 
     setSubmitting(true)

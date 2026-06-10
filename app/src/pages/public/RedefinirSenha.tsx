@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { CheckCircle2 } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { supabase } from '@/lib/supabase'
+import { getSenhaMinLength, validarSenha } from '@/lib/securityConfig'
 
 export function RedefinirSenha() {
   const navigate = useNavigate()
@@ -29,8 +30,9 @@ export function RedefinirSenha() {
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    if (password.length < 8) {
-      setError('A senha deve ter ao menos 8 caracteres.')
+    const erroSenha = validarSenha(password, await getSenhaMinLength())
+    if (erroSenha) {
+      setError(erroSenha)
       return
     }
     if (password !== confirm) {

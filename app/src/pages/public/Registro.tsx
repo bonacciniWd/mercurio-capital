@@ -4,6 +4,7 @@ import { CheckCircle2 } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { PartnerDocsUploader, type DocSlot } from '@/components/PartnerDocsUploader'
 import { supabase } from '@/lib/supabase'
+import { getSenhaMinLength, validarSenha } from '@/lib/securityConfig'
 
 type Step = 1 | 2 | 3
 
@@ -69,8 +70,9 @@ export function Registro() {
       setError('As senhas não conferem.')
       return
     }
-    if (form.password.length < 8) {
-      setError('A senha deve ter ao menos 8 caracteres.')
+    const erroSenha = validarSenha(form.password, await getSenhaMinLength())
+    if (erroSenha) {
+      setError(erroSenha)
       return
     }
 

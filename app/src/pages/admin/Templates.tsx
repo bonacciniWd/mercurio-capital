@@ -15,6 +15,8 @@ interface Template {
   corpo: string
   variaveis: string[]
   ativo: boolean
+  wa_template_nome: string | null
+  wa_idioma: string | null
   created_at: string
   updated_at: string
   created_by_nome: string | null
@@ -28,7 +30,7 @@ const CANAL_LBL: Record<Canal, string> = {
 }
 
 function emptyDraft(): Partial<Template> {
-  return { codigo: '', canal: 'in_app', nome: '', assunto: '', corpo: '', variaveis: [], ativo: true }
+  return { codigo: '', canal: 'in_app', nome: '', assunto: '', corpo: '', variaveis: [], ativo: true, wa_idioma: 'pt_BR' }
 }
 
 export function AdminTemplates() {
@@ -58,6 +60,8 @@ export function AdminTemplates() {
         p_assunto: t.assunto ?? null,
         p_variaveis: t.variaveis ?? [],
         p_ativo: t.ativo ?? true,
+        p_wa_template_nome: t.canal === 'whatsapp' ? (t.wa_template_nome ?? null) : null,
+        p_wa_idioma: t.wa_idioma ?? 'pt_BR',
       })
       if (error) throw error
       return data
@@ -185,7 +189,7 @@ export function AdminTemplates() {
                     onChange={e => setEditing(s => ({ ...s!, canal: e.target.value as Canal }))}>
                     <option value="in_app">In-app</option>
                     <option value="email">E-mail</option>
-                    <option value="whatsapp">WhatsApp (deferido)</option>
+                    <option value="whatsapp">WhatsApp</option>
                     <option value="push">Push (deferido)</option>
                   </select>
                 </div>
@@ -215,6 +219,29 @@ export function AdminTemplates() {
                   onChange={e => handleVars(e.target.value)}
                   placeholder="nome, protocolo, valor" />
               </div>
+              {editing.canal === 'whatsapp' && (
+                <div className="rounded-lg border border-green-200 bg-green-50/50 p-3">
+                  <p className="mb-2 text-xs font-semibold text-green-800">WhatsApp Cloud API (Meta)</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Template aprovado (nome na Meta)</label>
+                      <input className="input" value={editing.wa_template_nome ?? ''}
+                        onChange={e => setEditing(s => ({ ...s!, wa_template_nome: e.target.value }))}
+                        placeholder="status_proposta" />
+                    </div>
+                    <div>
+                      <label className="label">Idioma</label>
+                      <input className="input" value={editing.wa_idioma ?? 'pt_BR'}
+                        onChange={e => setEditing(s => ({ ...s!, wa_idioma: e.target.value }))}
+                        placeholder="pt_BR" />
+                    </div>
+                  </div>
+                  <p className="mt-2 text-[11px] text-silver-600">
+                    As <b>variáveis</b> acima, na ordem, viram os parâmetros <code className="font-mono">{'{{1}}, {{2}}…'}</code> do template aprovado.
+                    Deixe o nome em branco para enviar texto livre (válido só na janela de 24h).
+                  </p>
+                </div>
+              )}
               <label className="inline-flex items-center gap-2 text-sm">
                 <input type="checkbox" className="accent-gold" checked={editing.ativo ?? true}
                   onChange={e => setEditing(s => ({ ...s!, ativo: e.target.checked }))} />

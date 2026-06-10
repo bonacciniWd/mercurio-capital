@@ -23,13 +23,60 @@ interface Body {
 }
 
 // Mock determinístico — substituir por chamadas reais quando credenciais existirem.
+// Serasa: usa API real se SERASA_CLIENT_ID + SERASA_CLIENT_SECRET estiverem setados.
+
+const SERASA_CLIENT_ID     = Deno.env.get('SERASA_CLIENT_ID') ?? ''
+const SERASA_CLIENT_SECRET = Deno.env.get('SERASA_CLIENT_SECRET') ?? ''
+const SERASA_API_URL       = Deno.env.get('SERASA_API_URL') ?? 'https://api.serasaexperian.com.br'
+
+let _serasaToken: string | null = null
+let _serasaTokenExp = 0
+
+async function getSerasaToken(): Promise<string> {
+  if (_serasaToken && Date.now() < _serasaTokenExp) return _serasaToken
+  const res = await fetch(`${SERASA_API_URL}/security/iam/v1/client-identities/connect/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: SERASA_CLIENT_ID,
+      client_secret: SERASA_CLIENT_SECRET,
+    }),
+  })
+  if (!res.ok) throw new Error(`Serasa auth ${res.status}: ${await res.text()}`)
+  const json = await res.json() as { access_token: string; expires_in: number }
+  _serasaToken = json.access_token
+  _serasaTokenExp = Date.now() + (json.expires_in - 30) * 1000
+  return _serasaToken
+}
+
+async function chamarSerasa(tipo: string, payload: Record<string, unknown>): Promise<{
+  provedor: string; response: Record<string, unknown>; resumo: Record<string, unknown>
+}> {
+  const token = await getSerasaToken()
+  const doc = (payload.cpf ?? payload.cnpj ?? '') as string
+  const isPJ = tipo === 'serasa_pj'
+  const endpoint = isPJ
+    ? `${SERASA_API_URL}/queries/v1/pj/${doc.replace(/\D/g, '')}/data-return`
+    : `${SERASA_API_URL}/queries/v1/pf/${doc.replace(/\D/g, '')}/data-return`
+  const res = await fetch(endpoint, {
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+  })
+  if (!res.ok) throw new Error(`Serasa ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  const data = await res.json() as Record<string, unknown>
+  const score = (data.score as Record<string, unknown>)?.['score'] as number | undefined
+  return {
+    provedor: 'serasa_experian',
+    response: data,
+    resumo: { status: 'ok', score: score ?? null },
+  }
+}
+
 async function chamarProvedor(tipo: string, payload: Record<string, unknown>): Promise<{
   provedor: string
   response: Record<string, unknown>
   resumo: Record<string, unknown>
 }> {
-  // Suporte a credenciais: se variáveis de ambiente estiverem setadas, chamar real.
-  // Por enquanto todos rodam em modo mock.
   const seed = Math.floor(Math.random() * 1000)
   const now = new Date().toISOString()
 
@@ -45,6 +92,11 @@ async function chamarProvedor(tipo: string, payload: Record<string, unknown>): P
     }
     case 'serasa_pf':
     case 'serasa_pj': {
+      // Usa API real se credenciais estiverem configuradas
+      if (SERASA_CLIENT_ID && SERASA_CLIENT_SECRET) {
+        return chamarSerasa(tipo, payload)
+      }
+      // fallback mock
       const score = 300 + (seed % 700)
       return {
         provedor: 'serasa_mock',

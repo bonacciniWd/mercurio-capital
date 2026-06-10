@@ -327,7 +327,7 @@ export function AdminFluxos() {
       <div className="mb-4 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold text-navy">Fluxos automatizados</h1>
-          <p className="text-sm text-silver-500">Editor visual com React Flow. Canais ativos: <b>in-app</b> e <b>e-mail</b> (whatsapp/push deferidos).</p>
+          <p className="text-sm text-silver-500">Editor visual com React Flow. Canais ativos: <b>in-app</b>, <b>e-mail</b> e <b>WhatsApp</b> (push deferido).</p>
         </div>
         <button className="btn-gold" onClick={startNew}><Plus className="h-4 w-4" /> Novo fluxo</button>
       </div>
@@ -418,7 +418,7 @@ export function AdminFluxos() {
                         {templates.map(t => <option key={t.codigo} value={t.codigo}>{t.nome} ({t.codigo})</option>)}
                       </select>
                       <div className="flex gap-1">
-                        {(['in_app', 'email'] as Canal[]).map(c => {
+                        {(['in_app', 'email', 'whatsapp'] as Canal[]).map(c => {
                           const on = d.canais?.includes(c)
                           const Icon = CANAL_ICON[c]
                           return (

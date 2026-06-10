@@ -117,13 +117,41 @@ export async function getCurrentSession(): Promise<AuthSession | null> {
 }
 
 export async function loginWithPassword(input: LoginInput): Promise<AuthSession> {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: input.email,
-    password: input.password,
+  // Login via edge `auth-login` (rate limit server-side por e-mail + IP).
+  const { data: result, error: fnError } = await supabase.functions.invoke('auth-login', {
+    body: { email: input.email, password: input.password },
   })
 
+  if (fnError) {
+    // A SDK encapsula respostas não-2xx em FunctionsHttpError; extrai o corpo.
+    let parsed: { error?: string; retry_after_min?: number } | null = null
+    try {
+      const ctx = (fnError as { context?: Response }).context
+      if (ctx && typeof ctx.json === 'function') parsed = await ctx.json()
+    } catch {
+      /* ignore */
+    }
+    if (parsed?.error === 'rate_limited') {
+      const min = parsed.retry_after_min ?? 15
+      throw new Error(`Muitas tentativas de login. Tente novamente em ${min} minutos.`)
+    }
+    if (parsed?.error === 'credenciais_invalidas') {
+      throw new Error('E-mail ou senha inválidos.')
+    }
+    throw new Error('Falha ao autenticar.')
+  }
+
+  const tokens = result as { access_token?: string; refresh_token?: string } | null
+  if (!tokens?.access_token || !tokens?.refresh_token) {
+    throw new Error('Falha ao autenticar.')
+  }
+
+  const { data, error } = await supabase.auth.setSession({
+    access_token: tokens.access_token,
+    refresh_token: tokens.refresh_token,
+  })
   if (error || !data.session) {
-    throw new Error(error?.message ?? 'Falha ao autenticar.')
+    throw new Error(error?.message ?? 'Falha ao estabelecer a sessão.')
   }
 
   const profile = await fetchProfile()

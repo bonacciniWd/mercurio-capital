@@ -16,6 +16,7 @@ import {
 } from '@/auth/authClient'
 import type { AppRole, AuthRedirect, AuthSession } from '@/auth/types'
 import { supabase } from '@/lib/supabase'
+import { getIdleConfig } from '@/lib/securityConfig'
 
 type LoginPayload = {
   email: string
@@ -109,6 +110,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data.subscription.unsubscribe()
     }
   }, [])
+
+  // Auto-logout por inatividade (lê timeouts de configuracoes_sistema).
+  // admin → sessao_idle_admin_min · demais → sessao_idle_geral_min.
+  useEffect(() => {
+    if (!session) return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    async function arm() {
+      const { adminMin, geralMin } = await getIdleConfig()
+      if (cancelled) return
+      const minutos = session!.role === 'admin' ? adminMin : geralMin
+      const ms = Math.max(1, minutos) * 60_000
+
+      const reset = () => {
+        if (timer) clearTimeout(timer)
+        timer = setTimeout(async () => {
+          await signOut()
+          setSession(null)
+          setMfaChallengeRef(null)
+        }, ms)
+      }
+
+      const eventos: (keyof WindowEventMap)[] = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart']
+      eventos.forEach((e) => window.addEventListener(e, reset, { passive: true }))
+      reset()
+
+      cleanup = () => {
+        if (timer) clearTimeout(timer)
+        eventos.forEach((e) => window.removeEventListener(e, reset))
+      }
+    }
+
+    let cleanup: (() => void) | undefined
+    void arm()
+
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+      cleanup?.()
+    }
+  }, [session])
 
   const value = useMemo<AuthContextValue>(
     () => ({

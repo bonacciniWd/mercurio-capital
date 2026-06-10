@@ -82,3 +82,18 @@ verify_jwt = false
 [functions.email-dispatcher]
 verify_jwt = false
 
+[functions.integracao-testar]
+verify_jwt = true
+
+[functions.whatsapp-send]
+verify_jwt = true
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.whatsapp-dispatcher]
+verify_jwt = false
+
+[functions.auth-login]
+verify_jwt = false
+

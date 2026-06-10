@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { Building2, Bell, Shield, Globe, Users, Database, Save, Plus, Trash2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Building2, Bell, Shield, Globe, Users, Database, Save, Plus, Trash2, TrendingUp } from 'lucide-react'
 import { Badge } from '@/components/Badge'
 import { TwoFactorManager } from '@/components/TwoFactorManager'
+import { supabase } from '@/lib/supabase'
 
 const TABS = [
   { id: 'empresa', icon: Building2, label: 'Empresa' },
@@ -10,6 +11,7 @@ const TABS = [
   { id: 'notificacoes', icon: Bell, label: 'Notificações' },
   { id: 'dominio', icon: Globe, label: 'Domínio & marca' },
   { id: 'backup', icon: Database, label: 'Backup' },
+  { id: 'metas', icon: TrendingUp, label: 'Metas' },
 ]
 
 export function AdminConfiguracoes() {
@@ -40,6 +42,7 @@ export function AdminConfiguracoes() {
           {tab === 'notificacoes' && <NotificacoesTab />}
           {tab === 'dominio' && <DominioTab />}
           {tab === 'backup' && <BackupTab />}
+          {tab === 'metas' && <MetasTab />}
         </div>
       </div>
     </>
@@ -47,19 +50,61 @@ export function AdminConfiguracoes() {
 }
 
 function EmpresaTab() {
+  const [form, setForm] = useState({
+    razao_social: '', nome_fantasia: '', cnpj: '', inscricao_estadual: '',
+    endereco: '', email: '', telefone: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  useEffect(() => {
+    supabase
+      .from('configuracoes_sistema')
+      .select('valor')
+      .eq('chave', 'empresa')
+      .maybeSingle()
+      .then(({ data }) => {
+        const v = data?.valor as Partial<typeof form> | null
+        if (v) setForm(f => ({ ...f, ...v }))
+      })
+  }, [])
+
+  function set<K extends keyof typeof form>(k: K, val: string) {
+    setForm(f => ({ ...f, [k]: val }))
+    setMsg(null)
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    const { error } = await supabase
+      .from('configuracoes_sistema')
+      .upsert({ chave: 'empresa', valor: form }, { onConflict: 'chave' })
+    setSaving(false)
+    if (error) setMsg({ ok: false, text: error.message })
+    else {
+      setMsg({ ok: true, text: 'Dados da empresa salvos.' })
+      setTimeout(() => setMsg(null), 3000)
+    }
+  }
+
   return (
     <>
       <h2 className="mb-5 font-semibold text-navy">Dados da empresa</h2>
       <div className="grid gap-4 md:grid-cols-2">
-        <div><label className="label">Razão social</label><input className="input" defaultValue="Mercurio Capital LTDA" /></div>
-        <div><label className="label">Nome fantasia</label><input className="input" defaultValue="Mercurio Capital" /></div>
-        <div><label className="label">CNPJ</label><input className="input font-mono" defaultValue="00.000.000/0001-00" /></div>
-        <div><label className="label">Inscrição estadual</label><input className="input" defaultValue="Isento" /></div>
-        <div className="md:col-span-2"><label className="label">Endereço</label><input className="input" defaultValue="Av. Paulista, 1000 — São Paulo/SP" /></div>
-        <div><label className="label">E-mail de contato</label><input className="input" type="email" defaultValue="contato@mercurio.com.br" /></div>
-        <div><label className="label">Telefone</label><input className="input" defaultValue="(11) 3000-0000" /></div>
+        <div><label className="label">Razão social</label><input className="input" value={form.razao_social} onChange={e => set('razao_social', e.target.value)} /></div>
+        <div><label className="label">Nome fantasia</label><input className="input" value={form.nome_fantasia} onChange={e => set('nome_fantasia', e.target.value)} /></div>
+        <div><label className="label">CNPJ</label><input className="input font-mono" value={form.cnpj} onChange={e => set('cnpj', e.target.value)} placeholder="00.000.000/0001-00" /></div>
+        <div><label className="label">Inscrição estadual</label><input className="input" value={form.inscricao_estadual} onChange={e => set('inscricao_estadual', e.target.value)} /></div>
+        <div className="md:col-span-2"><label className="label">Endereço</label><input className="input" value={form.endereco} onChange={e => set('endereco', e.target.value)} placeholder="Av. Paulista, 1000 — São Paulo/SP" /></div>
+        <div><label className="label">E-mail de contato</label><input className="input" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="contato@mercuriocapital.com.br" /></div>
+        <div><label className="label">Telefone</label><input className="input" value={form.telefone} onChange={e => set('telefone', e.target.value)} placeholder="(11) 3000-0000" /></div>
       </div>
-      <div className="mt-6 flex justify-end"><button className="btn-gold"><Save className="h-4 w-4" /> Salvar</button></div>
+      {msg && <p className={`mt-4 text-sm font-medium ${msg.ok ? 'text-success' : 'text-danger'}`}>{msg.text}</p>}
+      <div className="mt-6 flex justify-end">
+        <button className="btn-gold" onClick={handleSave} disabled={saving}>
+          <Save className="h-4 w-4" /> {saving ? 'Salvando…' : 'Salvar'}
+        </button>
+      </div>
     </>
   )
 }
@@ -97,25 +142,153 @@ function UsuariosTab() {
 }
 
 function SegurancaTab() {
+  const [senhaMin, setSenhaMin] = useState('')
+  const [idleAdmin, setIdleAdmin] = useState('')
+  const [idleGeral, setIdleGeral] = useState('')
+  const [rlMax, setRlMax] = useState('')
+  const [rlJanela, setRlJanela] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  useEffect(() => {
+    supabase
+      .from('configuracoes_sistema')
+      .select('chave, valor')
+      .in('chave', ['senha_min_length', 'sessao_idle_admin_min', 'sessao_idle_geral_min', 'rate_limit_login'])
+      .then(({ data }) => {
+        const map: Record<string, unknown> = {}
+        for (const r of (data ?? []) as { chave: string; valor: unknown }[]) {
+          map[r.chave] = r.valor
+        }
+        const num = (v: unknown) => String(v ?? '').replace(/\D/g, '')
+        setSenhaMin(num(map['senha_min_length']) || '8')
+        setIdleAdmin(num(map['sessao_idle_admin_min']) || '30')
+        setIdleGeral(num(map['sessao_idle_geral_min']) || '480')
+        const rl = (map['rate_limit_login'] ?? {}) as { max?: number; janela_min?: number }
+        setRlMax(String(rl.max ?? 5))
+        setRlJanela(String(rl.janela_min ?? 15))
+        setLoading(false)
+      })
+  }, [])
+
+  async function handleSave() {
+    const sm = Number(senhaMin), ia = Number(idleAdmin), ig = Number(idleGeral)
+    const rm = Number(rlMax), rj = Number(rlJanela)
+    if ([sm, ia, ig, rm, rj].some(n => isNaN(n) || n <= 0)) {
+      setMsg({ ok: false, text: 'Preencha valores numéricos positivos.' })
+      return
+    }
+    if (sm < 6) {
+      setMsg({ ok: false, text: 'O mínimo de senha não pode ser menor que 6.' })
+      return
+    }
+    setSaving(true)
+    const { error } = await supabase
+      .from('configuracoes_sistema')
+      .upsert([
+        { chave: 'senha_min_length', valor: sm },
+        { chave: 'sessao_idle_admin_min', valor: ia },
+        { chave: 'sessao_idle_geral_min', valor: ig },
+        { chave: 'rate_limit_login', valor: { max: rm, janela_min: rj } },
+      ], { onConflict: 'chave' })
+    setSaving(false)
+    if (error) setMsg({ ok: false, text: error.message })
+    else {
+      setMsg({ ok: true, text: 'Políticas de segurança salvas.' })
+      setTimeout(() => setMsg(null), 3000)
+    }
+  }
+
+  if (loading) return <div className="py-10 text-center text-sm text-silver-500">Carregando…</div>
+
   return (
     <>
-      <h2 className="mb-5 font-semibold text-navy">Políticas de segurança</h2>
-      <div className="space-y-4">
-        <Toggle label="Exigir 2FA para todos os admins" desc="Autenticação em dois fatores via TOTP" defaultChecked />
-        <Toggle label="Bloquear após 5 tentativas falhadas" desc="Bloqueio temporário de 30 minutos" defaultChecked />
-        <Toggle label="Sessão expira em 8 horas" desc="Token de acesso renovado automaticamente" defaultChecked />
-        <Toggle label="Logar todas as ações administrativas" desc="Audit log automático" defaultChecked />
-        <div className="grid gap-4 pt-4 md:grid-cols-2">
-          <div><label className="label">Tamanho mínimo de senha</label><input className="input" type="number" defaultValue={12} /></div>
-          <div><label className="label">IPs permitidos (whitelist)</label><input className="input font-mono" placeholder="0.0.0.0/0 (todos)" /></div>
+      <h2 className="mb-1 font-semibold text-navy">Políticas de segurança</h2>
+      <p className="mb-6 text-sm text-silver-500">Aplicadas de fato pelo sistema (web e mobile).</p>
+
+      <div className="space-y-6">
+        {/* Senha */}
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-silver-700">Senha</h3>
+          <div className="max-w-xs">
+            <label className="label">Tamanho mínimo de senha</label>
+            <input className="input" type="number" min={6} value={senhaMin}
+              onChange={e => { setSenhaMin(e.target.value); setMsg(null) }} />
+            <p className="mt-1 text-xs text-silver-400">Validado em cadastros, redefinição e onboarding (web e app).</p>
+          </div>
         </div>
+
+        {/* Sessão */}
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-silver-700">Sessão (logout automático por inatividade)</h3>
+          <div className="grid max-w-md gap-4 md:grid-cols-2">
+            <div>
+              <label className="label">Admin (minutos)</label>
+              <input className="input" type="number" min={1} value={idleAdmin}
+                onChange={e => { setIdleAdmin(e.target.value); setMsg(null) }} />
+            </div>
+            <div>
+              <label className="label">Demais perfis (minutos)</label>
+              <input className="input" type="number" min={1} value={idleGeral}
+                onChange={e => { setIdleGeral(e.target.value); setMsg(null) }} />
+            </div>
+          </div>
+          <p className="mt-1 text-xs text-silver-400">Encerra a sessão após o período sem atividade.</p>
+        </div>
+
+        {/* Rate limit de login */}
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-silver-700">Rate limit de login</h3>
+          <div className="grid max-w-md gap-4 md:grid-cols-2">
+            <div>
+              <label className="label">Máx. tentativas falhas</label>
+              <input className="input" type="number" min={1} value={rlMax}
+                onChange={e => { setRlMax(e.target.value); setMsg(null) }} />
+            </div>
+            <div>
+              <label className="label">Janela (minutos)</label>
+              <input className="input" type="number" min={1} value={rlJanela}
+                onChange={e => { setRlJanela(e.target.value); setMsg(null) }} />
+            </div>
+          </div>
+          <p className="mt-1 text-xs text-silver-400">Bloqueia logins após muitas tentativas falhas (por e-mail; por IP usa 3× o limite).</p>
+        </div>
+
+        {/* 2FA — aplicado pelo backend */}
+        <div className="rounded-lg border border-success/30 bg-success/5 p-4">
+          <div className="flex items-center gap-2">
+            <Badge variant="green">Ativo</Badge>
+            <h3 className="text-sm font-semibold text-silver-800">2FA obrigatório para admins</h3>
+          </div>
+          <p className="mt-1 text-xs text-silver-600">
+            Exigido pelo servidor: ações sensíveis de admin e parceiro aprovado são bloqueadas por RLS sem 2FA verificado
+            (<code className="font-mono">app_requires_2fa()</code>). Configure seu autenticador abaixo.
+          </p>
+        </div>
+
+        {/* Auditoria — automática */}
+        <div className="rounded-lg border border-silver-200 p-4">
+          <div className="flex items-center gap-2">
+            <Badge variant="navy">Automático</Badge>
+            <h3 className="text-sm font-semibold text-silver-800">Auditoria de ações</h3>
+          </div>
+          <p className="mt-1 text-xs text-silver-600">
+            Alterações em propostas, contratos, comissões, parceiros e configurações são registradas em <code className="font-mono">audit_log</code> por triggers.
+          </p>
+        </div>
+      </div>
+
+      {msg && <p className={`mt-4 text-sm font-medium ${msg.ok ? 'text-success' : 'text-danger'}`}>{msg.text}</p>}
+      <div className="mt-4 flex justify-end">
+        <button className="btn-gold" onClick={handleSave} disabled={saving}>
+          <Save className="h-4 w-4" /> {saving ? 'Salvando…' : 'Salvar políticas'}
+        </button>
       </div>
 
       <div className="mt-8 rounded-lg border border-silver-200 p-5">
         <TwoFactorManager />
       </div>
-
-      <div className="mt-6 flex justify-end"><button className="btn-gold"><Save className="h-4 w-4" /> Salvar políticas</button></div>
     </>
   )
 }
@@ -198,5 +371,78 @@ function Toggle({ label, desc, defaultChecked }: { label: string; desc: string; 
       <input type="checkbox" defaultChecked={defaultChecked} className="peer sr-only" />
       <div className="peer h-6 w-11 rounded-full bg-silver-300 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white peer-checked:bg-success peer-checked:after:translate-x-5 relative" />
     </label>
+  )
+}
+
+function MetasTab() {
+  const [centavos, setCentavos] = useState<number | null>(null)
+  const [inputVal, setInputVal] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  useEffect(() => {
+    supabase
+      .from('configuracoes_sistema')
+      .select('valor')
+      .eq('chave', 'meta_volume_mensal')
+      .maybeSingle()
+      .then(({ data }) => {
+        const c = (data?.valor as { centavos: number } | null)?.centavos ?? 50_000_000_000
+        setCentavos(c)
+        setInputVal(String(Math.round(c / 100)))
+      })
+  }, [])
+
+  async function handleSave() {
+    const reais = Number(inputVal.replace(/\./g, '').replace(',', '.'))
+    if (isNaN(reais) || reais <= 0) {
+      setMsg({ ok: false, text: 'Valor inválido.' })
+      return
+    }
+    setSaving(true)
+    const novoCentavos = Math.round(reais * 100)
+    const { error } = await supabase
+      .from('configuracoes_sistema')
+      .upsert(
+        { chave: 'meta_volume_mensal', valor: { centavos: novoCentavos } },
+        { onConflict: 'chave' }
+      )
+    setSaving(false)
+    if (error) {
+      setMsg({ ok: false, text: error.message })
+    } else {
+      setCentavos(novoCentavos)
+      setMsg({ ok: true, text: 'Meta atualizada com sucesso.' })
+      setTimeout(() => setMsg(null), 3000)
+    }
+  }
+
+  const valorAtual = centavos !== null
+    ? (centavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    : '—'
+
+  return (
+    <>
+      <h2 className="mb-1 font-semibold text-navy">Metas do dashboard</h2>
+      <p className="mb-6 text-sm text-silver-500">Define a barra de progresso de volume ganho no backoffice mobile e web.</p>
+      <div className="max-w-sm space-y-4">
+        <div>
+          <label className="label">Meta de volume mensal (R$)</label>
+          <input
+            className="input font-mono"
+            placeholder="500000000"
+            value={inputVal}
+            onChange={e => { setInputVal(e.target.value); setMsg(null) }}
+          />
+          <p className="mt-1 text-xs text-silver-400">Valor atual: <span className="font-semibold text-silver-700">{valorAtual}</span></p>
+        </div>
+        {msg && (
+          <p className={`text-sm font-medium ${msg.ok ? 'text-success' : 'text-danger'}`}>{msg.text}</p>
+        )}
+        <button className="btn-gold" onClick={handleSave} disabled={saving}>
+          <Save className="h-4 w-4" /> {saving ? 'Salvando…' : 'Salvar meta'}
+        </button>
+      </div>
+    </>
   )
 }
