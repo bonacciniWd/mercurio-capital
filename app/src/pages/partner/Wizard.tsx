@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { Building, Home as HomeIcon, Hammer, Check, Plus, Trash2, MapPin, ChevronDown, Copy, Loader2 } from 'lucide-react'
+import { Building, Home as HomeIcon, Hammer, Check, Plus, Trash2, MapPin, ChevronDown, Copy, Loader2, RefreshCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
@@ -323,22 +323,55 @@ function Step3({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
   const [cepLoading, setCepLoading] = useState(false)
   const [cepError, setCepError] = useState<string | null>(null)
   const [mapCoords, setMapCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [mapLoading, setMapLoading] = useState(false)
+  const [mapError, setMapError] = useState<string | null>(null)
 
   const patch = (p: Partial<ImovelForm>) =>
     setForm(f => ({ ...f, imoveis: [{ ...f.imoveis[0], ...p }, ...f.imoveis.slice(1)] }))
 
-  async function geocodificar(query: string) {
+  async function nominatim(query: string): Promise<{ lat: number; lng: number } | null> {
+    const params = new URLSearchParams({ q: query, format: 'json', limit: '1', countrycodes: 'br', addressdetails: '0' })
+    // Obs.: header User-Agent é proibido em fetch no browser e seria silenciosamente ignorado.
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+      headers: { 'Accept-Language': 'pt-BR' },
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const results = await res.json() as Array<{ lat: string; lon: string }>
+    if (results.length === 0) return null
+    return { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) }
+  }
+
+  async function geocodificar(opts: { logradouro?: string; numero?: string; bairro?: string; cidade?: string; estado?: string; cep?: string }) {
+    setMapLoading(true)
+    setMapError(null)
+    const { logradouro, numero, bairro, cidade, estado, cep } = opts
+    // Cascata: do mais específico ao mais genérico — Nominatim costuma falhar no endereço completo.
+    const tentativas = [
+      [logradouro, numero, bairro, cidade, estado, 'Brasil'].filter(Boolean).join(', '),
+      [logradouro, bairro, cidade, estado, 'Brasil'].filter(Boolean).join(', '),
+      [logradouro, cidade, estado, 'Brasil'].filter(Boolean).join(', '),
+      [bairro, cidade, estado, 'Brasil'].filter(Boolean).join(', '),
+      cep ? `${cep}, Brasil` : '',
+      [cidade, estado, 'Brasil'].filter(Boolean).join(', '),
+    ].filter(q => q && q.length > 5)
+
     try {
-      const params = new URLSearchParams({ q: query, format: 'json', limit: '1', countrycodes: 'br' })
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
-        headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'MercurioCapital/1.0' },
-      })
-      const results = await res.json() as Array<{ lat: string; lon: string }>
-      if (results.length > 0) {
-        setMapCoords({ lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) })
+      for (const q of tentativas) {
+        try {
+          const found = await nominatim(q)
+          if (found) {
+            setMapCoords(found)
+            setMapError(null)
+            return
+          }
+        } catch {
+          // tenta próxima estratégia
+        }
       }
-    } catch {
-      // mapa não é crítico — falha silenciosa
+      setMapCoords(null)
+      setMapError('Não foi possível localizar o endereço no mapa.')
+    } finally {
+      setMapLoading(false)
     }
   }
 
@@ -346,6 +379,7 @@ function Step3({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
     setCepLoading(true)
     setCepError(null)
     setMapCoords(null)
+    setMapError(null)
     try {
       const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
       if (!res.ok) throw new Error()
@@ -356,7 +390,7 @@ function Step3({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
       const cidade     = data['localidade'] ?? ''
       const estado     = data['uf'] ?? ''
       patch({ estado, cidade, bairro, logradouro })
-      void geocodificar(`${logradouro}, ${bairro}, ${cidade}, ${estado}, Brasil`)
+      void geocodificar({ logradouro, numero: im.numero, bairro, cidade, estado, cep: digits })
     } catch {
       setCepError('Não foi possível consultar o CEP.')
     } finally {
@@ -370,6 +404,17 @@ function Step3({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
     patch({ cep: formatted })
     setCepError(null)
     if (digits.length === 8) void buscarCep(digits)
+  }
+
+  function atualizarMapa() {
+    void geocodificar({
+      logradouro: im.logradouro,
+      numero: im.numero,
+      bairro: im.bairro,
+      cidade: im.cidade,
+      estado: im.estado,
+      cep: im.cep.replace(/\D/g, ''),
+    })
   }
 
   const osmSrc = mapCoords
@@ -426,6 +471,10 @@ function Step3({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
               {im.cidade ? `, ${im.cidade}/${im.estado}` : ''}
             </span>
             <div className="ml-3 flex shrink-0 items-center gap-3">
+              <button type="button" onClick={atualizarMapa} className="flex items-center gap-1 hover:text-navy hover:underline" disabled={mapLoading}>
+                <RefreshCw className={`h-3 w-3 ${mapLoading ? 'animate-spin' : ''}`} />
+                Atualizar
+              </button>
               <a
                 href={`https://maps.google.com/maps?q=&layer=c&cbll=${mapCoords!.lat},${mapCoords!.lng}`}
                 target="_blank"
@@ -446,9 +495,24 @@ function Step3({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
           </div>
         </div>
       ) : (
-        <div className="mt-5 flex items-center gap-2 rounded-lg border border-dashed border-silver-200 bg-silver-50 p-4 text-sm text-silver-500">
-          <MapPin className="h-4 w-4 shrink-0" />
-          Preencha o CEP para visualizar o mapa automaticamente.
+        <div className="mt-5 flex items-center justify-between gap-2 rounded-lg border border-dashed border-silver-200 bg-silver-50 p-4 text-sm text-silver-500">
+          <span className="flex items-center gap-2">
+            {mapLoading
+              ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+              : <MapPin className="h-4 w-4 shrink-0" />}
+            {mapLoading
+              ? 'Carregando mapa…'
+              : (mapError ?? 'Preencha o CEP para visualizar o mapa automaticamente.')}
+          </span>
+          {(im.cep || im.cidade) && !mapLoading && (
+            <button
+              type="button"
+              onClick={atualizarMapa}
+              className="flex items-center gap-1 rounded-md border border-silver-300 bg-white px-2.5 py-1 text-xs font-medium text-navy hover:border-red-600 hover:text-red-600"
+            >
+              <RefreshCw className="h-3 w-3" /> Tentar novamente
+            </button>
+          )}
         </div>
       )}
     </>

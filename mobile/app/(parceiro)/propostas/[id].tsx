@@ -39,7 +39,9 @@ interface Proposta {
   updated_at: string
   cliente: {
     nome_completo: string | null
+    pessoa_tipo: 'PF' | 'PJ' | null
     cpf: string | null
+    cnpj: string | null
     email: string | null
     telefone: string | null
   } | null
@@ -88,7 +90,7 @@ export default function PropostaDetalhe() {
       if (!id) return null
       const { data, error } = await supabase
         .from('propostas')
-        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, indexador, created_at, updated_at, cliente:clientes(nome_completo, cpf, email, telefone)')
+        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, indexador, created_at, updated_at, cliente:clientes(nome_completo, pessoa_tipo, cpf, cnpj, email, telefone)')
         .eq('id', id)
         .maybeSingle()
       if (error) throw error
@@ -290,7 +292,11 @@ function Resumo({
       </Card>
       <Card title="Cliente" icon={<Shield size={15} color="#DC2626" />}>
         <Row label="Nome" value={proposta.cliente?.nome_completo ?? '—'} />
-        <Row label="CPF/CNPJ" value={proposta.cliente?.cpf ?? '—'} />
+        <Row label="Tipo" value={proposta.cliente?.pessoa_tipo ?? '—'} />
+        <Row
+          label={proposta.cliente?.pessoa_tipo === 'PJ' ? 'CNPJ' : 'CPF'}
+          value={(proposta.cliente?.pessoa_tipo === 'PJ' ? proposta.cliente?.cnpj : proposta.cliente?.cpf) ?? '—'}
+        />
         <Row label="E-mail" value={proposta.cliente?.email ?? '—'} />
         <Row label="Telefone" value={proposta.cliente?.telefone ?? '—'} />
       </Card>
