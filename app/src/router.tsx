@@ -217,6 +217,7 @@ export const router = createBrowserRouter([
                   { path: 'feature-flags', element: <AdminFeatureFlags /> },
                   { path: 'auditoria', element: <AdminAuditoria /> },
                   { path: 'integracoes', element: <AdminIntegracoes /> },
+                  { path: 'integracoes/whatsapp', element: <AdminWhatsAppConfig /> },
                   { path: 'configuracoes', element: <AdminConfiguracoes /> },
                   { path: 'relatorios', element: <AdminRelatorios /> },
                   { path: 'universidade', element: <AdminUniversidade /> },
