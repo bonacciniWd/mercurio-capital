@@ -12,6 +12,7 @@ const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const STRIPE_SECRET = Deno.env.get('STRIPE_SECRET_KEY') ?? ''
 const APP_URL = Deno.env.get('APP_URL') ?? 'http://localhost:5173'
+const STRIPE_ALLOW_DEV_MODE = (Deno.env.get('STRIPE_ALLOW_DEV_MODE') ?? 'true').toLowerCase() === 'true'
 
 const MIN_VALOR = 2000 // R$ 20,00
 // const MIN_VALOR = 50 // R$ 0,50
@@ -82,6 +83,9 @@ Deno.serve(async (req) => {
 
   // ---- Modo dev: sem STRIPE_SECRET_KEY ----
   if (!STRIPE_SECRET) {
+    if (!STRIPE_ALLOW_DEV_MODE) {
+      return jsonResponse({ error: 'stripe_nao_configurado', detail: 'STRIPE_SECRET_KEY ausente' }, 503)
+    }
     const intentId = `pi_dev_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`
     const { error: piErr } = await service.from('stripe_payment_intents').insert({
       id: intentId, usuario_id: usuario.id, partner_id: partnerId,

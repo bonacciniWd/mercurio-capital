@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Edit2, Trash2, Video, FileText, ChevronRight, ChevronDown, Eye, Upload, Search, Loader2, X, GripVertical } from 'lucide-react'
 import { Badge } from '@/components/Badge'
@@ -45,6 +45,15 @@ interface Aula {
   gratuita: boolean
 }
 
+interface VimeoUploadInitResponse {
+  vimeo_id?: string
+  uri?: string
+  upload_link?: string
+  warnings?: string[]
+}
+
+const MAX_VIMEO_UPLOAD_BYTES = 5 * 1024 * 1024 * 1024
+
 const STATUS_VAR: Record<CursoStatus, 'green' | 'amber' | 'gray'> = {
   publicado: 'green', rascunho: 'amber', arquivado: 'gray',
 }
@@ -60,6 +69,10 @@ export function AdminUniversidade() {
   const [erro, setErro] = useState<string | null>(null)
   const [editAula, setEditAula] = useState<Aula | null>(null)
   const [editModulo, setEditModulo] = useState<Modulo | null>(null)
+  const [videoFile, setVideoFile] = useState<File | null>(null)
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0)
+  const [videoUploading, setVideoUploading] = useState(false)
+  const [videoUploadInfo, setVideoUploadInfo] = useState<string | null>(null)
 
   // ---------- Queries ----------
   const cursosQuery = useQuery({
@@ -208,6 +221,68 @@ export function AdminUniversidade() {
     onError: (e) => setErro(String(e instanceof Error ? e.message : e)),
   })
 
+  useEffect(() => {
+    setVideoFile(null)
+    setVideoUploadProgress(0)
+    setVideoUploading(false)
+    setVideoUploadInfo(null)
+  }, [editAula?.id, editAula?.tipo])
+
+  async function uploadVideoParaVimeo() {
+    if (!selected || !editAula || !videoFile) return
+
+    if (!videoFile.type.startsWith('video/')) {
+      setErro('Arquivo invalido. Selecione um arquivo de video (MP4, MOV ou WEBM).')
+      return
+    }
+    if (videoFile.size <= 0 || videoFile.size > MAX_VIMEO_UPLOAD_BYTES) {
+      setErro(`Tamanho invalido. Limite atual: ${formatBytes(MAX_VIMEO_UPLOAD_BYTES)}.`)
+      return
+    }
+
+    setErro(null)
+    setVideoUploading(true)
+    setVideoUploadProgress(0)
+    setVideoUploadInfo('Preparando upload no Vimeo...')
+
+    try {
+      const { data, error } = await supabase.functions.invoke('vimeo-upload-init', {
+        body: {
+          filename: videoFile.name,
+          size: videoFile.size,
+          content_type: videoFile.type,
+          aula_titulo: editAula.titulo || null,
+          curso_id: selected.id,
+          modulo_id: editAula.modulo_id,
+          aula_id: editAula.id.startsWith('new-') ? null : editAula.id,
+        },
+      })
+      if (error) throw new Error(error.message)
+
+      const payload = (data ?? {}) as VimeoUploadInitResponse
+      const uploadLink = payload.upload_link
+      const vimeoId = normalizeVimeoId(payload.vimeo_id ?? payload.uri ?? null)
+      if (!uploadLink || !vimeoId) {
+        throw new Error('Resposta invalida da edge Vimeo: upload_link ou vimeo_id ausente.')
+      }
+
+      setVideoUploadInfo('Enviando arquivo para o Vimeo...')
+      await uploadFileToTus(uploadLink, videoFile, (pct) => setVideoUploadProgress(pct))
+
+      setEditAula((prev) => (prev ? { ...prev, vimeo_id: vimeoId } : prev))
+      setVideoFile(null)
+      setVideoUploadProgress(100)
+
+      const warnings = payload.warnings?.length ? ` Avisos: ${payload.warnings.join(' | ')}` : ''
+      setVideoUploadInfo(`Upload concluido. Vimeo ID preenchido automaticamente (${vimeoId}).${warnings}`)
+    } catch (e) {
+      setErro(String(e instanceof Error ? e.message : e))
+      setVideoUploadInfo(null)
+    } finally {
+      setVideoUploading(false)
+    }
+  }
+
   // ---------- Helpers ----------
   const toggleModulo = (id: string) => {
     const next = new Set(openModulos)
@@ -259,8 +334,12 @@ export function AdminUniversidade() {
             </div>
           )}
           {filtrados.map(c => (
-            <button key={c.id} onClick={() => setSelectedId(c.id)}
-              className={`!block w-full min-h-[110px] border border-silver-200 bg-white p-4 text-left transition-all ${selected?.id === c.id ? 'border-l-4 border-gold bg-gradient-to-r from-gold/10 to-white shadow-sm' : 'hover:bg-silver-50'}`}>
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setSelectedId(c.id)}
+              className={`btn-no-liquid !block w-full min-h-[110px] rounded-lg border border-silver-200 bg-white p-4 text-left text-silver-900 shadow-none transition-all ${selected?.id === c.id ? 'border-l-4 border-gold bg-gradient-to-r from-gold/10 to-white shadow-sm' : 'hover:bg-silver-50'}`}
+            >
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                 <h3 className="min-w-0 break-words text-base font-semibold leading-tight text-silver-900">{c.titulo}</h3>
                 <Badge variant={STATUS_VAR[c.status]}>{STATUS_LBL[c.status]}</Badge>
@@ -465,11 +544,75 @@ export function AdminUniversidade() {
                 </select>
               </div>
               {editAula.tipo === 'video' && (
-                <div>
-                  <label className="label">ID do vídeo no Vimeo</label>
-                  <input className="input" placeholder="ex: 824612345" value={editAula.vimeo_id ?? ''}
-                    onChange={(e) => setEditAula({ ...editAula, vimeo_id: e.target.value })} />
-                  <p className="mt-1 text-xs text-silver-500">Configure o vídeo no Vimeo como "unlisted" ou whitelist do domínio.</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="label">Upload de video no Vimeo</label>
+                    <label className="block cursor-pointer rounded-lg border-2 border-dashed border-silver-300 p-3 text-center text-xs text-silver-600 hover:border-gold disabled:opacity-50">
+                      <Upload className="mx-auto mb-1 h-5 w-5" />
+                      {videoFile
+                        ? `${videoFile.name} (${formatBytes(videoFile.size)})`
+                        : 'Selecionar arquivo de video (MP4, MOV ou WEBM)'}
+                      <input
+                        type="file"
+                        accept="video/mp4,video/quicktime,video/webm,video/x-m4v"
+                        className="hidden"
+                        disabled={videoUploading}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] ?? null
+                          setVideoFile(f)
+                          setVideoUploadProgress(0)
+                          setVideoUploadInfo(null)
+                        }}
+                      />
+                    </label>
+                    <p className="mt-1 text-xs text-silver-500">
+                      O upload e iniciado no painel e enviado direto para o Vimeo via TUS, sem expor token no client.
+                    </p>
+                  </div>
+
+                  {videoFile && (
+                    <div className="rounded-md border border-silver-200 bg-silver-50 p-3">
+                      <p className="text-xs text-silver-600">Arquivo pronto: {videoFile.name}</p>
+                      <button
+                        type="button"
+                        className="btn-no-liquid mt-2 inline-flex items-center gap-2 rounded-md bg-gold px-3 py-1.5 text-xs font-semibold text-white hover:bg-gold-700 disabled:opacity-60"
+                        onClick={() => void uploadVideoParaVimeo()}
+                        disabled={videoUploading}
+                      >
+                        {videoUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                        {videoUploading ? 'Enviando...' : 'Enviar para Vimeo'}
+                      </button>
+                    </div>
+                  )}
+
+                  {videoUploading && (
+                    <div className="rounded-md border border-gold/30 bg-gold/5 p-3">
+                      <div className="mb-1 flex items-center justify-between text-xs text-silver-700">
+                        <span>Progresso do upload</span>
+                        <span>{videoUploadProgress}%</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-silver-200">
+                        <div className="h-full rounded-full bg-gold transition-all" style={{ width: `${videoUploadProgress}%` }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {videoUploadInfo && (
+                    <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">{videoUploadInfo}</p>
+                  )}
+
+                  <div>
+                    <label className="label">ID do video no Vimeo</label>
+                    <input
+                      className="input"
+                      placeholder="ex: 824612345"
+                      value={editAula.vimeo_id ?? ''}
+                      onChange={(e) => setEditAula({ ...editAula, vimeo_id: e.target.value })}
+                    />
+                    <p className="mt-1 text-xs text-silver-500">
+                      Campo preenchido automaticamente apos upload. Edicao manual continua disponivel para ajustes.
+                    </p>
+                  </div>
                 </div>
               )}
               {editAula.tipo === 'pdf' && (
@@ -512,7 +655,7 @@ export function AdminUniversidade() {
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button className="btn-outline" onClick={() => setEditAula(null)}>Cancelar</button>
-              <button className="btn-gold" disabled={salvarAula.isPending}
+              <button className="btn-gold" disabled={salvarAula.isPending || videoUploading}
                 onClick={() => editAula && salvarAula.mutate(editAula)}>
                 {salvarAula.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Salvar
               </button>
@@ -527,5 +670,77 @@ export function AdminUniversidade() {
 function formatDur(s: number): string {
   const m = Math.floor(s / 60), r = s % 60
   return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let idx = 0
+  while (value >= 1024 && idx < units.length - 1) {
+    value /= 1024
+    idx += 1
+  }
+  return `${value.toFixed(value >= 100 || idx === 0 ? 0 : 1)} ${units[idx]}`
+}
+
+function normalizeVimeoId(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const v = String(raw).trim()
+  if (!v) return null
+  if (/^\d+$/.test(v)) return v
+  const uriMatch = v.match(/\/videos\/(\d+)/)
+  if (uriMatch) return uriMatch[1]
+  const urlMatch = v.match(/vimeo\.com\/(?:video\/)?(\d+)/)
+  if (urlMatch) return urlMatch[1]
+  return null
+}
+
+async function readTusOffset(uploadLink: string): Promise<number> {
+  try {
+    const res = await fetch(uploadLink, {
+      method: 'HEAD',
+      headers: { 'Tus-Resumable': '1.0.0' },
+    })
+    if (!res.ok) return 0
+    const h = res.headers.get('Upload-Offset') ?? res.headers.get('upload-offset')
+    const offset = Number(h ?? 0)
+    return Number.isFinite(offset) && offset > 0 ? offset : 0
+  } catch {
+    return 0
+  }
+}
+
+async function uploadFileToTus(uploadLink: string, file: File, onProgress: (pct: number) => void): Promise<void> {
+  const startOffset = await readTusOffset(uploadLink)
+  const blob = startOffset > 0 ? file.slice(startOffset) : file
+
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('PATCH', uploadLink)
+    xhr.setRequestHeader('Tus-Resumable', '1.0.0')
+    xhr.setRequestHeader('Upload-Offset', String(startOffset))
+    xhr.setRequestHeader('Content-Type', 'application/offset+octet-stream')
+
+    xhr.upload.onprogress = (e) => {
+      if (!e.lengthComputable) return
+      const sent = startOffset + e.loaded
+      const pct = Math.min(100, Math.round((sent / file.size) * 100))
+      onProgress(pct)
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(100)
+        resolve()
+      } else {
+        reject(new Error(`Falha no upload Vimeo (status ${xhr.status}).`))
+      }
+    }
+    xhr.onerror = () => reject(new Error('Falha de rede no upload para Vimeo.'))
+    xhr.onabort = () => reject(new Error('Upload cancelado.'))
+
+    xhr.send(blob)
+  })
 }
 

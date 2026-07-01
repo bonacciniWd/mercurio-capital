@@ -74,6 +74,8 @@ export default function AulaPlayer() {
     return aulas[0]
   }, [aulas, activeAulaId])
 
+  const activeVimeoId = useMemo(() => normalizeVimeoId(activeAula?.vimeo_id), [activeAula?.vimeo_id])
+
   const proxima: AulaFlat | null = useMemo(() => {
     if (!activeAula) return null
     return aulas[activeAula.globalIndex + 1] ?? null
@@ -128,14 +130,14 @@ export default function AulaPlayer() {
 
   // HTML do Vimeo player com tracking via postMessage
   const vimeoHtml = useMemo(() => {
-    if (!activeAula?.vimeo_id) return ''
+    if (!activeVimeoId || !activeAula) return ''
     const startAt = (activeAula.posicao_segundos ?? 0) > 5 ? activeAula.posicao_segundos : 0
     return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>html,body,#p,iframe{margin:0;padding:0;width:100%;height:100%;background:#000;border:0}</style></head>
 <body><div id="p"></div>
 <script src="https://player.vimeo.com/api/player.js"></script>
 <script>
-  var p = new Vimeo.Player('p', { id: ${JSON.stringify(activeAula.vimeo_id)}, responsive: true, autoplay: false });
+  var p = new Vimeo.Player('p', { id: ${JSON.stringify(activeVimeoId)}, responsive: true, autoplay: false });
   ${startAt ? `p.ready().then(function(){ p.setCurrentTime(${startAt}).catch(function(){}); });` : ''}
   var last = 0;
   p.on('timeupdate', function(d){
@@ -144,7 +146,7 @@ export default function AulaPlayer() {
   });
   p.on('ended', function(){ window.ReactNativeWebView.postMessage(JSON.stringify({type:'ended'})); });
 </script></body></html>`
-  }, [activeAula?.vimeo_id, activeAula?.aula_id])
+  }, [activeVimeoId, activeAula?.aula_id, activeAula?.posicao_segundos])
 
   function handlePlayerMessage(ev: { nativeEvent: { data: string } }) {
     if (!activeAula) return
@@ -207,7 +209,7 @@ export default function AulaPlayer() {
       <ScrollView contentContainerStyle={{ paddingBottom: 140 }}>
         {/* Player */}
         <View className="aspect-video items-center justify-center bg-black">
-          {activeAula.aula_tipo === 'video' && activeAula.vimeo_id ? (
+          {activeAula.aula_tipo === 'video' && activeVimeoId ? (
             <WebView
               ref={playerRef}
               key={activeAula.aula_id}
@@ -390,4 +392,16 @@ export default function AulaPlayer() {
       </ScrollView>
     </SafeAreaView>
   )
+}
+
+function normalizeVimeoId(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const v = String(raw).trim()
+  if (!v) return null
+  if (/^\d+$/.test(v)) return v
+  const uriMatch = v.match(/\/videos\/(\d+)/)
+  if (uriMatch) return uriMatch[1]
+  const urlMatch = v.match(/vimeo\.com\/(?:video\/)?(\d+)/)
+  if (urlMatch) return urlMatch[1]
+  return null
 }

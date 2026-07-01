@@ -88,6 +88,8 @@ export function UniversidadePlayer() {
     return aulas.find(a => a.aula_id === aulaIdParam) ?? aulas[0]
   }, [aulas, aulaIdParam])
 
+  const activeVimeoId = useMemo(() => normalizeVimeoId(activeAula?.vimeo_id), [activeAula?.vimeo_id])
+
   const proxima: AulaFlat | null = useMemo(() => {
     if (!activeAula) return null
     return aulas[activeAula.globalIndex + 1] ?? null
@@ -120,7 +122,7 @@ export function UniversidadePlayer() {
   const lastSavedRef = useRef<number>(0)
 
   useEffect(() => {
-    if (!activeAula || activeAula.aula_tipo !== 'video' || !activeAula.vimeo_id) return
+    if (!activeAula || activeAula.aula_tipo !== 'video' || !activeVimeoId) return
     let cleanup = () => {}
     let cancelled = false
     void loadVimeoSDK().then((Vimeo) => {
@@ -150,7 +152,7 @@ export function UniversidadePlayer() {
     }).catch(() => { /* ignore */ })
     lastSavedRef.current = 0
     return () => { cancelled = true; cleanup() }
-  }, [activeAula?.aula_id, activeAula?.vimeo_id])
+  }, [activeAula?.aula_id, activeVimeoId])
 
   // ---------- Curso aggregate ----------
   const curso = rows[0]
@@ -200,11 +202,11 @@ export function UniversidadePlayer() {
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div>
           <div className="aspect-video overflow-hidden rounded-lg bg-black">
-            {activeAula.aula_tipo === 'video' && activeAula.vimeo_id ? (
+            {activeAula.aula_tipo === 'video' && activeVimeoId ? (
               <iframe
                 ref={playerRef}
                 key={activeAula.aula_id}
-                src={`https://player.vimeo.com/video/${activeAula.vimeo_id}?title=0&byline=0&portrait=0`}
+                src={`https://player.vimeo.com/video/${activeVimeoId}?title=0&byline=0&portrait=0`}
                 className="h-full w-full"
                 allow="autoplay; fullscreen; picture-in-picture"
                 allowFullScreen
@@ -340,5 +342,17 @@ export function UniversidadePlayer() {
       )}
     </>
   )
+}
+
+function normalizeVimeoId(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const v = String(raw).trim()
+  if (!v) return null
+  if (/^\d+$/.test(v)) return v
+  const uriMatch = v.match(/\/videos\/(\d+)/)
+  if (uriMatch) return uriMatch[1]
+  const urlMatch = v.match(/vimeo\.com\/(?:video\/)?(\d+)/)
+  if (urlMatch) return urlMatch[1]
+  return null
 }
 

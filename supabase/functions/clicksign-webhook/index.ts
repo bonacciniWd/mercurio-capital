@@ -12,6 +12,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const SECRET       = Deno.env.get('CLICKSIGN_WEBHOOK_SECRET') ?? ''
+const REQUIRE_SIGNED_WEBHOOK = (Deno.env.get('CLICKSIGN_REQUIRE_SIGNED_WEBHOOK') ?? 'false').toLowerCase() === 'true'
 
 const service = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
 
@@ -33,6 +34,11 @@ interface ClicksignEvent {
   occurred_at?: string
 }
 
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('method_not_allowed', { status: 405 })
   const raw = await req.text()
@@ -41,6 +47,8 @@ Deno.serve(async (req) => {
     const sigHeader = req.headers.get('content-hmac') ?? req.headers.get('x-clicksign-signature') ?? ''
     const ok = await verifyHmac(raw, sigHeader, SECRET)
     if (!ok) return new Response('invalid_signature', { status: 400 })
+  } else if (REQUIRE_SIGNED_WEBHOOK) {
+    return new Response('missing_webhook_secret', { status: 503 })
   }
 
   let payload: ClicksignEvent
@@ -48,7 +56,8 @@ Deno.serve(async (req) => {
 
   const evtName = payload.event?.name ?? 'unknown'
   const documentKey = payload.document?.key
-  const evtId = `${documentKey ?? 'anon'}:${evtName}:${payload.event?.occurred_at ?? payload.occurred_at ?? Date.now()}`
+  const evtHash = await sha256Hex(raw)
+  const evtId = `${documentKey ?? 'anon'}:${evtName}:${evtHash}`
 
   // idempotência
   const { error: inboxErr } = await service.from('clicksign_webhooks_inbox')
@@ -72,6 +81,13 @@ Deno.serve(async (req) => {
         await service.from('assinaturas_contrato').update({
           status: 'assinado', assinado_em: new Date().toISOString(),
         }).eq('provider_request_signature_key', reqKey)
+      } else {
+        const signerEmail = payload.signers?.[0]?.email ?? null
+        if (signerEmail) {
+          await service.from('assinaturas_contrato').update({
+            status: 'assinado', assinado_em: new Date().toISOString(),
+          }).eq('contrato_id', contrato.id).eq('signatario_email', signerEmail)
+        }
       }
     } else if (evtName === 'auto_close' || evtName === 'finish' || evtName === 'close' || evtName === 'document_signed') {
       await service.rpc('contrato_marcar_assinado', {

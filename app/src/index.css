@@ -25,7 +25,7 @@
     @apply bg-[#1E293B] border-[#1E293B];
   }
 
-  button:not(.btn-no-liquid),
+  button:not(.btn-no-liquid):not(.react-flow__controls-button),
   .btn {
     @apply relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full px-4 py-2 text-sm font-semibold tracking-[0.01em] !text-silver-100 transition-all duration-300 disabled:pointer-events-none disabled:opacity-50;
     border: 1px solid rgba(255, 255, 255, 0.18);
@@ -39,7 +39,7 @@
     isolation: isolate;
   }
 
-  button:not(.btn-no-liquid)::before,
+  button:not(.btn-no-liquid):not(.react-flow__controls-button)::before,
   .btn::before {
     content: '';
     position: absolute;
@@ -56,7 +56,7 @@
     pointer-events: none;
   }
 
-  button:not(.btn-no-liquid)::after,
+  button:not(.btn-no-liquid):not(.react-flow__controls-button)::after,
   .btn::after {
     content: '';
     position: absolute;
@@ -69,7 +69,7 @@
     pointer-events: none;
   }
 
-  button:not(.btn-no-liquid):hover,
+  button:not(.btn-no-liquid):not(.react-flow__controls-button):hover,
   .btn:hover {
     @apply !text-white;
     transform: translateY(-1px);
@@ -79,17 +79,17 @@
       0 12px 24px rgba(6, 10, 20, 0.35);
   }
 
-  button:not(.btn-no-liquid) svg,
+  button:not(.btn-no-liquid):not(.react-flow__controls-button) svg,
   .btn svg {
     color: currentColor !important;
   }
 
-  button:not(.btn-no-liquid):hover::before,
+  button:not(.btn-no-liquid):not(.react-flow__controls-button):hover::before,
   .btn:hover::before {
     opacity: 1;
   }
 
-  button:not(.btn-no-liquid):active,
+  button:not(.btn-no-liquid):not(.react-flow__controls-button):active,
   .btn:active {
     transform: translateY(1px) scale(0.995);
   }
@@ -111,6 +111,38 @@
 
   .btn-no-liquid.btn-gold {
     @apply bg-gold text-navy hover:bg-gold-500;
+  }
+
+  /* React Flow controls must not inherit the global liquid button skin. */
+  .react-flow__controls {
+    @apply rounded-lg border border-silver-300 bg-white p-1 shadow-sm;
+  }
+
+  .react-flow__controls button,
+  .react-flow__controls-button {
+    @apply btn-no-liquid border border-silver-300 bg-white text-silver-700;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: 0.375rem;
+    box-shadow: none !important;
+    background: white !important;
+    color: rgb(71 85 105) !important;
+  }
+
+  .react-flow__controls button::before,
+  .react-flow__controls button::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  .react-flow__controls button:hover {
+    @apply bg-silver-100 text-navy;
+    transform: none;
+  }
+
+  .react-flow__controls button svg {
+    color: currentColor !important;
   }
 
   .badge {

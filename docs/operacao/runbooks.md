@@ -13,6 +13,9 @@
 7. [Resposta a solicitação LGPD](#7-resposta-a-solicitação-lgpd)
 8. [Rotação de senha do banco](#8-rotação-de-senha-do-banco)
 9. [Restore from backup (DR)](#9-restore-from-backup-dr)
+10. [Incidente: assinatura Clicksign não atualiza contrato](#10-incidente-assinatura-clicksign-não-atualiza-contrato)
+11. [Incidente: upload Vimeo no admin não conclui](#11-incidente-upload-vimeo-no-admin-não-conclui)
+12. [Incidente: consulta Bacen SCR falhando](#12-incidente-consulta-bacen-scr-falhando)
 
 ---
 
@@ -173,3 +176,162 @@ Passos (Supabase Pro/Team plan):
 - Login admin OK.
 
 Registrar resultado em `docs/dr-drill-log.md` (criar a cada drill).
+
+---
+
+## 10. Incidente: assinatura Clicksign não atualiza contrato
+
+**Sintoma**:
+- Assinatura concluída na Clicksign, mas proposta segue em `aguardando_assinatura`.
+- `contratos.assinado_em` continua `null`.
+
+**Diagnóstico rápido**:
+```sql
+-- Eventos recebidos da Clicksign
+select id, tipo, recebido_em, processado_em
+  from clicksign_webhooks_inbox
+ order by recebido_em desc
+ limit 30;
+
+-- Estado do contrato e signatários
+select id, proposta_id, provider_envelope_id, assinado_em, registrado_em
+  from contratos
+ where id = '<CONTRATO_UUID>';
+
+select id, signatario_email, status, provider_request_signature_key, assinado_em
+  from assinaturas_contrato
+ where contrato_id = '<CONTRATO_UUID>'
+ order by ordem;
+```
+
+**Checklist de causa provável**:
+- `CLICKSIGN_WEBHOOK_SECRET` ausente/incorreto.
+- `CLICKSIGN_REQUIRE_SIGNED_WEBHOOK=true` com assinatura inválida no header.
+- `provider_envelope_id` divergente do documento na Clicksign.
+- `provider_request_signature_key` ausente para algum signatário.
+
+**Ação imediata**:
+1. Validar secrets da função:
+   - `CLICKSIGN_API_TOKEN`
+   - `CLICKSIGN_WEBHOOK_SECRET`
+   - `CLICKSIGN_ALLOW_DEV_MODE=false` (produção)
+   - `CLICKSIGN_REQUIRE_SIGNED_WEBHOOK=true` (produção)
+2. Ver logs da função `clicksign-webhook` e confirmar retorno HTTP `200` para eventos.
+3. Se o evento entrou no inbox mas não avançou status, reenfileirar reprocessamento manual via RPC admin (ou reenvio de evento no provedor).
+
+**Validação de recuperação**:
+```sql
+select p.id, p.status, c.assinado_em
+  from propostas p
+  join contratos c on c.proposta_id = p.id
+ where c.id = '<CONTRATO_UUID>';
+```
+
+Esperado após correção:
+- `contratos.assinado_em` preenchido.
+- `propostas.status = 'em_registro'`.
+
+---
+
+## 11. Incidente: upload Vimeo no admin não conclui
+
+**Sintoma**:
+- Admin seleciona video em `/admin/universidade`, mas upload para em 0% ou falha no fim.
+- Aula de video nao recebe `vimeo_id` automaticamente.
+
+**Diagnóstico rápido**:
+1. Verificar secrets da edge:
+  - `VIMEO_ACCESS_TOKEN`
+  - `VIMEO_EMBED_DOMAINS` (json array de dominios permitidos)
+2. Verificar logs das funções:
+  - `vimeo-upload-init`
+  - `integracao-testar` (chave `vimeo`)
+3. Rodar health de integração Vimeo no admin e checar status/erro.
+
+**SQL de apoio**:
+```sql
+select chave, ativo, ultimo_status, ultimo_erro, ultima_checagem, latencia_ms
+  from integracoes_config
+ where chave = 'vimeo';
+
+select id, titulo, tipo, vimeo_id, updated_at
+  from aulas
+ where tipo = 'video'
+ order by updated_at desc
+ limit 20;
+```
+
+**Causas prováveis**:
+- Token Vimeo ausente, expirado ou sem escopo para upload.
+- Dominios de embed nao aplicados corretamente (`VIMEO_EMBED_DOMAINS` invalido).
+- Upload TUS interrompido por rede do cliente.
+
+**Ação imediata**:
+1. Validar token Vimeo e refazer `supabase secrets set`.
+2. Reexecutar teste de integração `vimeo` no painel admin.
+3. Repetir upload por arquivo menor para isolar falha de rede/tamanho.
+4. Confirmar que `vimeo_id` foi preenchido e salvar a aula novamente.
+
+**Validação de recuperação**:
+- Upload finaliza com progresso 100% no admin.
+- `aulas.vimeo_id` preenchido com ID numerico.
+- Player web/mobile reproduz a aula e atualiza `aula_progresso` normalmente.
+
+---
+
+## 12. Incidente: consulta Bacen SCR falhando
+
+**Sintoma**:
+- Consulta `bacen_cpf`/`bacen_cnpj` retorna `falha_provedor` (HTTP 502) com estorno.
+- Log de consulta em status `estornada` com erro relacionado a Bacen.
+
+**Diagnóstico rápido**:
+```sql
+-- Consultas Bacen recentes e status
+select id, tipo, status, provedor, erro, preco_centavos, iniciado_em, concluido_em
+  from logs_consultas
+ where tipo in ('bacen_cpf','bacen_cnpj')
+ order by iniciado_em desc
+ limit 30;
+
+-- Confirmar par débito/estorno (transacional)
+select referencia_tipo, tipo, valor_centavos, descricao, created_at
+  from wallet_ledger
+ where referencia_tipo = 'consulta'
+ order by created_at desc
+ limit 20;
+
+-- Status de integração
+select chave, ativo, ultimo_status, ultimo_erro, ultima_checagem
+  from integracoes_config
+ where chave = 'bacen';
+```
+
+**Causas prováveis** (erro no campo `logs_consultas.erro`):
+- `bacen_nao_configurado`: `BACEN_SCR_API_URL`/credenciais ausentes (e mock desabilitado).
+- `documento_nao_encontrado_na_proposta`: proposta sem CPF/CNPJ no cliente/proponente.
+- `Bacen auth 4xx/5xx`: credenciais inválidas ou token endpoint incorreto.
+- `Bacen SCR 4xx/5xx`: endpoint/documento inválido no provedor homologado.
+
+**Ação imediata**:
+1. Validar secrets: `BACEN_SCR_API_URL`, `BACEN_SCR_AUTH_MODE`, credenciais do modo.
+2. Rodar health de integração `bacen` no painel admin e checar `ultimo_erro`.
+3. Confirmar que o cliente/proponente da proposta tem documento válido.
+4. Como o fluxo estorna automaticamente, **não há débito indevido**; reexecutar após corrigir.
+
+**Rollback (desativar integração real sem quebrar fluxo)**:
+- Opção A (bloquear consultas Bacen): desativar a integração no catálogo
+  ```sql
+  select public.admin_integracao_toggle('bacen', false);
+  ```
+- Opção B (staging/testes): habilitar mock temporário
+  ```bash
+  supabase secrets set BACEN_ALLOW_MOCK=true --project-ref bhagksfvszeogtjvjtpx
+  ```
+  Reverter com `BACEN_ALLOW_MOCK=false` após o teste.
+- Opção C (reverter código): `supabase functions deploy consulta-executar` a partir do commit anterior. O contrato transacional (débito/estorno) é preservado em qualquer versão.
+
+**Validação de recuperação**:
+- Nova consulta Bacen retorna HTTP 200 com `resumo.totals` preenchido.
+- `logs_consultas.status = 'concluida'` e `provedor = 'bacen_scr'`.
+- Sem par débito/estorno órfão no `wallet_ledger`.

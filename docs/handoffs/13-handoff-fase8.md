@@ -379,7 +379,7 @@ git push
 
 1. **Não mexer no schema das fases anteriores.** Em particular: `stripe_payment_intents`, `wallet_*`, `notificacoes`, `contratos`, `comissoes`. Apenas **adicionar branches** ou colunas via `alter table … add column if not exists`. O resto está em produção e validado.
 
-2. **Vimeo, não Cloudflare Stream nem Storage.** O dono já tem conta Vimeo Pro. Vídeos novos vão lá; `aulas.vimeo_id` guarda o ID numérico. **Não suba MP4 no bucket** — viola custo e CDN.
+2. **Vimeo, não Cloudflare Stream nem Storage.** O fluxo oficial é upload pelo painel admin/universidade via edge `vimeo-upload-init` (TUS direto no Vimeo), com preenchimento automatico de `aulas.vimeo_id`. **Nao suba MP4 no bucket** — viola custo e CDN.
 
 3. **Stripe `proposito` no enum existente.** A constraint `check (proposito in ('wallet_topup','lms_subscription'))` em `stripe_payment_intents` já contempla LMS. **Não criar nova tabela** de payment_intents para LMS — reaproveitar.
 
@@ -392,7 +392,7 @@ git push
    - Admin → retorna tudo, inclusive rascunhos.
    Escreva um **smoke test SQL** em `supabase/smoke-tests/fase-8-smoke.sql` (igual ao da Fase 3) para garantir.
 
-6. **Vimeo Player API** requer o vídeo ter `privacy.embed = whitelist` ou `unlisted`. Se o player não carregar, **não é bug do código** — é configuração do vídeo no Vimeo. Documentar isso no `docs/integrations` (que ainda não existe — criar `docs/13-vimeo-setup.md` se necessário).
+6. **Vimeo Player API** depende de token valido e whitelist de dominios (`VIMEO_EMBED_DOMAINS`) no upload via edge. Se o player nao carregar, validar secret e dominios aplicados antes de tratar como bug do frontend.
 
 7. **PDF do certificado** segue o mesmo modelo do contrato: HTML server-side + bucket. **Não use libs npm de PDF** (não funcionam em Deno). Se precisar de PDF real (não HTML), apontar para serviço externo via `fetch` (ex.: `https://api.pdfshift.io`).
 

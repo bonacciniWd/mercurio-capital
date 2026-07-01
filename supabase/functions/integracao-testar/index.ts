@@ -23,7 +23,7 @@ const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 type Status = 'conectado' | 'erro' | 'pendente' | 'desconectado'
 
 // Provedores com verificação automática (ping) disponível.
-const PINGAVEIS = new Set(['stripe', 'resend', 'serasa', 'whatsapp', 'clicksign'])
+const PINGAVEIS = new Set(['stripe', 'resend', 'serasa', 'whatsapp', 'clicksign', 'vimeo', 'bacen'])
 
 async function withTimeout(fn: (signal: AbortSignal) => Promise<Response>): Promise<Response> {
   const controller = new AbortController()
@@ -88,6 +88,42 @@ async function pingProvider(chave: string): Promise<{ ok: boolean; erro?: string
           fetch(`${base}/api/v1/templates?access_token=${encodeURIComponent(token)}`, { signal }))
         // 200 ou 401 indicam endpoint acessível; só falha de rede é erro real
         return res.status < 500 ? { ok: res.ok } : { ok: false, erro: `clicksign ${res.status}` }
+      }
+      case 'vimeo': {
+        const token = Deno.env.get('VIMEO_ACCESS_TOKEN') ?? ''
+        const res = await withTimeout((signal) =>
+          fetch('https://api.vimeo.com/me', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/vnd.vimeo.*+json;version=3.4',
+            },
+            signal,
+          }))
+        return res.ok ? { ok: true } : { ok: false, erro: `vimeo ${res.status}` }
+      }
+      case 'bacen': {
+        // SCR é acessado via provedor homologado configurável. Verificamos a
+        // obtenção de token (oauth2) ou a presença do bearer + endpoint base.
+        const base = (Deno.env.get('BACEN_SCR_API_URL') ?? '').replace(/\/+$/, '')
+        const mode = (Deno.env.get('BACEN_SCR_AUTH_MODE') ?? 'oauth2').toLowerCase()
+        if (!base) return { ok: false, erro: 'BACEN_SCR_API_URL ausente' }
+        if (mode === 'bearer') {
+          const tok = Deno.env.get('BACEN_SCR_API_TOKEN') ?? ''
+          return tok ? { ok: true } : { ok: false, erro: 'BACEN_SCR_API_TOKEN ausente' }
+        }
+        const tokenUrl = Deno.env.get('BACEN_SCR_TOKEN_URL') || `${base}/oauth/token`
+        const res = await withTimeout((signal) =>
+          fetch(tokenUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              grant_type: 'client_credentials',
+              client_id: Deno.env.get('BACEN_SCR_CLIENT_ID') ?? '',
+              client_secret: Deno.env.get('BACEN_SCR_CLIENT_SECRET') ?? '',
+            }),
+            signal,
+          }))
+        return res.ok ? { ok: true } : { ok: false, erro: `bacen ${res.status}` }
       }
       default:
         // Sem ping verificável: presença das secrets já basta

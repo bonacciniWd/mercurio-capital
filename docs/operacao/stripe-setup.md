@@ -24,8 +24,9 @@ Configurar em **Supabase Dashboard → Project → Edge Functions → Secrets** 
 | `STRIPE_SECRET_KEY` | Stripe → Developers → API keys → **Secret key** (`sk_test_...` / `sk_live_...`) | `wallet-topup` (cria Checkout Session) |
 | `STRIPE_WEBHOOK_SECRET` | Stripe → Developers → Webhooks → endpoint → **Signing secret** (`whsec_...`) | `stripe-webhook` (verificação HMAC) |
 | `APP_URL` | URL pública do app (ex.: `https://app.mercuriocapital.com.br`) | `wallet-topup` (success/cancel URLs) |
+| `STRIPE_ALLOW_DEV_MODE` | Definido internamente (`true`/`false`) | `wallet-topup` (permite/bloqueia fallback dev) |
 
-> ⚠️ **Nunca commitar** essas variáveis. Sem `STRIPE_SECRET_KEY` o edge entra em modo dev automaticamente.
+> ⚠️ **Nunca commitar** essas variáveis. Em produção, defina `STRIPE_ALLOW_DEV_MODE=false` para bloquear fallback dev sem chave Stripe.
 
 ---
 
@@ -73,6 +74,7 @@ supabase functions deploy stripe-webhook --project-ref bhagksfvszeogtjvjtpx
 - [ ] Conta Stripe verificada (KYB completo, conta bancária BR cadastrada).
 - [ ] PIX + Cartão ativos em **Live mode**.
 - [ ] `STRIPE_SECRET_KEY` (live), `STRIPE_WEBHOOK_SECRET` (live) e `APP_URL` configurados.
+- [ ] `STRIPE_ALLOW_DEV_MODE=false` no ambiente de produção.
 - [ ] Webhook em modo **Live** apontando para `/functions/v1/stripe-webhook`.
 - [ ] Teste real com R$ 20 numa conta interna → reembolsar via Dashboard.
 - [ ] Monitorar `stripe_webhooks_inbox` e logs do edge nas primeiras 24h.
@@ -84,6 +86,7 @@ supabase functions deploy stripe-webhook --project-ref bhagksfvszeogtjvjtpx
 | Sintoma | Causa provável |
 |---------|----------------|
 | `dev_mode: true` no response do topup | `STRIPE_SECRET_KEY` ausente nos secrets. |
+| `stripe_nao_configurado` (503) no topup | `STRIPE_SECRET_KEY` ausente e `STRIPE_ALLOW_DEV_MODE=false`. |
 | Webhook retorna 401 | `STRIPE_WEBHOOK_SECRET` errado ou ausente. |
 | Saldo não credita após pagamento | Webhook não está chegando — verificar URL e eventos selecionados no Stripe. |
 | `already_processed` no log | OK — idempotência funcionando (Stripe reentrega). |

@@ -163,16 +163,18 @@ export function AdminIntegracoes() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={testarTodas}
             disabled={testandoTodas || listQuery.isLoading}
-            className="inline-flex items-center gap-2 rounded-lg bg-gold-600 px-3 py-2 text-sm font-medium text-white hover:bg-gold-700 disabled:opacity-60"
+            className="btn-no-liquid inline-flex items-center gap-2 rounded-lg bg-gold-600 px-3 py-2 text-sm font-medium text-white hover:bg-gold-700 disabled:opacity-60"
           >
             {testandoTodas ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
             Testar todas
           </button>
           <button
+            type="button"
             onClick={() => listQuery.refetch()}
-            className="inline-flex items-center gap-2 rounded-lg border border-silver-200 px-3 py-2 text-sm font-medium text-silver-700 hover:bg-silver-50"
+            className="btn-no-liquid inline-flex items-center gap-2 rounded-lg border border-silver-200 px-3 py-2 text-sm font-medium text-silver-700 hover:bg-silver-50"
           >
             <RefreshCw className="h-4 w-4" /> Atualizar
           </button>
@@ -187,8 +189,9 @@ export function AdminIntegracoes() {
           return (
             <button
               key={c.key}
+              type="button"
               onClick={() => setFiltroStatus(ativo ? 'todos' : c.key)}
-              className={`card flex items-center gap-3 p-4 text-left transition ${ativo ? 'ring-2 ring-gold-500' : 'hover:bg-silver-50'}`}
+              className={`btn-no-liquid card flex items-center gap-3 p-4 text-left text-silver-900 transition ${ativo ? 'ring-2 ring-gold-500' : 'hover:bg-silver-50'}`}
             >
               <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${c.cor}`}>
                 <Icon className="h-5 w-5" />
@@ -223,8 +226,9 @@ export function AdminIntegracoes() {
         </select>
         {filtroStatus !== 'todos' && (
           <button
+            type="button"
             onClick={() => setFiltroStatus('todos')}
-            className="rounded-lg border border-silver-200 px-3 py-2 text-xs text-silver-600 hover:bg-silver-50"
+            className="btn-no-liquid rounded-lg border border-silver-200 px-3 py-2 text-xs text-silver-600 hover:bg-silver-50"
           >
             Limpar status: {STATUS_BADGE[filtroStatus as Status].label}
           </button>
@@ -338,9 +342,10 @@ export function AdminIntegracoes() {
                       </a>
                     )}
                     <button
+                      type="button"
                       onClick={() => testar(i.chave)}
                       disabled={testando === i.chave || testandoTodas}
-                      className="inline-flex items-center gap-1 rounded-md bg-gold-600 px-3 py-1.5 font-medium text-white hover:bg-gold-700 disabled:opacity-60"
+                      className="btn-no-liquid inline-flex items-center gap-1 rounded-md bg-gold-600 px-3 py-1.5 font-medium text-white hover:bg-gold-700 disabled:opacity-60"
                     >
                       {testando === i.chave ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
                       Testar

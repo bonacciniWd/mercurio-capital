@@ -96,7 +96,8 @@
 - [x] HTTP 402 padronizado quando `saldo_insuficiente` (403 `wallet_bloqueada`, 422 `preco_nao_configurado`, 502 falha provedor com estorno).
 - [x] Telas de "Consultas" no detalhe da proposta (parceiro `editor`, admin `read-only`) com botão por tipo "Consultar (R$ X,XX)".
 - [x] Logs em `logs_consultas` (`response` jsonb + `resumo` jsonb + `ledger_debito_id` + `ledger_estorno_id`) e view `v_consultas_proposta`.
-- [ ] ⚠️ Provedores em **modo mock** — substituir por chamadas reais (Bacen, Serasa, Jusbrasil, RI Digital, Nacional) quando credenciais estiverem disponíveis. Schema, billing e UI já funcionam end-to-end.
+- [x] **Bacen SCR — integração real (Onda 1)**: edge `consulta-executar` com cliente HTTP configurável (OAuth2/bearer), resolução server-side do documento (CPF/CNPJ), normalização de resposta e gate anti-mock (`BACEN_ALLOW_MOCK=false`). Requer `BACEN_SCR_API_URL` + credenciais do provedor homologado. Divergência documentada: SCR não tem API pública direta.
+- [ ] ⚠️ Demais provedores em **modo mock** — substituir por chamadas reais (Serasa em progresso, Jusbrasil, RI Digital, Nacional) quando credenciais estiverem disponíveis. Schema, billing e UI já funcionam end-to-end.
 - [ ] Webhook Jusbrasil (monitoramento contínuo) — escopo futuro.
 
 **Saída**: proposta consulta bureaus debitando saldo do parceiro automaticamente. ✅ **Fase 6 fechada em 2026-05-18 (mocks).**
@@ -123,13 +124,14 @@
 
 - [x] Migrações `cursos`, `modulos`, `aulas`, `inscricoes`, `aula_progresso`, `certificados`, `assinaturas_universidade` (`20260518000040_universidade_fase8.sql`) — RLS, RPCs, trigger de progresso, views `v_lms_catalogo` / `v_lms_curso_estrutura`, buckets `lms-capas` (público) e `lms-recursos` (privado).
 - [x] CMS admin de cursos (`/admin/universidade`) — CRUD curso/módulo/aula, upload de capa, RPC `admin_curso_publicar` valida módulos/aulas mínimas.
+- [x] Upload de aulas em vídeo via painel admin/universidade com edge `vimeo-upload-init` (TUS direto no Vimeo) e preenchimento automático de `aulas.vimeo_id`.
 - [x] Player de vídeo com Vimeo Player SDK via CDN — embed iframe + tracking `timeupdate` (debounce 5s) + `ended` → RPC `lms_marcar_aula`.
 - [x] Emissão automática de certificado ao atingir 100% — trigger `fn_calcular_progresso_curso` chama `lms_gerar_certificado_interno`; PDF/HTML gerado on-demand pela edge `certificado-gerar`.
 - [x] Integração Stripe Subscription via edge `lms-assinar` (mode=subscription) + modo dev. Webhook `stripe-webhook` estendido para `customer.subscription.*` + `invoice.payment_*` + branch `proposito = 'lms_subscription'` no checkout.
 - [x] Gating por assinatura no portal cliente (`/c/universidade`) com paywall + ciclo mensal/anual; RLS de `aulas` respeita `app_has_lms_subscription()`, `curso.gratuito` e `aula.gratuita` (preview).
 - [x] Smoke test transacional (`supabase/smoke-tests/fase-8-smoke.sql`): publica curso → inscreve → conclui aulas → valida certificado emitido.
 - [ ] ⚠️ Stripe LMS em modo dev — substituir `STRIPE_PRICE_ID_LMS_MONTHLY` / `STRIPE_PRICE_ID_LMS_ANNUAL` quando ambiente real for habilitado.
-- [ ] ⚠️ Vimeo Player requer vídeos configurados como `unlisted` ou whitelist do domínio do app.
+- [ ] ⚠️ Vimeo em produção depende de `VIMEO_ACCESS_TOKEN` + `VIMEO_EMBED_DOMAINS` configurados no Supabase secrets.
 
 **Saída**: LMS operacional com cursos gratuitos, premium por assinatura, progresso automático e certificados emitidos. ✅ **Fase 8 fechada em 2026-05-18 (Stripe dev / Vimeo).**
 

@@ -127,19 +127,60 @@ async function handleSucceeded(event: StripeEvent) {
   if (tErr || !topup) throw new Error('topup_nao_encontrado')
   if (topup.status === 'succeeded' && topup.ledger_id) return // já creditado
 
+  const { data: existingLedger, error: lErr } = await service
+    .from('wallet_ledger')
+    .select('id')
+    .eq('referencia_tipo', 'topup')
+    .eq('referencia_id', topup.id)
+    .eq('tipo', 'recarga')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (lErr) throw new Error(`ledger_lookup_fail: ${lErr.message}`)
+
+  if (existingLedger?.id) {
+    await service.from('wallet_topups').update({
+      status: 'succeeded',
+      confirmado_em: new Date().toISOString(),
+      ledger_id: existingLedger.id,
+    }).eq('id', topup.id)
+
+    await service.from('stripe_payment_intents').update({
+      status: 'succeeded',
+    }).eq('id', intentId)
+
+    return
+  }
+
   const { data: ledger, error: cErr } = await service.rpc('wallet_credit', {
     p_partner: topup.partner_id,
     p_tipo: 'recarga',
     p_valor: topup.valor_centavos,
     p_ref_tipo: 'topup',
     p_ref_id: topup.id,
-    p_correlation: crypto.randomUUID(),
+    p_correlation: topup.id,
     p_descricao: 'Recarga via Stripe',
     p_metadata: { intent_id: intentId, partner_id: partnerId },
   })
-  if (cErr) throw new Error(`wallet_credit_fail: ${cErr.message}`)
 
-  const ledgerId = (ledger as { id?: string } | null)?.id ?? null
+  let ledgerId = (ledger as { id?: string } | null)?.id ?? null
+  if (cErr) {
+    if (cErr.code === '23505') {
+      const { data: existingAfterDuplicate, error: l2Err } = await service
+        .from('wallet_ledger')
+        .select('id')
+        .eq('referencia_tipo', 'topup')
+        .eq('referencia_id', topup.id)
+        .eq('tipo', 'recarga')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (l2Err) throw new Error(`ledger_lookup_fail: ${l2Err.message}`)
+      ledgerId = existingAfterDuplicate?.id ?? null
+    } else {
+      throw new Error(`wallet_credit_fail: ${cErr.message}`)
+    }
+  }
 
   await service.from('wallet_topups').update({
     status: 'succeeded', confirmado_em: new Date().toISOString(),

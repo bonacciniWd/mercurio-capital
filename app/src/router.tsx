@@ -62,6 +62,7 @@ const AdminTemplates       = lazy(() => import('@/pages/admin/Templates').then(m
 const AdminFeatureFlags    = lazy(() => import('@/pages/admin/FeatureFlags').then(m => ({ default: m.AdminFeatureFlags })))
 const AdminAuditoria       = lazy(() => import('@/pages/admin/Auditoria').then(m => ({ default: m.AdminAuditoria })))
 const AdminIntegracoes     = lazy(() => import('@/pages/admin/Integracoes').then(m => ({ default: m.AdminIntegracoes })))
+const AdminWhatsAppConfig  = lazy(() => import('@/pages/admin/WhatsAppConfig').then(m => ({ default: m.AdminWhatsAppConfig })))
 const AdminParceiros       = lazy(() => import('@/pages/admin/Parceiros').then(m => ({ default: m.AdminParceiros })))
 const AdminPartnerEquipes  = lazy(() => import('@/pages/admin/PartnerEquipes').then(m => ({ default: m.AdminPartnerEquipes })))
 const AdminPropostas       = lazy(() => import('@/pages/admin/Propostas').then(m => ({ default: m.AdminPropostas })))

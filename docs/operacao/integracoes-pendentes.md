@@ -7,15 +7,43 @@ _Atualizado em 01/06/2026_
 
 | Serviço | Status |
 |---|---|
-| **Vimeo Pro** | ✅ Conta própria — só precisamos do e-mail para adicionar como colaborador e configurar whitelist do domínio |
+| **Vimeo Pro** | ✅ Upload oficial via painel admin/universidade — requer `VIMEO_ACCESS_TOKEN` e whitelist em `VIMEO_EMBED_DOMAINS` |
 | **Stripe** | ✅ Cliente providenciando — aguardando `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e Price IDs do LMS |
 | **Clicksign** | ✅ Cliente providenciando — aguardando `CLICKSIGN_API_TOKEN` e `CLICKSIGN_WEBHOOK_SECRET` |
 | **Resend** | ✅ Cliente providenciando — aguardando `RESEND_API_KEY` |
-| **Bacen SCR** | ✅ Cliente providenciando — aguardando credenciais do parceiro homologado |
+| **Bacen SCR** | ✅ Integração real implementada (edge configurável) — requer `BACEN_SCR_API_URL` + credenciais do provedor homologado |
 | **Jusbrasil** | ✅ Cliente providenciando |
 | **Escavador** | ✅ Cliente providenciando |
 | **RI Digital / ARISP** | ✅ Cliente providenciando |
 | **Nacional Consultas** | ✅ Cliente providenciando |
+
+---
+
+## 🏦 Bacen SCR — integração real (Onda 1)
+
+> **Divergência de contrato documentada:** o SCR do Banco Central **não expõe API
+> pública direta**. O acesso é feito por instituição homologada ou por um
+> **provedor/agregador homologado**. Por isso a integração é **agnóstica de
+> provedor** e configurada por ambiente na edge `consulta-executar`.
+
+**Como funciona:**
+- Tipos `bacen_cpf` e `bacen_cnpj` na edge `consulta-executar`.
+- O documento (CPF/CNPJ) é resolvido **server-side** a partir da proposta
+  (cliente → fallback proponente principal). O client nunca envia o documento.
+- Débito de carteira + **estorno automático** em qualquer falha do provedor.
+- Sem credenciais configuradas, a edge **não faz mock** em produção: retorna
+  `bacen_nao_configurado` e o valor é estornado. Mock só em staging com
+  `BACEN_ALLOW_MOCK=true`.
+
+**Secrets (2 modos de auth):**
+- `BACEN_SCR_API_URL` (obrigatório) — base do provedor homologado.
+- `BACEN_SCR_AUTH_MODE` = `oauth2` (padrão) ou `bearer`.
+- OAuth2: `BACEN_SCR_CLIENT_ID`, `BACEN_SCR_CLIENT_SECRET`, opcional `BACEN_SCR_TOKEN_URL`.
+- Bearer: `BACEN_SCR_API_TOKEN`.
+- `BACEN_ALLOW_MOCK` = `false` em produção.
+
+**Pendência para go-live real:** contrato/URL/credenciais do provedor homologado
+(qual agregador, modo de auth, schema de resposta do endpoint SCR).
 
 ---
 
@@ -79,6 +107,7 @@ Sem `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID`, o dispatcher opera em 
 supabase secrets set \
   STRIPE_SECRET_KEY=sk_live_xxx \
   STRIPE_WEBHOOK_SECRET=whsec_xxx \
+  STRIPE_ALLOW_DEV_MODE=false \
   STRIPE_PRICE_ID_LMS_MONTHLY=price_xxx \
   STRIPE_PRICE_ID_LMS_ANNUAL=price_xxx \
   --project-ref bhagksfvszeogtjvjtpx
@@ -88,6 +117,14 @@ supabase secrets set \
   CLICKSIGN_API_TOKEN=xxx \
   CLICKSIGN_API_URL=https://app.clicksign.com \
   CLICKSIGN_WEBHOOK_SECRET=xxx \
+  CLICKSIGN_ALLOW_DEV_MODE=false \
+  CLICKSIGN_REQUIRE_SIGNED_WEBHOOK=true \
+  --project-ref bhagksfvszeogtjvjtpx
+
+# Vimeo
+supabase secrets set 
+  VIMEO_ACCESS_TOKEN=xxx \
+  VIMEO_EMBED_DOMAINS='["www.mercuriocapitalsa.com.br","mercuriocapitalsa.com.br","mercurio-digital-alpha.vercel.app"]' \
   --project-ref bhagksfvszeogtjvjtpx
 
 # Resend
@@ -102,6 +139,18 @@ supabase secrets set \
   SERASA_CLIENT_SECRET=xxx \
   SERASA_API_URL=https://api.serasaexperian.com.br \
   --project-ref bhagksfvszeogtjvjtpx
+
+# Bacen SCR (provedor homologado) — modo oauth2 (padrão)
+supabase secrets set \
+  BACEN_SCR_API_URL=https://api.provedor-homologado.com.br \
+  BACEN_SCR_AUTH_MODE=oauth2 \
+  BACEN_SCR_CLIENT_ID=xxx \
+  BACEN_SCR_CLIENT_SECRET=xxx \
+  BACEN_ALLOW_MOCK=false \
+  --project-ref bhagksfvszeogtjvjtpx
+
+# Bacen SCR — modo bearer (alternativo)
+# supabase secrets set BACEN_SCR_API_URL=... BACEN_SCR_AUTH_MODE=bearer BACEN_SCR_API_TOKEN=... BACEN_ALLOW_MOCK=false --project-ref bhagksfvszeogtjvjtpx
 
 # WhatsApp (Cloud API oficial — Meta)
 supabase secrets set \

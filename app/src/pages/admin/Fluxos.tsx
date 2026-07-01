@@ -348,7 +348,7 @@ export function AdminFluxos() {
             <div className="card p-4 text-sm text-silver-500">Sem fluxos cadastrados.</div>
           ) : fluxos.map(f => (
             <button key={f.id} onClick={() => setSelectedId(f.id)}
-              className={`card w-full text-left cursor-pointer p-3 transition-colors ${(selected?.id === f.id) ? 'border-l-4 border-gold' : ''}`}>
+              className={`btn-no-liquid !block w-full min-h-[110px] rounded-lg border border-silver-200 bg-white p-4 text-left text-silver-900 shadow-none transition-all ${selected?.id === f.id ? 'border-l-4 border-gold bg-gradient-to-r from-gold/10 to-white shadow-sm' : 'hover:bg-silver-50'}`}>
               <div className="flex items-start justify-between gap-2">
                 <p className="text-sm font-semibold text-silver-900 truncate">{f.nome}</p>
                 <Badge variant={f.ativo ? 'green' : 'gray'}>{f.ativo ? 'on' : 'off'}</Badge>
