@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import HCaptcha from '@hcaptcha/react-hcaptcha'
+import ReCAPTCHA from 'react-google-recaptcha'
 import { Logo } from '@/components/Logo'
 import { StatusBadge } from '@/components/Badge'
 import { Search, AlertCircle, Loader2, ShieldAlert } from 'lucide-react'
@@ -61,7 +61,10 @@ interface Resultado {
   historico?: { status_novo: string; status_anterior: string | null; created_at: string }[]
 }
 
-const SITEKEY = (import.meta.env.VITE_HCAPTCHA_SITEKEY as string | undefined) || ''
+const RECAPTCHA_SITEKEY =
+  (import.meta.env.VITE_RECAPTCHA_SITEKEY as string | undefined)
+  || (import.meta.env.VITE_HCAPTCHA_SITEKEY as string | undefined)
+  || ''
 
 export function Protocolo() {
   const { codigo: codigoParam } = useParams()
@@ -72,14 +75,14 @@ export function Protocolo() {
   const [erro, setErro] = useState<string | null>(null)
   const [resultado, setResultado] = useState<Resultado | null>(null)
 
-  const captchaEnabled = SITEKEY.trim().length > 0
+  const captchaEnabled = RECAPTCHA_SITEKEY.trim().length > 0
 
   async function consultar(cod: string) {
     setLoading(true)
     setErro(null)
     setResultado(null)
     try {
-      if (SITEKEY && !captchaToken) {
+      if (captchaEnabled && !captchaToken) {
         throw new Error('Conclua a verificação anti-bot antes de consultar.')
       }
       const { data, error } = await supabase.rpc('public_consulta_protocolo', {
@@ -143,15 +146,15 @@ export function Protocolo() {
                   Complete a verificação anti-bot para consultar o protocolo.
                 </div>
                 <div className="flex justify-center">
-                  <HCaptcha
-                    sitekey={SITEKEY}
-                    onLoad={() => setCaptchaReady(true)}
-                    onVerify={(token) => {
+                  <ReCAPTCHA
+                    sitekey={RECAPTCHA_SITEKEY}
+                    asyncScriptOnLoad={() => setCaptchaReady(true)}
+                    onChange={(token: string | null) => {
                       setCaptchaToken(token)
-                      setErro(null)
+                      if (token) setErro(null)
                     }}
-                    onExpire={() => setCaptchaToken(null)}
-                    onError={() => {
+                    onExpired={() => setCaptchaToken(null)}
+                    onErrored={() => {
                       setCaptchaToken(null)
                       setErro('Não foi possível validar o captcha. Tente novamente.')
                     }}
@@ -163,7 +166,7 @@ export function Protocolo() {
               </div>
             ) : (
               <div className="rounded-lg border border-silver-200 bg-silver-50 p-3 text-center text-xs text-silver-500">
-                Verificação anti-bot desabilitada (defina <code>VITE_HCAPTCHA_SITEKEY</code>).
+                Verificação anti-bot desabilitada (defina <code>VITE_RECAPTCHA_SITEKEY</code>).
               </div>
             )}
 

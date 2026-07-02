@@ -16,6 +16,7 @@
 10. [Incidente: assinatura Clicksign não atualiza contrato](#10-incidente-assinatura-clicksign-não-atualiza-contrato)
 11. [Incidente: upload Vimeo no admin não conclui](#11-incidente-upload-vimeo-no-admin-não-conclui)
 12. [Incidente: consulta Bacen SCR falhando](#12-incidente-consulta-bacen-scr-falhando)
+13. [Incidente: parceiro aprovado bloqueado como não aprovado](#13-incidente-parceiro-aprovado-bloqueado-como-não-aprovado)
 
 ---
 
@@ -335,3 +336,41 @@ select chave, ativo, ultimo_status, ultimo_erro, ultima_checagem
 - Nova consulta Bacen retorna HTTP 200 com `resumo.totals` preenchido.
 - `logs_consultas.status = 'concluida'` e `provedor = 'bacen_scr'`.
 - Sem par débito/estorno órfão no `wallet_ledger`.
+
+---
+
+## 13. Incidente: parceiro aprovado bloqueado como não aprovado
+
+**Sintoma**:
+- Partner aprovado consegue logar, mas operações como `partner_create_proposta` retornam `forbidden: parceiro não aprovado`.
+- Pode ocorrer junto com mensagens de JWT stale no fluxo pós-aprovação.
+
+**Causa raiz típica**:
+- Claim `app_metadata.approved` no JWT local desatualizada após aprovação admin.
+- Banco já está em `partners.status='approved'`, porém token antigo continua com `approved=false`.
+
+**Diagnóstico rápido**:
+```sql
+-- 1) Status real no banco
+select p.id, p.status, p.usuario_id, p.aprovado_em
+  from public.partners p
+ where p.id = '<PARTNER_ID>';
+
+-- 2) Conferir metadados persistidos no auth.users
+select id, raw_app_meta_data
+  from auth.users
+ where id = '<USUARIO_ID>';
+```
+
+**Ação imediata**:
+1. Confirmar que a migration de fallback de claims foi aplicada (`20260701000015_fix_auth_claim_stale_fallbacks.sql`).
+2. Pedir re-login do usuário (renovar JWT) caso sessão seja muito antiga.
+3. Validar helpers no contexto do parceiro:
+```sql
+select public.app_partner_id(), public.app_is_approved();
+```
+
+**Validação de recuperação**:
+- Partner aprovado consegue acessar `/p/propostas/nova` e concluir criação de proposta.
+- Partner pendente continua redirecionado para `/acesso-pendente`.
+- Sem novos 403 indevidos com mensagem de parceiro não aprovado.
