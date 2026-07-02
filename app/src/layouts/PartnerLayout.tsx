@@ -54,7 +54,7 @@ export function PartnerLayout() {
       <a href="#partner-main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-navy focus:px-3 focus:py-2 focus:text-sm focus:text-white">
         Pular para o conteúdo
       </a>
-      <aside className="relative flex h-screen w-64 shrink-0 flex-col overflow-hidden text-white" style={{
+      <aside className="block  max-h-[100vh] w-64 shrink-0 flex-col text-white" style={{
         background: 'linear-gradient(180deg, #27272a 0%, #09090b 50%, #000000 100%)',
         borderRight: '1px solid rgba(255,255,255,0.055)',
         boxShadow: '4px 0 24px rgba(0,0,0,0.45)',
@@ -92,7 +92,7 @@ export function PartnerLayout() {
         
 
         {/* Navegação */}
-        <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 py-1">
+        <nav className="flex-1 block overflow-y-hidden space-y-0.5 px-3 py-1">
           {ITEMS.map((it) => (
             <NavLink
               key={it.to}

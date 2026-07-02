@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import HCaptcha from '@hcaptcha/react-hcaptcha'
 import { Logo } from '@/components/Logo'
 import { StatusBadge } from '@/components/Badge'
 import { Search, AlertCircle, Loader2, ShieldAlert } from 'lucide-react'
@@ -66,9 +67,12 @@ export function Protocolo() {
   const { codigo: codigoParam } = useParams()
   const [codigo, setCodigo] = useState(codigoParam ?? '')
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaReady, setCaptchaReady] = useState(false)
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [resultado, setResultado] = useState<Resultado | null>(null)
+
+  const captchaEnabled = SITEKEY.trim().length > 0
 
   async function consultar(cod: string) {
     setLoading(true)
@@ -125,22 +129,37 @@ export function Protocolo() {
                 className="input font-mono"
                 placeholder="MC-2024-XXXXXX"
                 value={codigo}
-                onChange={(e) => setCodigo(e.target.value)}
+                onChange={(e) => {
+                  setCodigo(e.target.value)
+                  if (erro) setErro(null)
+                }}
                 required
               />
             </div>
 
-            {SITEKEY ? (
-              <div className="rounded-lg border border-silver-200 bg-silver-50 p-3 text-center text-xs text-silver-500">
-                {/* TODO: integrar @hcaptcha/react-hcaptcha quando dependência for adicionada */}
-                Captcha habilitado (sitekey configurada). Token enviado: {captchaToken ? 'OK' : '—'}
-                <button
-                  type="button"
-                  className="ml-2 underline"
-                  onClick={() => setCaptchaToken('dev-token')}
-                >
-                  Simular verificação
-                </button>
+            {captchaEnabled ? (
+              <div className="rounded-lg border border-silver-200 bg-silver-50 p-3">
+                <div className="mb-2 text-center text-xs text-silver-500">
+                  Complete a verificação anti-bot para consultar o protocolo.
+                </div>
+                <div className="flex justify-center">
+                  <HCaptcha
+                    sitekey={SITEKEY}
+                    onLoad={() => setCaptchaReady(true)}
+                    onVerify={(token) => {
+                      setCaptchaToken(token)
+                      setErro(null)
+                    }}
+                    onExpire={() => setCaptchaToken(null)}
+                    onError={() => {
+                      setCaptchaToken(null)
+                      setErro('Não foi possível validar o captcha. Tente novamente.')
+                    }}
+                  />
+                </div>
+                {!captchaReady && (
+                  <p className="mt-2 text-center text-[11px] text-silver-500">Carregando verificação...</p>
+                )}
               </div>
             ) : (
               <div className="rounded-lg border border-silver-200 bg-silver-50 p-3 text-center text-xs text-silver-500">
@@ -148,7 +167,11 @@ export function Protocolo() {
               </div>
             )}
 
-            <button type="submit" className="btn-gold w-full" disabled={loading}>
+            <button
+              type="submit"
+              className="btn-gold w-full"
+              disabled={loading || (captchaEnabled && !captchaToken)}
+            >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               Consultar
             </button>
