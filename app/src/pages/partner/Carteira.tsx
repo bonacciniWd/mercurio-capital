@@ -100,20 +100,25 @@ export function PartnerCarteira() {
 
   const recarregar = useMutation({
     mutationFn: async (centavos: number) => {
-      const { data: sess } = await supabase.auth.getSession()
-      const token = sess.session?.access_token
-      if (!token) throw new Error('Sessão expirada')
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wallet-topup`,
-        {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-          body: JSON.stringify({ valor_centavos: centavos }),
-        },
-      )
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'falha_topup')
-      return json as { checkout_url: string; dev_mode?: boolean }
+      const { data, error } = await supabase.functions.invoke('wallet-topup', {
+        body: { valor_centavos: centavos },
+      })
+
+      if (error) {
+        let message = error.message || 'falha_topup'
+        try {
+          const ctx = (error as { context?: Response }).context
+          if (ctx && typeof ctx.json === 'function') {
+            const payload = await ctx.json() as { error?: string }
+            if (payload.error) message = payload.error
+          }
+        } catch {
+          /* ignore */
+        }
+        throw new Error(message)
+      }
+
+      return data as { checkout_url: string; dev_mode?: boolean }
     },
     onSuccess: (data) => {
       if (data.dev_mode) {

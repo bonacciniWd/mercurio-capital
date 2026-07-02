@@ -1,9 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
-  buildSession,
   consumeMagicToken,
   enrollTwoFactor as enrollTwoFactorClient,
-  fetchProfile,
   getCurrentSession,
   loginWithPassword,
   resolveRedirect,
@@ -59,13 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (mounted) setSession(current)
       } catch (err) {
         // eslint-disable-next-line no-console
-        console.error('[auth] bootstrap falhou — limpando sessão local', err)
-        try {
-          await supabase.auth.signOut({ scope: 'local' })
-        } catch {
-          /* noop */
-        }
-        if (mounted) setSession(null)
+        console.error('[auth] bootstrap falhou — mantendo estado local e aguardando reconexão', err)
       } finally {
         clearTimeout(fallbackTimer)
         if (mounted) setLoading(false)
@@ -86,19 +78,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
-          const profile = await fetchProfile()
-          if (!profile) {
-            await supabase.auth.signOut({ scope: 'local' })
-            if (mounted) setSession(null)
+          const current = await getCurrentSession()
+          if (!mounted) return
+
+          if (current) {
+            setSession(current)
             return
           }
-          const current = await buildSession(profile, supaSession.user.id)
-          if (!mounted) return
-          setSession(current)
+
+          // Em eventos de token refresh com falha transitória, preserva a sessão anterior.
+          if (event === 'SIGNED_IN') {
+            setSession(null)
+          }
         } catch (err) {
           // eslint-disable-next-line no-console
           console.error('[auth] onAuthStateChange falhou', err)
-          if (mounted) setSession(null)
         } finally {
           if (mounted) setLoading(false)
         }

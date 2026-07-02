@@ -89,27 +89,32 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
 
   const executar = useMutation({
     mutationFn: async (tipo: string) => {
-      const baseUrl = import.meta.env.VITE_SUPABASE_URL as string
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(`${baseUrl}/functions/v1/consulta-executar`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          authorization: `Bearer ${session?.access_token ?? ''}`,
-        },
-        body: JSON.stringify({ proposta_id: propostaId, tipo }),
+      const { data, error } = await supabase.functions.invoke('consulta-executar', {
+        body: { proposta_id: propostaId, tipo },
       })
-      const json = await res.json()
-      if (!res.ok) {
+
+      if (error) {
+        let errorCode = ''
+        try {
+          const ctx = (error as { context?: Response }).context
+          if (ctx && typeof ctx.json === 'function') {
+            const payload = await ctx.json() as { error?: string }
+            errorCode = payload.error ?? ''
+          }
+        } catch {
+          /* ignore */
+        }
+
         const map: Record<string, string> = {
           saldo_insuficiente: 'Saldo insuficiente — recarregue a carteira.',
           wallet_bloqueada: 'Carteira bloqueada pelo admin.',
           preco_nao_configurado: 'Preço não configurado para este tipo.',
           falha_provedor: 'Falha no provedor — valor estornado.',
         }
-        throw new Error(map[json.error] ?? json.error ?? `HTTP ${res.status}`)
+        throw new Error(map[errorCode] ?? error.message ?? 'Falha ao executar consulta.')
       }
-      return json as { log_id: string; preco_centavos: number }
+
+      return data as { log_id: string; preco_centavos: number }
     },
     onMutate: (tipo) => { setExecutingTipo(tipo); setErro(null) },
     onSettled: () => setExecutingTipo(null),

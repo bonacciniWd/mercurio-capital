@@ -76,18 +76,30 @@ export function UniversidadeLista() {
       let path = cert.pdf_storage_path
       if (!path) {
         // gera via edge function
-        const { data: sess } = await supabase.auth.getSession()
-        const token = sess.session?.access_token
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/certificado-gerar`
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ certificado_id: cert.id }),
+        const { data, error } = await supabase.functions.invoke('certificado-gerar', {
+          body: { certificado_id: cert.id },
         })
-        if (!res.ok) throw new Error(await res.text())
-        const j = await res.json()
-        path = j.storage_path as string
+
+        if (error) {
+          let message = error.message || 'Falha ao gerar certificado.'
+          try {
+            const ctx = (error as { context?: Response }).context
+            if (ctx && typeof ctx.text === 'function') {
+              const text = await ctx.text()
+              if (text) message = text
+            }
+          } catch {
+            /* ignore */
+          }
+          throw new Error(message)
+        }
+
+        const payload = data as { storage_path?: string }
+        path = payload.storage_path ?? null
       }
+
+      if (!path) throw new Error('storage_path ausente no certificado.')
+
       const { data, error } = await supabase.storage.from('lms-recursos')
         .createSignedUrl(path!, 60 * 60)
       if (error) throw error

@@ -65,17 +65,29 @@ export function ClientUniversidade() {
 
   const assinar = useMutation({
     mutationFn: async (ciclo: 'mensal' | 'anual') => {
-      const { data: sess } = await supabase.auth.getSession()
-      const token = sess.session?.access_token
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lms-assinar`
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ ciclo }),
+      const { data, error } = await supabase.functions.invoke('lms-assinar', {
+        body: { ciclo },
       })
-      if (!res.ok) throw new Error(await res.text())
-      const j = await res.json() as { checkout_url: string }
-      window.location.href = j.checkout_url
+
+      if (error) {
+        let message = error.message || 'Falha ao iniciar assinatura.'
+        try {
+          const ctx = (error as { context?: Response }).context
+          if (ctx && typeof ctx.text === 'function') {
+            const text = await ctx.text()
+            if (text) message = text
+          }
+        } catch {
+          /* ignore */
+        }
+        throw new Error(message)
+      }
+
+      const payload = data as { checkout_url?: string }
+      if (!payload.checkout_url) {
+        throw new Error('Resposta inválida ao iniciar assinatura.')
+      }
+      window.location.href = payload.checkout_url
     },
     onError: (e) => setErro(String(e instanceof Error ? e.message : e)),
   })

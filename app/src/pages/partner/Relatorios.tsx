@@ -157,17 +157,30 @@ export function PartnerRelatorios() {
   async function exportar() {
     try {
       setExporting(true)
-      const { data: sess } = await supabase.auth.getSession()
-      const token = sess.session?.access_token
-      if (!token) throw new Error('Sessão expirada')
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/relatorios-exportar`
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-        body: JSON.stringify({ tipo: 'propostas', filtros: {} }),
+      const { data, error } = await supabase.functions.invoke('relatorios-exportar', {
+        body: { tipo: 'propostas', filtros: {} },
       })
-      if (!res.ok) throw new Error(await res.text())
-      const blob = await res.blob()
+
+      if (error) {
+        let message = error.message || 'Falha ao exportar'
+        try {
+          const ctx = (error as { context?: Response }).context
+          if (ctx && typeof ctx.text === 'function') {
+            const text = await ctx.text()
+            if (text) message = text
+          }
+        } catch {
+          /* ignore */
+        }
+        throw new Error(message)
+      }
+
+      const blob = data instanceof Blob
+        ? data
+        : new Blob([typeof data === 'string' ? data : JSON.stringify(data)], {
+          type: 'text/csv;charset=utf-8',
+        })
+
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
       a.download = `propostas_${new Date().toISOString().slice(0, 10)}.csv`

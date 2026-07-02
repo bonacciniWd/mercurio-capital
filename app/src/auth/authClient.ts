@@ -21,17 +21,99 @@ const ROLE_MODULE_PATH: Record<AppRole, '/admin' | '/p' | '/c'> = {
   client: '/c',
 }
 
+type SupabaseSessionUser = {
+  id: string
+  email?: string | null
+  app_metadata?: Record<string, unknown> | null
+  user_metadata?: Record<string, unknown> | null
+}
+
+const cachedProfilesByUserId = new Map<string, AuthProfile>()
+
+const TRANSIENT_ERROR_MARKERS = [
+  'load failed',
+  'failed to fetch',
+  'networkerror',
+  'network request failed',
+  'fetch failed',
+  'gateway timeout',
+]
+
+function isTransientNetworkError(err: unknown): boolean {
+  const message =
+    typeof err === 'string'
+      ? err
+      : typeof err === 'object' && err !== null && 'message' in err
+        ? String((err as { message: unknown }).message)
+        : ''
+  const normalized = message.toLowerCase()
+  return TRANSIENT_ERROR_MARKERS.some((marker) => normalized.includes(marker))
+}
+
+function sanitizeRole(value: unknown): AppRole {
+  if (value === 'admin' || value === 'partner' || value === 'team_member' || value === 'client') {
+    return value
+  }
+  return 'client'
+}
+
+function buildFallbackProfileFromSessionUser(user: SupabaseSessionUser): AuthProfile {
+  const appMetadata = user.app_metadata ?? {}
+  const role = sanitizeRole(appMetadata.role)
+  const approvedClaim = appMetadata.approved === true
+  const partnerStatus =
+    role === 'partner'
+      ? approvedClaim
+        ? 'approved'
+        : 'pending'
+      : null
+
+  return {
+    id: user.id,
+    email: user.email ?? '',
+    nome: user.email ? user.email.split('@')[0] : 'Usuário',
+    role,
+    ativo: true,
+    partnerId: typeof appMetadata.partner_id === 'string' ? appMetadata.partner_id : null,
+    partnerStatus,
+    equipeId: typeof appMetadata.equipe_id === 'string' ? appMetadata.equipe_id : null,
+    approved: role === 'partner' ? approvedClaim : true,
+    requiresTwoFactor: false,
+  }
+}
+
+async function readFallbackProfile(): Promise<AuthProfile | null> {
+  const { data, error } = await supabase.auth.getSession()
+  if (error || !data.session) return null
+
+  const userId = data.session.user.id
+  const cached = cachedProfilesByUserId.get(userId)
+  if (cached) return cached
+
+  return buildFallbackProfileFromSessionUser(data.session.user as SupabaseSessionUser)
+}
+
 export async function fetchProfile(): Promise<AuthProfile | null> {
   try {
     const { data, error } = await supabase.rpc('me')
     if (error) {
       // eslint-disable-next-line no-console
       console.error('[auth] me() falhou', error)
+
+      if (isTransientNetworkError(error)) {
+        const fallback = await readFallbackProfile()
+        if (fallback) {
+          // eslint-disable-next-line no-console
+          console.warn('[auth] me() indisponível (transitório), usando perfil de fallback')
+          return fallback
+        }
+      }
+
       return null
     }
     if (!data) return null
     const row = data as MeRow
-    return {
+    const profile: AuthProfile = {
       id: row.id,
       email: row.email,
       nome: row.nome,
@@ -43,9 +125,22 @@ export async function fetchProfile(): Promise<AuthProfile | null> {
       approved: row.approved,
       requiresTwoFactor: false, // temporário para testes: row.requires_2fa,
     }
+
+    cachedProfilesByUserId.set(profile.id, profile)
+    return profile
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[auth] me() throw', err)
+
+    if (isTransientNetworkError(err)) {
+      const fallback = await readFallbackProfile()
+      if (fallback) {
+        // eslint-disable-next-line no-console
+        console.warn('[auth] me() throw transitório, usando perfil de fallback')
+        return fallback
+      }
+    }
+
     return null
   }
 }
@@ -97,6 +192,12 @@ export async function getCurrentSession(): Promise<AuthSession | null> {
     if (sessionError) {
       // eslint-disable-next-line no-console
       console.warn('[auth] getSession falhou', sessionError)
+
+      if (isTransientNetworkError(sessionError)) {
+        const fallback = await readFallbackProfile()
+        if (fallback) return buildSession(fallback, fallback.id)
+      }
+
       return null
     }
     const supaSession = sessionData.session
@@ -104,7 +205,8 @@ export async function getCurrentSession(): Promise<AuthSession | null> {
 
     const profile = await fetchProfile()
     if (!profile) {
-      await supabase.auth.signOut({ scope: 'local' })
+      // Evita logout local agressivo em falhas transitórias do bootstrap.
+      // O AuthContext decide quando invalidar a sessão de forma explícita.
       return null
     }
 
