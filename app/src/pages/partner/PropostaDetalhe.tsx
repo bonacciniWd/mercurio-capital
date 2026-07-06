@@ -3,7 +3,21 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { StatusBadge } from '@/components/Badge'
 import { brl } from '@/lib/utils'
-import { ArrowLeft, Link2, Copy, Check, Loader2 } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Building2,
+  Check,
+  FileSignature,
+  FileText,
+  History,
+  Link2,
+  Loader2,
+  Search,
+  Sparkles,
+  Users,
+  Copy,
+} from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
 import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
@@ -12,6 +26,28 @@ import { PropostaConsultas } from '@/components/PropostaConsultas'
 import { PropostaContrato } from '@/components/PropostaContrato'
 
 const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Pendências', 'Consultas', 'Contrato', 'Histórico'] as const
+
+const TAB_DOM_ID: Record<typeof TABS[number], string> = {
+  Resumo: 'resumo',
+  Proponentes: 'proponentes',
+  Imóveis: 'imoveis',
+  Documentos: 'documentos',
+  Pendências: 'pendencias',
+  Consultas: 'consultas',
+  Contrato: 'contrato',
+  Histórico: 'historico',
+}
+
+const TAB_ICON: Record<typeof TABS[number], React.ComponentType<{ className?: string }>> = {
+  Resumo: Sparkles,
+  Proponentes: Users,
+  Imóveis: Building2,
+  Documentos: FileText,
+  Pendências: AlertTriangle,
+  Consultas: Search,
+  Contrato: FileSignature,
+  Histórico: History,
+}
 
 const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Rascunho',
@@ -234,14 +270,36 @@ export function PartnerPropostaDetalhe() {
         </div>
       </div>
 
-      <div className="mb-6 flex gap-1 overflow-x-auto border-b border-silver-200">
-        {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium ${tab === t ? 'border-gold text-navy' : 'border-transparent text-silver-500 hover:text-navy'}`}>
-            {t}
-          </button>
-        ))}
+      <div className="sticky top-0 z-20 mb-6 rounded-2xl border border-silver-200/90 bg-white/95 p-2 shadow-card backdrop-blur supports-[backdrop-filter]:bg-white/85">
+        <div role="tablist" aria-label="Seções da proposta" className="flex gap-2 overflow-x-auto pb-1">
+          {TABS.map(t => {
+            const isActive = tab === t
+            const Icon = TAB_ICON[t]
+
+            return (
+              <button
+                key={t}
+                id={`tab-${TAB_DOM_ID[t]}`}
+                role="tab"
+                type="button"
+                aria-selected={isActive}
+                aria-controls={`panel-${TAB_DOM_ID[t]}`}
+                onClick={() => setTab(t)}
+                className={`btn-no-liquid group inline-flex items-center gap-2 whitespace-nowrap rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-all ${
+                  isActive
+                    ? 'border-red-500/35 bg-gradient-to-r from-red-50 to-white text-navy shadow-sm ring-1 ring-red-200/70'
+                    : 'border-silver-200/70 bg-white text-silver-500 hover:border-silver-300 hover:bg-silver-50 hover:text-navy'
+                }`}
+              >
+                <Icon className={`h-4 w-4 ${isActive ? 'text-red-600' : 'text-silver-400 group-hover:text-silver-600'}`} />
+                <span>{t}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
+
+      <div id={`panel-${TAB_DOM_ID[tab]}`} role="tabpanel" aria-labelledby={`tab-${TAB_DOM_ID[tab]}`}>
 
       {tab === 'Resumo' && (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -361,6 +419,7 @@ export function PartnerPropostaDetalhe() {
             </ol>}
         </div>
       )}
+      </div>
     </>
   )
 }

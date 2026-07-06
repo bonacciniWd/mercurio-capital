@@ -5,6 +5,7 @@ import { Loader2, AlertTriangle, FileText, ArrowRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 
+
 const PRODUTO_LABEL: Record<string, string> = {
   home_equity: 'Home Equity',
   credito_construcao: 'Crédito Construção',
@@ -80,6 +81,9 @@ export function ClienteProposta() {
           <p className="mt-4 max-w-md text-white/70">
             Acompanhe o andamento, responda pendências e envie documentos com segurança no portal do cliente.
           </p>
+          <div className="mt-6 absolute top-0 right-0.5 gap-3">
+            
+          </div>
         </div>
         <p className="text-xs text-white/40">© Mercurio Capital</p>
       </div>

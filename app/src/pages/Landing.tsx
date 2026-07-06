@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight,
@@ -15,21 +16,88 @@ import {
   GraduationCap,
   FileSignature,
 } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { gsap } from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import iconUrl from '@/assets/logos/mercurio-icon.png'
 import logoWide from '@/assets/logos/logowide.png'
+import logoDark from '@/assets/logos/logo-dark.png'
 import callToBanner from '@/assets/call-to.png'
+
+gsap.registerPlugin(ScrollTrigger)
 
 export function Landing() {
   const [params] = useSearchParams()
   const showPreview = params.get('preview') === '1'
+  const plataformaSectionRef = useRef<HTMLElement | null>(null)
+  const plataformaHeaderRef = useRef<HTMLDivElement | null>(null)
+  const plataformaCardsRef = useRef<HTMLDivElement | null>(null)
+
+  useLayoutEffect(() => {
+    const section = plataformaSectionRef.current
+    const header = plataformaHeaderRef.current
+    const cardsContainer = plataformaCardsRef.current
+
+    if (!section || !header || !cardsContainer) {
+      return
+    }
+
+    const cards = Array.from(cardsContainer.querySelectorAll<HTMLElement>('[data-feature-card]'))
+
+    if (!cards.length) {
+      return
+    }
+
+    const mm = gsap.matchMedia()
+    const ctx = gsap.context(() => {
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        gsap.set([header, ...cards], { autoAlpha: 0, y: 24 })
+
+        const timeline = gsap.timeline({
+          defaults: { ease: 'power3.out' },
+          scrollTrigger: {
+            trigger: section,
+            start: 'top 72%',
+            once: true,
+          },
+        })
+
+        timeline
+          .to(header, {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.75,
+          })
+          .to(
+            cards,
+            {
+              autoAlpha: 1,
+              y: 0,
+              duration: 0.6,
+              stagger: 0.1,
+            },
+            '-=0.35',
+          )
+      })
+
+      mm.add('(prefers-reduced-motion: reduce)', () => {
+        gsap.set([header, ...cards], { autoAlpha: 1, y: 0 })
+      })
+    }, section)
+
+    return () => {
+      mm.revert()
+      ctx.revert()
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-white text-zinc-900">
       {/* ============================== HEADER ============================== */}
       <header className="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/85 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+        <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-6">
           <Link to="/">
-            <img src={logoWide} alt="Mercurio Capital" className="h-16 w-auto" />
+            <img src={logoWide} alt="Mercurio Capital" className="h-20 w-auto" />
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-medium text-zinc-700 md:flex">
             <a href="#produtos" className="transition hover:text-red-600">Produtos</a>
@@ -49,19 +117,8 @@ export function Landing() {
       </header>
 
       {/* ============================== HERO ============================== */}
-      <section className="relative overflow-hidden bg-black text-white">
-        <div aria-hidden className="absolute inset-0">
-          <div className="absolute -top-32 -right-32 h-[480px] w-[480px] rounded-full bg-red-600/30 blur-[120px]" />
-          <div className="absolute -bottom-40 -left-32 h-[420px] w-[420px] rounded-full bg-red-800/20 blur-[140px]" />
-          <div
-            className="absolute inset-0 opacity-[0.04]"
-            style={{
-              backgroundImage:
-                'linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)',
-              backgroundSize: '64px 64px',
-            }}
-          />
-        </div>
+      <section className="relative overflow-hidden min-h-[100vh] bg-black text-white">
+        <AtmosphereBackground />
 
         <div className="relative mx-auto grid max-w-6xl gap-12 px-6 py-24 lg:grid-cols-2 lg:items-center lg:py-32">
           <div>
@@ -184,19 +241,22 @@ export function Landing() {
       </section>
 
       {/* ============================== PLATAFORMA ============================== */}
-      <section id="plataforma" className="bg-zinc-950 py-20 text-white">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-xs font-semibold uppercase tracking-widest text-red-500">Plataforma</p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+      <section ref={plataformaSectionRef} id="plataforma" className="relative min-h-screen overflow-hidden bg-black py-20 text-white">
+        <AtmosphereBackground />
+
+        <div className="relative mx-auto min-h-screen max-w-6xl px-6">
+          <div ref={plataformaHeaderRef} className="mx-auto max-w-2xl text-center">
+            <p className="text-xs py-6 font-semibold uppercase tracking-widest text-red-500">Plataforma</p>
+            <h2 className="mt-3 py-6 text-3xl font-bold tracking-tight sm:text-3xl">
               Tudo o que você precisa para originar e fechar
             </h2>
             <p className="mt-4 text-white/60">
               Da consulta a bureaus à assinatura digital — sem trocar de sistema.
             </p>
+            <div className="mx-auto mt-6 h-px w-32 bg-gradient-to-r from-transparent via-red-500/70 to-transparent" />
           </div>
 
-          <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div ref={plataformaCardsRef} className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <FeatureCard Icon={Zap}           title="Wizard inteligente"   desc="Crie propostas em 7 passos. LTV, parcela e renda mínima em tempo real." />
             <FeatureCard Icon={ShieldCheck}   title="Bureaus integrados"   desc="Serasa, Bacen SCR, Jusbrasil, RI Digital — débito automático na carteira." />
             <FeatureCard Icon={FileSignature} title="Contrato e assinatura" desc="Geração de contrato + envio Clicksign + acompanhamento até o registro." />
@@ -208,19 +268,12 @@ export function Landing() {
       </section>
 
       {/* ============================== CTA DOWNLOAD ============================== */}
-      <section className="relative overflow-hidden bg-black py-20 text-white">
-        <div aria-hidden className="absolute inset-0">
-          <div className="absolute -top-32 -right-32 h-[480px] w-[480px] rounded-full bg-red-600/30 blur-[120px]" />
-          <div className="absolute -bottom-40 -left-32 h-[420px] w-[420px] rounded-full bg-red-800/20 blur-[140px]" />
-          <div className="absolute inset-0 opacity-[0.04]" style={{
-            backgroundImage: 'linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)',
-            backgroundSize: '64px 64px',
-          }} />
-        </div>
+      <section className="relative overflow-hidden min-h-screen bg-black py-20 text-white">
+        <AtmosphereBackground />
         <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-6 lg:grid-cols-[1.2fr_1fr]">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-red-200">App desktop</p>
-            <h2 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">
+            <p className="text-xs py-10 font-semibold uppercase tracking-widest text-red-600">App desktop</p>
+            <h2 className="mt-3 py-6 text-4xl font-bold leading-tight sm:text-5xl">
               Mais performance no seu computador
             </h2>
             <p className="mt-4 max-w-xl text-white/85">
@@ -228,15 +281,13 @@ export function Landing() {
             </p>
             <Link
               to="/download"
-              className="mt-8 inline-flex items-center gap-2 rounded-md bg-red-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-900/30 transition hover:bg-red-700"
+              className="mt-48 inline-flex items-center gap-2 rounded-md bg-red-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-900/30 transition hover:bg-red-700"
             >
               <DownloadIcon className="h-4 w-4" /> Ver versões disponíveis
             </Link>
           </div>
           <div className="relative">
-            <div className="mx-auto flex h-44 w-44 items-center justify-center rounded-3xl bg-white/10 ring-1 ring-white/20 backdrop-blur lg:h-56 lg:w-56">
-              <img src={iconUrl} alt="" className="w-full h-full drop-shadow-2xl rounded-3xl" />
-            </div>
+            <DesktopAppMetalCard imageSrc={iconUrl} />
           </div>
         </div>
       </section>
@@ -256,23 +307,17 @@ export function Landing() {
       )}
 
       {/* ============================== FOOTER ============================== */}
-      <footer className="relative overflow-hidden border-t border-white/10 bg-black/40 text-black">
-        <div aria-hidden className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-24 -left-24 h-[300px] w-[300px] rounded-full bg-red-600/20 blur-[100px]" />
-          <div className="absolute inset-0 opacity-[0.03]" style={{
-            backgroundImage: 'linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)',
-            backgroundSize: '64px 64px',
-          }} />
-        </div>
-        <div className="relative mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-10 text-sm text-zinc-600 sm:flex-row">
+      <footer className="relative overflow-hidden border-t border-white/10 bg-black text-black">
+        <AtmosphereBackground variant="footer" />
+        <div className="relative mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-10 text-sm text-white sm:flex-row">
           <div className="flex items-center gap-2.5">
-            <img src={logoWide} alt="Mercurio Capital" className="h-12 w-auto" />
-            <span className="text-black">© 2026</span>
+            <img src={logoDark} alt="Mercurio Capital" className="h-16 w-auto" />
+            <span className="text-white">© 2026</span>
           </div>
           <div className="flex items-center gap-6">
-            <Link to="/protocolo" className="transition hover:text-zinc-900">Consulta pública</Link>
-            <Link to="/download" className="transition hover:text-zinc-900">Download</Link>
-            <Link to="/login" className="transition hover:text-zinc-900">Entrar</Link>
+            <Link to="/protocolo" className="transition hover:text-red-600">Consulta pública</Link>
+            <Link to="/download" className="transition hover:text-red-600">Download</Link>
+            <Link to="/login" className="transition hover:text-red-600">Entrar</Link>
           </div>
         </div>
       </footer>
@@ -281,6 +326,79 @@ export function Landing() {
 }
 
 /* ---------- Subcomponentes ---------- */
+
+function AtmosphereBackground({ variant = 'default' }: { variant?: 'default' | 'footer' }) {
+  const isFooter = variant === 'footer'
+
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0">
+      {isFooter ? (
+        <div className="absolute -top-24 -left-24 h-[300px] w-[300px] rounded-full bg-red-600/20 blur-[100px]" />
+      ) : (
+        <>
+          <div className="absolute -top-32 -right-32 h-[480px] w-[480px] rounded-full bg-red-600/30 blur-[120px]" />
+          <div className="absolute -bottom-40 -left-32 h-[420px] w-[420px] rounded-full bg-red-800/20 blur-[140px]" />
+        </>
+      )}
+      <div
+        className={`absolute inset-0 ${isFooter ? 'opacity-[0.03]' : 'opacity-[0.04]'}`}
+        style={{
+          backgroundImage:
+            'linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)',
+          backgroundSize: '64px 64px',
+        }}
+      />
+    </div>
+  )
+}
+
+function DesktopAppMetalCard({ imageSrc }: { imageSrc: string }) {
+  return (
+    <div className="mx-auto [perspective:1400px]">
+      <motion.div
+        initial="rest"
+        animate="rest"
+        whileHover="hover"
+        variants={{
+          rest: { rotateX: 0, rotateY: 0, y: 0, scale: 1 },
+          hover: { rotateX: -10, rotateY: 12, y: -6, scale: 1.03 },
+        }}
+        transition={{ type: 'spring', stiffness: 230, damping: 18, mass: 0.8 }}
+        style={{ transformStyle: 'preserve-3d' }}
+        className="group relative h-64 w-64 overflow-hidden rounded-[2rem] bg-zinc-950 p-[2px] shadow-[0_20px_60px_-28px_rgba(255,255,255,0.55),0_30px_70px_-30px_rgba(239,68,68,0.45)] lg:h-96 lg:w-96"
+      >
+        <div className="pointer-events-none absolute inset-0 rounded-[2rem] bg-[linear-gradient(148deg,#fafafa_0%,#c4c4c9_16%,#71717a_40%,#18181b_68%,#f5f5f5_100%)]" />
+        <div className="pointer-events-none absolute inset-[2px] rounded-[30px] bg-zinc-950" />
+
+        <motion.div
+          className="pointer-events-none absolute inset-y-[8%] -left-1/2 w-1/2 skew-x-[-18deg] rounded-full bg-gradient-to-r from-transparent via-white/35 to-transparent blur-[1px]"
+          variants={{
+            rest: { x: '-160%', opacity: 0 },
+            hover: { x: '260%', opacity: 1 },
+          }}
+          transition={{ duration: 0.9, ease: 'easeOut' }}
+        />
+        <div className="pointer-events-none absolute inset-[2px] rounded-[30px] bg-[radial-gradient(circle_at_18%_12%,rgba(255,255,255,0.24),transparent_35%),radial-gradient(circle_at_84%_88%,rgba(239,68,68,0.20),transparent_45%)]" />
+        <div className="pointer-events-none absolute inset-0 rounded-[2rem] ring-1 ring-white/30" />
+
+        <div className="relative h-full w-full overflow-hidden rounded-[30px] bg-zinc-950">
+          <div className="absolute inset-[8px] rounded-[22px] border border-white/20 bg-gradient-to-br from-zinc-200/15 via-zinc-900/70 to-black shadow-inner" />
+          <div className="absolute inset-[8px] rounded-[22px] bg-[linear-gradient(165deg,rgba(255,255,255,0.28)_0%,rgba(255,255,255,0.06)_42%,rgba(255,255,255,0)_72%)]" />
+          <motion.img
+            src={imageSrc}
+            alt="Aplicativo Mercurio Capital"
+            className="relative h-full w-full rounded-[22px] object-cover p-[8px] drop-shadow-[0_18px_26px_rgba(0,0,0,0.55)]"
+            variants={{
+              rest: { scale: 1 },
+              hover: { scale: 1.04 },
+            }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+          />
+        </div>
+      </motion.div>
+    </div>
+  )
+}
 
 function Stat({ value, label }: { value: string; label: string }) {
   return (
@@ -316,12 +434,16 @@ function ProductCard({ title, desc, tags, highlight = false }: { title: string; 
 
 function FeatureCard({ Icon, title, desc }: { Icon: typeof Zap; title: string; desc: string }) {
   return (
-    <div className="group rounded-xl border border-white/10 bg-white/[0.03] p-5 transition hover:border-red-500/40 hover:bg-white/[0.06]">
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-600/15 text-red-500 ring-1 ring-red-500/20">
-        <Icon className="h-5 w-5" />
+    <div
+      data-feature-card
+      className="group relative py-12 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.02] p-5 transition duration-300 hover:-translate-y-1 hover:border-red-500/45 hover:shadow-xl hover:shadow-red-900/20"
+    >
+      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-red-500/10 to-transparent opacity-0 transition group-hover:opacity-100" />
+      <div className="relative flex mb-12 h-16 w-16 items-center justify-center rounded-lg">
+        <Icon className="h-16 text-red-600 w-16" />
       </div>
-      <h3 className="mt-4 font-semibold text-white">{title}</h3>
-      <p className="mt-1.5 text-sm text-white/60">{desc}</p>
+      <h2 className="relative text-xl mt-4 font-semibold text-white">{title}</h2>
+      <p className="relative mt-1.5 text-base text-white/65">{desc}</p>
     </div>
   )
 }

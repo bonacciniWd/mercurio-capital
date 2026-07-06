@@ -183,8 +183,8 @@ export function Login({
         </div>
       </div>
 
-      <div className="relative col-span-3 hidden bg-navy lg:block">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(212,175,55,0.25),transparent_60%)]" />
+      <div className="relative col-span-3 hidden bg-black lg:block">
+        <div className="absolute inset-0 bg-[url('@/assets/fundo-login.jpg')] opacity-55 bg-cover bg-center" />
         <div className="relative flex h-full flex-col justify-end p-16 text-white">
           <h2 className="max-w-xl text-4xl font-bold leading-tight">{hero.headline}</h2>
           <p className="mt-4 max-w-lg text-white/80">{hero.subline}</p>

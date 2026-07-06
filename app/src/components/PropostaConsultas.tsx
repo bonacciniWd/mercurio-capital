@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Loader2, AlertTriangle, CheckCircle2, XCircle, RotateCcw, Eye,
-  Building2, ShieldCheck, Scale, Globe, FileSearch, Landmark, Play,
+  Building2, ShieldCheck, Scale, Globe, FileSearch, Landmark, Play, ArrowRight,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
@@ -142,6 +142,13 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
   const precos = precosQuery.data ?? []
   const logs = logsQuery.data ?? []
 
+  const ultimoLogPorTipo = new Map<string, LogRow>()
+  for (const log of logs) {
+    if (!ultimoLogPorTipo.has(log.tipo)) {
+      ultimoLogPorTipo.set(log.tipo, log)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {!readOnly && (
@@ -165,47 +172,83 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
                 const meta = TIPO_META[p.tipo]
                 const Icon = meta?.Icon ?? FileSearch
                 const isRunning = executingTipo === p.tipo
+                const ultimo = ultimoLogPorTipo.get(p.tipo)
+
+                const statusClass = ultimo
+                  ? ultimo.status === 'concluida'
+                    ? 'text-success bg-success/10 border-success/20'
+                    : ultimo.status === 'falha'
+                      ? 'text-danger bg-danger/10 border-danger/20'
+                      : ultimo.status === 'estornada'
+                        ? 'text-silver-600 bg-silver-100 border-silver-200'
+                        : 'text-blue-700 bg-blue-50 border-blue-200'
+                  : 'text-silver-500 bg-silver-50 border-silver-200'
+
                 return (
-                  <button
+                  <article
                     key={p.tipo}
-                    onClick={() => executar.mutate(p.tipo)}
-                    disabled={executar.isPending}
-                    className="btn-no-liquid group flex w-full flex-col rounded-2xl border border-silver-200 bg-white p-4 text-left transition-all hover:border-gold/50 hover:shadow-[0_4px_16px_rgba(0,0,0,0.07)] disabled:opacity-50"
+                    className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-silver-200 bg-gradient-to-b from-white to-silver-50 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-navy/20 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)]"
                   >
-                    {/* header: ícone + preço */}
-                    <div className="flex items-center justify-between">
-                      <div className={`flex h-9 w-9 mr-4 items-center justify-center rounded-xl ${meta?.cor ?? 'text-silver-500 bg-silver-100'}`}>
+                    <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-500/70 via-gold/80 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+
+                    <div className="flex items-start justify-between gap-3">
+                      <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-black/5 ${meta?.cor ?? 'text-silver-500 bg-silver-100'}`}>
                         <Icon className="h-4 w-4" />
                       </div>
-                      <span className="text-[11px] font-semibold text-silver-400">
-                        {meta?.grupo ?? ''}
-                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-silver-500">{meta?.grupo ?? 'Consulta'}</p>
+                        <p className="mt-1 text-sm font-semibold leading-snug text-navy">
+                          {TIPO_LABEL[p.tipo] ?? p.tipo}
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-[10px] uppercase tracking-wide text-silver-400">Custo</p>
+                        <p className="text-sm font-bold text-red-600">{brl(p.preco_centavos)}</p>
+                      </div>
                     </div>
 
-                    {/* nome */}
-                    <p className="mt-3 text-sm font-semibold leading-snug text-navy">
-                      {TIPO_LABEL[p.tipo] ?? p.tipo}
-                    </p>
-
-                    {/* hint / descricao */}
-                    <p className="mt-0.5 flex-1 text-xs leading-relaxed text-silver-500">
+                    <p className="mt-1 flex-1 text-xs leading-relaxed text-silver-500">
                       {p.descricao ?? meta?.hint ?? ''}
                     </p>
 
-                    {/* rodapé: preço + status */}
-                    <div className="mt-4 flex items-center justify-between border-t border-silver-100 pt-3">
-                      <span className="text-sm font-bold text-red-600">{brl(p.preco_centavos)}</span>
-                      {isRunning ? (
-                        <span className="flex items-center gap-1 text-xs text-red-600">
-                          <Loader2 className="h-3 w-3 animate-spin" /> Consultando…
-                        </span>
-                      ) : (
-                        <span className="flex items-center ml-4 bg-slate-800 p-[2px] rounded-md gap-1 text-xs text-silver-400 transition group-hover:text-red-600">
-                          <Play className="h-3 w-3" /> Executar
-                        </span>
-                      )}
+                    <div className="mt-3 flex items-center justify-between gap-2 border-t border-silver-100 pt-3 text-[11px]">
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 font-medium ${statusClass}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${
+                          ultimo?.status === 'concluida'
+                            ? 'bg-success'
+                            : ultimo?.status === 'falha'
+                              ? 'bg-danger'
+                              : ultimo?.status === 'estornada'
+                                ? 'bg-silver-500'
+                                : ultimo?.status === 'em_andamento'
+                                  ? 'bg-blue-600'
+                                  : 'bg-silver-400'
+                        }`} />
+                        Última: {ultimo ? statusLabel(ultimo.status) : 'não executada'}
+                      </span>
+
+                      <span className="text-silver-500">{ultimo ? formatWhen(ultimo.iniciado_em) : '—'}</span>
                     </div>
-                  </button>
+
+                    <button
+                      type="button"
+                      onClick={() => executar.mutate(p.tipo)}
+                      disabled={executar.isPending}
+                      className="btn-no-liquid mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isRunning ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" /> Consultando...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-4 w-4" /> Executar consulta <ArrowRight className="h-4 w-4" />
+                        </>
+                      )}
+                    </button>
+                  </article>
                 )
               })}
             </div>
@@ -278,6 +321,29 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
       )}
     </div>
   )
+}
+
+function statusLabel(status: LogRow['status']) {
+  const labels: Record<LogRow['status'], string> = {
+    em_andamento: 'em andamento',
+    concluida: 'concluída',
+    falha: 'falha',
+    estornada: 'estornada',
+  }
+  return labels[status]
+}
+
+function formatWhen(iso: string) {
+  const d = new Date(iso)
+  const diffMs = Date.now() - d.getTime()
+  const min = Math.floor(diffMs / 60_000)
+  if (min < 1) return 'agora'
+  if (min < 60) return `há ${min}min`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `há ${h}h`
+  const dias = Math.floor(h / 24)
+  if (dias < 30) return `há ${dias}d`
+  return d.toLocaleDateString('pt-BR')
 }
 
 function StatusPill({ status }: { status: LogRow['status'] }) {

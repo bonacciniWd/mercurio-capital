@@ -50,11 +50,11 @@ export function PartnerLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-silver-50">
+    <div className="flex h-screen overflow-hidden bg-silver-50">
       <a href="#partner-main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-navy focus:px-3 focus:py-2 focus:text-sm focus:text-white">
         Pular para o conteúdo
       </a>
-      <aside className="block  max-h-[100vh] w-64 shrink-0 flex-col text-white" style={{
+      <aside className="flex h-screen w-64 shrink-0 flex-col overflow-hidden text-white" style={{
         background: 'linear-gradient(180deg, #27272a 0%, #09090b 50%, #000000 100%)',
         borderRight: '1px solid rgba(255,255,255,0.055)',
         boxShadow: '4px 0 24px rgba(0,0,0,0.45)',
@@ -92,7 +92,7 @@ export function PartnerLayout() {
         
 
         {/* Navegação */}
-        <nav className="flex-1 block overflow-y-hidden space-y-0.5 px-3 py-1">
+                <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
           {ITEMS.map((it) => (
             <NavLink
               key={it.to}
@@ -128,8 +128,8 @@ export function PartnerLayout() {
           v0.1 · Mercurio Capital
         </div>
       </aside>
-      <main className="flex flex-1 flex-col" id="partner-main" aria-label="Conteúdo principal">
-        <header className="flex h-16 items-center justify-between border-b border-silver-200 bg-white px-6">
+      <main className="flex flex-1 flex-col overflow-hidden" id="partner-main" aria-label="Conteúdo principal">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-silver-200 bg-white px-6">
           <div className="flex items-center gap-2 text-sm text-silver-500">
             <span>Parceiro</span>
             <ChevronRight className="h-4 w-4" />
@@ -141,7 +141,7 @@ export function PartnerLayout() {
             <button className="btn-outline text-xs" onClick={handleLogout}>Sair</button>
           </div>
         </header>
-        <div className="flex-1 p-6">
+        <div className="flex-1 overflow-y-auto p-6">
           <Outlet />
         </div>
       </main>
