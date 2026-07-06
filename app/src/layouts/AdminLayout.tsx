@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Suspense } from 'react'
 import {
-  LayoutDashboard, UserCheck, Network, Kanban, FileText, Folder, DollarSign, Coins,
+  LayoutDashboard, UserCheck, Network, Kanban, FileText, Folder, Wallet, Tags, Coins,
   BarChart3, GraduationCap, Workflow, Megaphone, Plug, Settings, ScrollText, Flag, Loader2, Trophy,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
@@ -14,8 +14,12 @@ const ITEMS = [
   { to: '/admin/rede', icon: Network, label: 'Rede' },
   { to: '/admin/kanban', icon: Kanban, label: 'Kanban' },
   { to: '/admin/propostas', icon: FileText, label: 'Propostas' },
-  { to: '/admin/financeiro/carteiras', icon: DollarSign, label: 'Financeiro' },
-  { to: '/admin/financeiro', icon: Coins, label: 'Comissões' },
+  // Financeiro — três telas distintas, aninhadas no menu
+  { to: '/admin/financeiro/carteiras', icon: Wallet, label: 'Carteiras' },
+  { to: '/admin/financeiro/precos', icon: Tags, label: 'Preços' },
+  // O item "Comissões" aponta para /admin/financeiro (index do módulo financeiro).
+  // Usamos `end: true` para não ficar ativo quando estivermos em /carteiras ou /precos.
+  { to: '/admin/financeiro', icon: Coins, label: 'Comissões', end: true },
   { to: '/admin/relatorios', icon: BarChart3, label: 'Relatórios' },
   { to: '/admin/universidade', icon: GraduationCap, label: 'Universidade' },
   { to: '/admin/milestones', icon: Trophy, label: 'Milestones' },
@@ -54,7 +58,7 @@ export function AdminLayout() {
           <img src={logoSquare} alt="Mercurio Capital" className="h-full w-auto" />
         </div>
         {/* Navegação */}
-        <nav className="flex-1 space-y-0.5 overflow-hidden px-3 py-3">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
           {ITEMS.map((it) => (
             <NavLink
               key={it.to}

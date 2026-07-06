@@ -123,7 +123,7 @@ export async function fetchProfile(): Promise<AuthProfile | null> {
       partnerStatus: row.partner_status,
       equipeId: row.equipe_id,
       approved: row.approved,
-      requiresTwoFactor: false, // temporário para testes: row.requires_2fa,
+      requiresTwoFactor: row.requires_2fa,
     }
 
     cachedProfilesByUserId.set(profile.id, profile)
