@@ -80,14 +80,35 @@ export function AdminKanban() {
   const { data: propostas, isLoading } = useQuery({
     queryKey: ['admin-kanban-propostas'],
     queryFn: async (): Promise<Card[]> => {
-      const { data, error } = await supabase
-        .from('propostas')
-        .select('id, protocolo, produto, status, valor_solicitado, created_at, cliente:clientes(nome_completo), partner:partners(usuario:usuarios(nome_completo))')
-        .neq('status', 'cancelado')
-        .order('updated_at', { ascending: false })
-        .limit(500)
+      // RPC SECURITY DEFINER: traz propostas do admin e de todos os parceiros.
+      const { data, error } = await supabase.rpc('admin_list_propostas', { p_limit: 500 })
       if (error) throw error
-      return (data || []) as unknown as Card[]
+      type RpcRow = {
+        id: string
+        protocolo: string | null
+        produto: string
+        status: string
+        valor_solicitado: number
+        created_at: string
+        partner_id: string | null
+        partner_nome: string | null
+        cliente_id: string | null
+        cliente_nome: string | null
+      }
+      return ((data || []) as RpcRow[])
+        .filter((r) => r.status !== 'cancelado')
+        .map((r) => ({
+          id: r.id,
+          protocolo: r.protocolo,
+          produto: r.produto,
+          status: r.status,
+          valor_solicitado: Number(r.valor_solicitado || 0),
+          created_at: r.created_at,
+          cliente: r.cliente_id ? { nome_completo: r.cliente_nome || '' } : null,
+          partner: r.partner_id
+            ? { usuario: { nome_completo: r.partner_nome } }
+            : null,
+        }))
     },
   })
 

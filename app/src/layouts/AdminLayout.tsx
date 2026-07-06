@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Suspense } from 'react'
 import {
   LayoutDashboard, UserCheck, Network, Kanban, FileText, Folder, DollarSign, Coins,
-  BarChart3, GraduationCap, Workflow, Megaphone, Plug, Settings, ScrollText, Flag, Loader2,
+  BarChart3, GraduationCap, Workflow, Megaphone, Plug, Settings, ScrollText, Flag, Loader2, Trophy,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { NotificationBell } from '@/components/NotificationBell'
@@ -18,6 +18,7 @@ const ITEMS = [
   { to: '/admin/financeiro', icon: Coins, label: 'Comissões' },
   { to: '/admin/relatorios', icon: BarChart3, label: 'Relatórios' },
   { to: '/admin/universidade', icon: GraduationCap, label: 'Universidade' },
+  { to: '/admin/milestones', icon: Trophy, label: 'Milestones' },
   { to: '/admin/fluxos', icon: Workflow, label: 'Fluxos' },
   { to: '/admin/campanhas', icon: Megaphone, label: 'Campanhas' },
   { to: '/admin/templates', icon: FileText, label: 'Templates' },

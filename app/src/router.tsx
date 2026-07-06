@@ -70,6 +70,7 @@ const AdminPropostaDetalhe = lazy(() => import('@/pages/admin/PropostaDetalhe').
 const AdminRelatorios      = lazy(() => import('@/pages/admin/Relatorios').then(m => ({ default: m.AdminRelatorios })))
 const AdminConfiguracoes   = lazy(() => import('@/pages/admin/Configuracoes').then(m => ({ default: m.AdminConfiguracoes })))
 const AdminUniversidade    = lazy(() => import('@/pages/admin/Universidade').then(m => ({ default: m.AdminUniversidade })))
+const AdminMilestones      = lazy(() => import('@/pages/admin/Milestones').then(m => ({ default: m.AdminMilestones })))
 
 export const router = createBrowserRouter([
   { path: '/', element: <Landing /> },
@@ -222,6 +223,7 @@ export const router = createBrowserRouter([
                   { path: 'configuracoes', element: <AdminConfiguracoes /> },
                   { path: 'relatorios', element: <AdminRelatorios /> },
                   { path: 'universidade', element: <AdminUniversidade /> },
+                  { path: 'milestones', element: <AdminMilestones /> },
                 ],
               },
             ],

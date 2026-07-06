@@ -344,21 +344,55 @@ export type TwoFactorEnrollment = {
 /**
  * Inicia (ou reinicia) o cadastro de um fator TOTP.
  * - Remove fatores anteriores não verificados (evita o erro "factor already exists").
+ * - Garante que o `friendly_name` seja único no escopo do usuário (retry com sufixo).
  * - Cria um fator novo e devolve o material para exibir o QR.
  */
 export async function enrollTwoFactor(friendlyName = 'Mercurio TOTP'): Promise<TwoFactorEnrollment> {
   const { data: existing, error: listErr } = await supabase.auth.mfa.listFactors()
   if (listErr) throw new Error(listErr.message)
 
+  // Remove rascunhos anteriores (fatores TOTP criados mas nunca verificados).
   const unverified = existing?.totp?.filter((f) => f.status !== 'verified') ?? []
   for (const f of unverified) {
-    await supabase.auth.mfa.unenroll({ factorId: f.id })
+    const { error: unErr } = await supabase.auth.mfa.unenroll({ factorId: f.id })
+    if (unErr) {
+      // eslint-disable-next-line no-console
+      console.warn('[auth] falha ao remover fator TOTP não verificado', f.id, unErr)
+    }
   }
 
-  const { data, error } = await supabase.auth.mfa.enroll({
+  // Se já houver algum fator (verificado ou remanescente) com o mesmo friendly_name,
+  // usa um nome único para não colidir com o constraint do Supabase.
+  const takenNames = new Set(
+    (existing?.totp ?? [])
+      .map((f) => f.friendly_name)
+      .filter((name): name is string => typeof name === 'string' && name.length > 0),
+  )
+
+  function uniqueSuffix() {
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
+  }
+
+  const initialName = takenNames.has(friendlyName)
+    ? `${friendlyName} (${uniqueSuffix()})`
+    : friendlyName
+
+  let { data, error } = await supabase.auth.mfa.enroll({
     factorType: 'totp',
-    friendlyName,
+    friendlyName: initialName,
   })
+
+  // Fallback defensivo: mesmo após a limpeza, o backend ainda reclama de nome duplicado.
+  if (error && /already exists/i.test(error.message)) {
+    const forcedUniqueName = `${friendlyName} (${uniqueSuffix()} #${Date.now().toString(36)})`
+    ;({ data, error } = await supabase.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName: forcedUniqueName,
+    }))
+  }
+
   if (error || !data) {
     throw new Error(error?.message ?? 'Não foi possível iniciar o cadastro do 2FA.')
   }
@@ -368,7 +402,7 @@ export async function enrollTwoFactor(friendlyName = 'Mercurio TOTP'): Promise<T
     qrCodeSvg: data.totp.qr_code,
     secret: data.totp.secret,
     uri: data.totp.uri,
-    friendlyName: data.friendly_name ?? friendlyName,
+    friendlyName: data.friendly_name ?? initialName,
   }
 }
 

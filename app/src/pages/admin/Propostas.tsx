@@ -32,6 +32,23 @@ const STATUS_LABEL: Record<string, string> = {
 
 const STATUS_FINAIS = new Set(['contrato_registrado', 'recurso_liberado', 'cancelado'])
 
+type RpcRow = {
+  id: string
+  protocolo: string | null
+  produto: string
+  status: string
+  valor_solicitado: number
+  valor_imoveis_total: number
+  prazo_meses: number
+  created_at: string
+  updated_at: string
+  partner_id: string | null
+  partner_nome: string | null
+  cliente_id: string | null
+  cliente_nome: string | null
+  cliente_cpf: string | null
+}
+
 type Row = {
   id: string
   protocolo: string | null
@@ -58,13 +75,27 @@ export function AdminPropostas() {
   const { data: propostas, isLoading } = useQuery({
     queryKey: ['admin-propostas'],
     queryFn: async (): Promise<Row[]> => {
-      const { data, error } = await supabase
-        .from('propostas')
-        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, created_at, updated_at, partner:partners(usuario:usuarios(nome_completo)), cliente:clientes(nome_completo, cpf)')
-        .order('updated_at', { ascending: false })
-        .limit(500)
+      // RPC SECURITY DEFINER: retorna propostas do admin E de todos os parceiros.
+      // Evita depender do RLS nas tabelas filhas (partners/usuarios/clientes).
+      const { data, error } = await supabase.rpc('admin_list_propostas', { p_limit: 500 })
       if (error) throw error
-      return (data || []) as unknown as Row[]
+      return ((data || []) as RpcRow[]).map((r) => ({
+        id: r.id,
+        protocolo: r.protocolo,
+        produto: r.produto,
+        status: r.status,
+        valor_solicitado: Number(r.valor_solicitado || 0),
+        valor_imoveis_total: Number(r.valor_imoveis_total || 0),
+        prazo_meses: r.prazo_meses,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        partner: r.partner_id
+          ? { usuario: { nome_completo: r.partner_nome } }
+          : null,
+        cliente: r.cliente_id
+          ? { nome_completo: r.cliente_nome || '', cpf: r.cliente_cpf }
+          : null,
+      }))
     },
   })
 

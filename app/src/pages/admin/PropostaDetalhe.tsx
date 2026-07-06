@@ -135,7 +135,9 @@ export function AdminPropostaDetalhe() {
     queryFn: async (): Promise<Proposta> => {
       const { data, error } = await supabase
         .from('propostas')
-        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, correcao, indexador, created_at, updated_at, partner:partners(usuario:usuarios(nome_completo)), cliente:clientes(nome_completo, cpf, email, telefone)')
+        // partners tem 2 FKs para usuarios (usuario_id e aprovado_por),
+        // por isso o embed precisa desambiguar com !usuario_id.
+        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, correcao, indexador, created_at, updated_at, partner:partners(usuario:usuarios!usuario_id(nome_completo)), cliente:clientes(nome_completo, cpf, email, telefone)')
         .eq('id', id!)
         .single()
       if (error) throw error

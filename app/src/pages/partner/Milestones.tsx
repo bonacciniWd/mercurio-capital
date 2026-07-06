@@ -1,46 +1,45 @@
 import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useElectricCanvas } from '@/hooks/useElectricCanvas'
+import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
-import { Lock, CheckCircle2 } from 'lucide-react'
+import { Lock, CheckCircle2, Loader2 } from 'lucide-react'
 
-// Mock: CGI liberado pelo parceiro (centavos)
-const CURRENT_CGI = 1_250_000_000 // R$ 12.500.000,00
+interface KpiRow {
+  partner_id: string
+  ganhas: number
+  volume_ganho: number
+}
 
-const MILESTONES = [
-  {
-    target: 500_000_000,     // R$ 5.000.000,00
-    label: 'R$ 5 Milhões',
-    prize: 'Rolex Oyster Perpetual',
-    img: new URL('../../assets/milestones/prem1.svg', import.meta.url).href,
-    desc: 'O ícone do sucesso. Conquiste R$ 5M em liberações CGI e ganhe um Rolex Submariner.',
-    color: '#D4AF37',
-  },
-  {
-    target: 5_000_000_000,   // R$ 50.000.000,00
-    label: 'R$ 50 Milhões',
-    prize: 'BMW 330e M Sport',
-    img: new URL('../../assets/milestones/prem2.svg', import.meta.url).href,
-    desc: 'Performance híbrida e luxo. Libere R$ 50M em CGI e ganhe um BMW 330e M Sport.',
-    color: '#60a5fa',
-  },
-  {
-    target: 10_000_000_000,  // R$ 100.000.000,00
-    label: 'R$ 100 Milhões',
-    prize: 'Corvette C8',
-    img: new URL('../../assets/milestones/prem3.svg', import.meta.url).href,
-    desc: 'O ápice dos milestones. Libere R$ 100M em CGI e conquiste um Corvette C8.',
-    color: '#f87171',
-  },
-]
+interface Milestone {
+  id: string
+  order_index: number
+  label: string
+  prize: string
+  descricao: string | null
+  target_centavos: number
+  color: string
+  image_url: string | null
+  image_storage_path: string | null
+  ativo: boolean
+}
 
-// Quanto o canvas ultrapassa cada lado do card para gerar o efeito de borda fora do overflow-hidden
 const OFFSET = 32
 
-function MilestoneCard({ m }: { m: typeof MILESTONES[0] }) {
-  const unlocked = CURRENT_CGI >= m.target
-  const progress = Math.min(100, (CURRENT_CGI / m.target) * 100)
+function resolveImageUrl(m: Milestone): string | null {
+  if (m.image_storage_path) {
+    const { data } = supabase.storage.from('milestone-images').getPublicUrl(m.image_storage_path)
+    return data.publicUrl
+  }
+  return m.image_url // pode ser URL absoluta ou path relativo tipo /milestones/prem1.svg
+}
 
-  // Measure the wrapper div and sync canvas dimensions dynamically
+function MilestoneCard({ m, currentCgi }: { m: Milestone; currentCgi: number }) {
+  const target = Number(m.target_centavos)
+  const unlocked = currentCgi >= target
+  const progress = target > 0 ? Math.min(100, (currentCgi / target) * 100) : 0
+  const img = resolveImageUrl(m)
+
   const wrapperRef = useRef<HTMLDivElement>(null)
   const canvasRef = useElectricCanvas({
     color: m.color,
@@ -75,14 +74,12 @@ function MilestoneCard({ m }: { m: typeof MILESTONES[0] }) {
         background: `linear-gradient(-30deg, ${m.color}28, transparent 50%, ${m.color}28)`,
       }}
     >
-      {/* Electric canvas — fora do overflow-hidden; dimensões atualizadas pelo ResizeObserver */}
       <canvas
         ref={canvasRef}
         className="pointer-events-none absolute"
         style={{ top: -OFFSET, left: -OFFSET, zIndex: 10 }}
       />
 
-      {/* Card body */}
       <div
         className="relative flex flex-col overflow-hidden rounded-[22px] p-6"
         style={{
@@ -90,7 +87,6 @@ function MilestoneCard({ m }: { m: typeof MILESTONES[0] }) {
           minHeight: 340,
         }}
       >
-        {/* Radial glow se conquistado */}
         {unlocked && (
           <div
             className="pointer-events-none absolute inset-0"
@@ -101,9 +97,7 @@ function MilestoneCard({ m }: { m: typeof MILESTONES[0] }) {
           />
         )}
 
-        {/* Content */}
         <div className="relative z-10 flex flex-1 flex-col">
-          {/* Status row */}
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-widest" style={{ color: m.color }}>
               {m.label}
@@ -122,25 +116,28 @@ function MilestoneCard({ m }: { m: typeof MILESTONES[0] }) {
             )}
           </div>
 
-          {/* Prize image */}
           <div
             className="my-4 flex items-center justify-center"
             style={{
               filter: unlocked ? `drop-shadow(0 0 22px ${m.color}bb)` : 'grayscale(1) opacity(0.3)',
               transition: 'filter 0.4s ease',
+              minHeight: 140,
             }}
           >
-            <img src={m.img} alt={m.prize} width={300} height={250} style={{ width: '100%', height: 'auto', maxHeight: 140, objectFit: 'contain' }} />
+            {img ? (
+              <img src={img} alt={m.prize} width={300} height={250}
+                style={{ width: '100%', height: 'auto', maxHeight: 140, objectFit: 'contain' }} />
+            ) : (
+              <div className="text-xs text-white/20">sem imagem</div>
+            )}
           </div>
 
-          {/* Prize name + desc */}
           <h3 className="text-lg font-bold text-white">{m.prize}</h3>
-          <p className="mt-1 flex-1 text-xs leading-relaxed text-white/40">{m.desc}</p>
+          <p className="mt-1 flex-1 text-xs leading-relaxed text-white/40">{m.descricao ?? ''}</p>
 
-          {/* Progress */}
           <div className="mt-5">
             <div className="mb-1.5 flex items-center justify-between text-xs">
-              <span className="text-white/35">{brl(Math.min(CURRENT_CGI, m.target))} liberados</span>
+              <span className="text-white/35">{brl(Math.min(currentCgi, target))} liberados</span>
               <span style={{ color: m.color }}>{progress >= 100 ? '100%' : `${progress.toFixed(1)}%`}</span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
@@ -153,12 +150,11 @@ function MilestoneCard({ m }: { m: typeof MILESTONES[0] }) {
                 }}
               />
             </div>
-            <p className="mt-1 text-right text-[10px] text-white/25">Meta: {brl(m.target)}</p>
+            <p className="mt-1 text-right text-[10px] text-white/25">Meta: {brl(target)}</p>
           </div>
         </div>
       </div>
 
-      {/* Background glow */}
       <div
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
@@ -174,14 +170,58 @@ function MilestoneCard({ m }: { m: typeof MILESTONES[0] }) {
 }
 
 export function PartnerMilestones() {
-  const overallPct = Math.min(100, (CURRENT_CGI / 10_000_000_000) * 100)
+  const kpiQuery = useQuery({
+    queryKey: ['p-kpis-milestones'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('v_partner_dashboard_kpis')
+        .select('partner_id, ganhas, volume_ganho')
+        .maybeSingle()
+      if (error) throw error
+      return data as KpiRow | null
+    },
+  })
 
-  // Animate bar 0 → overallPct after mount for visual expansion effect
+  const milestonesQuery = useQuery({
+    queryKey: ['partner-milestones-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('partner_milestones')
+        .select('*')
+        .eq('ativo', true)
+        .order('order_index')
+      if (error) throw error
+      return (data ?? []) as Milestone[]
+    },
+  })
+
+  // volume_ganho vem em reais (padrao da view) — convertemos para centavos p/ uso com brl()
+  const currentCgi = Math.round(Number(kpiQuery.data?.volume_ganho ?? 0) * 100)
+  const contratosCount = Number(kpiQuery.data?.ganhas ?? 0)
+  const milestones = milestonesQuery.data ?? []
+  const maxTarget = milestones.length
+    ? Math.max(...milestones.map(m => Number(m.target_centavos)))
+    : 0
+  const overallPct = maxTarget > 0 ? Math.min(100, (currentCgi / maxTarget) * 100) : 0
+
   const [displayPct, setDisplayPct] = useState(0)
   useEffect(() => {
     const t = setTimeout(() => setDisplayPct(overallPct), 120)
     return () => clearTimeout(t)
   }, [overallPct])
+
+  const atualizadoEm = new Date().toLocaleDateString('pt-BR')
+
+  if (kpiQuery.isLoading || milestonesQuery.isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-gold" />
+      </div>
+    )
+  }
+
+  // Ticks intermediarios (todos exceto o de maior target)
+  const intermediateMilestones = milestones.filter(m => Number(m.target_centavos) < maxTarget)
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -191,15 +231,14 @@ export function PartnerMilestones() {
           50%        { box-shadow: 0 0 22px 8px rgba(239,68,68,0.90); }
         }
       `}</style>
-      {/* Header */}
+
       <div>
         <h1 className="text-2xl font-bold text-navy">Programa de Milestones</h1>
         <p className="mt-1 text-sm text-silver-600">
-          Libere crédito CGI e conquiste prêmios exclusivos. Quanto mais você libera, maiores as recompensas.
+          Libere credito CGI e conquiste premios exclusivos. Quanto mais voce libera, maiores as recompensas.
         </p>
       </div>
 
-      {/* Hero de progresso */}
       <div
         className="relative overflow-hidden rounded-2xl p-6 text-white"
         style={{
@@ -210,51 +249,66 @@ export function PartnerMilestones() {
         <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(ellipse at 80% 50%, rgba(212,175,55,0.12) 0%, transparent 60%)' }} />
         <div className="relative">
           <p className="text-xs font-bold uppercase tracking-widest text-gold/60">Total Liberado em CGI</p>
-          <p className="mt-1 text-4xl font-bold text-gold">{brl(CURRENT_CGI)}</p>
-          <p className="mt-1 text-sm text-white/35">12 contratos fechados · Atualizado em 27/04/2026</p>
+          <p className="mt-1 text-4xl font-bold text-gold">{brl(currentCgi)}</p>
+          <p className="mt-1 text-sm text-white/35">
+            {contratosCount} {contratosCount === 1 ? 'contrato fechado' : 'contratos fechados'} · Atualizado em {atualizadoEm}
+          </p>
 
-          {/* Barra geral */}
-          <div className="mt-5">
-            <div className="relative h-2.5 overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
-              <div
-                style={{
-                  width: `${displayPct}%`,
-                  height: '100%',
-                  borderRadius: 9999,
-                  background: '#ef4444',
-                  animation: 'bar-pulse 1.8s ease-in-out infinite',
-                  transition: 'width 1.4s cubic-bezier(0.22, 1, 0.36, 1)',
-                }}
-              />
-              {/* Ticks em 5% (R$5M) e 50% (R$50M) do range total de 100M */}
-              {[{ pct: 5, label: '⌚' }, { pct: 50, label: '🚗' }].map(({ pct, label }) => (
-                <div key={pct} className="absolute top-0 h-full w-px" style={{ left: `${pct}%`, background: 'rgba(255,255,255,0.35)' }}>
-                  <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px]">{label}</span>
-                </div>
-              ))}
+          {maxTarget > 0 && (
+            <div className="mt-5">
+              <div className="relative h-2.5 overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                <div
+                  style={{
+                    width: `${displayPct}%`,
+                    height: '100%',
+                    borderRadius: 9999,
+                    background: '#ef4444',
+                    animation: 'bar-pulse 1.8s ease-in-out infinite',
+                    transition: 'width 1.4s cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                />
+                {intermediateMilestones.map(m => {
+                  const pct = (Number(m.target_centavos) / maxTarget) * 100
+                  return (
+                    <div key={m.id} className="absolute top-0 h-full w-px"
+                      style={{ left: `${pct}%`, background: 'rgba(255,255,255,0.35)' }} />
+                  )
+                })}
+              </div>
+              <div className="relative mt-1 h-4">
+                <span className="absolute left-0 text-[10px] text-white/30">R$ 0</span>
+                {milestones.map(m => {
+                  const pct = (Number(m.target_centavos) / maxTarget) * 100
+                  return (
+                    <span key={m.id} className="absolute text-[10px] text-white/30"
+                      style={{ left: `${pct}%`, transform: pct >= 99 ? 'translateX(-100%)' : 'translateX(-50%)' }}>
+                      {m.label}
+                    </span>
+                  )
+                })}
+              </div>
             </div>
-            {/* Labels posicionados sobre a barra */}
-            <div className="relative mt-1 h-4">
-              <span className="absolute left-0 text-[10px] text-white/30">R$ 0</span>
-              <span className="absolute text-[10px] text-white/30" style={{ left: '5%', transform: 'translateX(-50%)' }}>R$ 5M</span>
-              <span className="absolute text-[10px] text-white/30" style={{ left: '50%', transform: 'translateX(-50%)' }}>R$ 50M</span>
-              <span className="absolute right-0 text-[10px] text-white/30">R$ 100M</span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Cards */}
-      <div className="grid gap-5 md:grid-cols-3">
-        {MILESTONES.map(m => (
-          <MilestoneCard key={m.prize} m={m} />
-        ))}
-      </div>
+      {milestones.length === 0 ? (
+        <div className="rounded-xl border border-silver-200 bg-white p-10 text-center text-sm text-silver-500">
+          Nenhum milestone cadastrado ainda.
+        </div>
+      ) : (
+        <div className="grid gap-5 md:grid-cols-3">
+          {milestones.map(m => (
+            <MilestoneCard key={m.id} m={m} currentCgi={currentCgi} />
+          ))}
+        </div>
+      )}
 
       <p className="text-center text-xs text-silver-400">
-        Prêmios entregues após validação da equipe Mercurio Capital.{' '}
+        Premios entregues apos validacao da equipe Mercurio Capital.{' '}
         <a href="#" className="underline hover:text-silver-600">Ver regulamento completo</a>
       </p>
     </div>
   )
 }
+
