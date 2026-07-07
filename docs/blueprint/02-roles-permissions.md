@@ -25,7 +25,7 @@ public (visitante)
 | 3 | Consultar proposta por protocolo (público) | ✅ | ✅ | ✅ | ✅ | 🔒 (rate-limit) |
 | 4 | Aprovar cadastro de parceiro | ✅ | ❌ | ❌ | ❌ | ❌ |
 | 5 | Criar simulação | ✅ | ✅ | ✅ | ❌ | ❌ |
-| 6 | Criar proposta (lead) | ✅ | ✅ | ✅ | ❌ | ❌ |
+| 6 | Criar proposta (lead) via wizard | ✅ | ✅ | ✅ | ❌ | ❌ |
 | 7 | Editar proposta (própria/equipe) | ✅ | ✅ | ✏️ campos limitados | ❌ | ❌ |
 | 8 | Mudar status da proposta | ✅ | ⚠️ até "Proposta ao cliente" | ❌ | ❌ | ❌ |
 | 9 | Mudar status (analise crédito/imóvel/jurídica/comitê/contrato) | ✅ | ❌ | ❌ | ❌ | ❌ |
@@ -59,6 +59,8 @@ public (visitante)
 | 37 | Definir limite diário da própria carteira | ✅ | ⚠️ se habilitado por admin | ❌ | ❌ | ❌ |
 
 Legenda: ✅ pleno · ⚠️ parcial/condicional · ✏️ campos restritos · 🔒 público com restrição · ❌ negado.
+
+Nota de implementação (branch atual): a criação de proposta via UI está ativa no web em `/p/propostas/nova` (partner e team_member) e `/admin/propostas/nova` (admin), e no mobile pelos fluxos `mobile/app/propostas/nova.tsx` (wizard compartilhado) e `mobile/app/(admin)/propostas-nova.tsx` (entrada admin). Em ambos os canais, criação admin exige parceiro aprovado.
 
 ## 3. Regras de negócio críticas
 

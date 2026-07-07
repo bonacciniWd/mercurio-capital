@@ -83,6 +83,7 @@
 | `/admin/clientes` | `ClientesList` |
 | `/admin/clientes/:id` | `ClienteDetail` |
 | `/admin/propostas` | `PropostasAdminList` |
+| `/admin/propostas/nova` | `PropostaWizard` (modo admin, parceiro alvo obrigatório) |
 | `/admin/propostas/:id` | `PropostaAdminDetail` |
 | `/admin/propostas/kanban` | `PropostasKanbanGlobal` |
 | `/admin/rede` | `ReactFlowRede` (network map) |
@@ -112,6 +113,15 @@
 | `/admin/configuracoes/feature-flags` | `FeatureFlagsAdmin` |
 | `/admin/auditoria` | `AuditLogViewer` |
 | `/admin/usuarios` | `UsuariosAdmin` |
+
+### 2.5 Mobile (Expo Router) — estado atual
+
+| Arquivo de rota | Fluxo | Permissões |
+|---|---|---|
+| `mobile/app/propostas/nova.tsx` | Criação de proposta (wizard compartilhado) | partner, team_member, admin |
+| `mobile/app/(admin)/propostas-nova.tsx` | Entrada admin para criação de proposta | admin |
+
+Nota de implementação (branch atual): criação de proposta está ativa no web para `partner`/`team_member` em `/p/propostas/nova` e para `admin` em `/admin/propostas/nova`, com paridade funcional no mobile pelos arquivos acima.
 
 ## 3. Sidebar dinâmica (estrutura)
 

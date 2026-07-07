@@ -60,17 +60,21 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 ### Telas / Tabs
 - `/p/simulacoes`, `/p/simulacoes/nova`.
 - `/p/propostas`, `/p/propostas/nova` (Wizard 7 passos — ver §05 mapa visual).
+- `/admin/propostas/nova` (Wizard em modo admin, com seleção obrigatória de parceiro aprovado).
+- Mobile (Expo): `mobile/app/propostas/nova.tsx` (wizard compartilhado) e `mobile/app/(admin)/propostas-nova.tsx` (entrada admin).
 - `/p/propostas/:id` com tabs: **Resumo · Proponentes · Imóveis · Documentos · Histórico · Kanban**.
 - Modal "Calculadora Price" com tabela completa de parcelas.
 
 ### Regras
 - Simulação não dispara magic link. Proposta criada **gera protocolo único** e magic link para o cliente.
+- Em modo admin, a criação exige `partner_id` explícito e parceiro em status `approved`.
+- Web e mobile usam o mesmo contrato de payload e as mesmas validações de backend para criação de proposta.
 - Proponente principal: 1 obrigatório. Se `estado_civil='casado'` → 2º proponente obrigatório (cônjuge).
 - Imóvel: ≥ 1 obrigatório; toggle "usar endereço do proponente principal"; busca CEP via ViaCEP/Edge.
 - Validação BRL, CPF/CNPJ, telefone com DDI.
 - Cálculo Price (mensal): $PMT = PV \cdot \dfrac{i(1+i)^n}{(1+i)^n - 1}$.
-- Range prazo: **12–240** meses (na simulação principal) e **36–240** na aba "Propostas → Simular" (condicional).
-- Carência: 0–3 meses.
+- Range prazo: **12–240** meses (na simulação principal) e **36–240** na aba "Propostas → Simular" (condicional), com incremento unitário (1 em 1) no wizard.
+- Carência: 0–3 meses, com incremento unitário (1 em 1) e atualização imediata da simulação.
 - Taxa default: `1,39% + IPCA` (configurável em `configuracoes_sistema`).
 
 ### Documentos

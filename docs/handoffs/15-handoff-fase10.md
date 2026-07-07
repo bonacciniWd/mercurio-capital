@@ -1,7 +1,15 @@
 # Handoff — Fase 10 (Equipes Admin & Funil de Parceiros)
 
 > Documento de transferência para o desenvolvedor que assume a Fase 10 a partir do estado atual (após Fase 9 — Gestão de Parceiros & Onboarding por Convite, descrita em [docs/handoffs/14-handoff-fase9.md](14-handoff-fase9.md)).
-> **Data:** 2026-05-20 · **Branch:** `main` · **Escopo:** WEB ONLY (mobile permanece mock).
+> **Data:** 2026-05-20 · **Branch:** `main` · **Escopo original:** WEB ONLY (snapshot da fase em 2026-05-20).
+
+## Atualização pós-handoff (2026-07-07)
+
+- Criação de proposta para admin ativada no web em `/admin/propostas/nova`, reutilizando o wizard com seleção obrigatória de parceiro aprovado.
+- RPC dedicada `admin_create_proposta(p_partner_id uuid, p_payload jsonb)` adicionada em migração sem alterar comportamento da `partner_create_proposta`.
+- Criação de proposta também ativada no mobile, com entrada admin explícita em `/(admin)/propostas-nova` e reaproveitamento do wizard compartilhado.
+- Escopo atualizado sem alteração de regra de negócio: criação admin continua exigindo parceiro `approved`, e o fluxo parceiro/team_member mantém o contrato existente.
+- Evidências de implementação: `supabase/migrations/20260707000023_admin_create_proposta.sql`, `app/src/router.tsx`, `app/src/pages/partner/Wizard.tsx`, `app/src/pages/admin/Propostas.tsx`, `mobile/app/(admin)/_layout.tsx`, `mobile/app/(admin)/propostas.tsx`, `mobile/app/(admin)/propostas-nova.tsx`, `mobile/app/propostas/nova.tsx`.
 
 ---
 
@@ -21,17 +29,19 @@
 | 8 | Universidade Mercurio (LMS) |
 | 9 | **Gestão de Parceiros (Admin) + Convite + Bootstrap** |
 
-Roadmap completo: [docs/09-roadmap.md](../09-roadmap.md). **Mobile (Expo) está 100% mock** e foi adiado para a Fase 11 — não tocar nele nesta fase.
+Roadmap completo: [docs/09-roadmap.md](../09-roadmap.md). Escopo original da Fase 10 era web-only; após atualização de 2026-07-07, o mobile passou a ter criação de proposta ativa (admin e parceiro/team_member), mantendo o restante da Fase 11 como evolução futura.
 
 ---
 
 ## 2. Escopo da Fase 10
 
-Três entregas, todas no app web (`app/`) + back (`supabase/`):
+Escopo original: três entregas no app web (`app/`) + back (`supabase/`):
 
 1. **UI admin de equipes do parceiro** — nova rota `/admin/parceiros/:partnerId/equipes`, consumindo as views `v_equipe_membros_detalhe` / `v_equipe_convites_pendentes` (criadas na Fase 4) + 2 RPCs novas para suspender/revogar.
 2. **Funil de parceiros** — view `v_admin_funil_parceiros` + card no `/admin` (dashboard global) com 6 etapas e taxa de conversão entre elas.
 3. **Webhook de bounce** — tabela `email_bounces_inbox` + Edge `email-bounce-webhook` (verify_jwt=false) marcando `partner_invites.status='expired'` automaticamente quando o provedor SMTP devolver bounce.
+
+Extensão pós-handoff (2026-07-07): criação de proposta com paridade web/mobile para `admin`, `partner` e `team_member`, sem mudança de regras transacionais do backend.
 
 ---
 
@@ -50,7 +60,7 @@ cd app && npm install && npx tsc --noEmit && cd ..
 **Project ref Supabase:** `bhagksfvszeogtjvjtpx`
 **Dashboard:** https://supabase.com/dashboard/project/bhagksfvszeogtjvjtpx
 
-> Mobile (`mobile/`) **não faz parte desta fase**. Continuamos focando exclusivamente no web. Veja Fase 11 do roadmap para o port mobile.
+> Escopo original: mobile (`mobile/`) não fazia parte da fase. Estado atual: apenas a criação de proposta foi ativada no mobile; demais módulos mobile seguem no planejamento da Fase 11.
 
 ---
 
@@ -95,7 +105,7 @@ cd app && npm install && npx tsc --noEmit && cd ..
 
 - `app/src/pages/public/PartnerBootstrap.tsx` (Fase 9, intocável).
 - `app/src/pages/public/AcessoPendente.tsx` (Fase 9, intocável).
-- Toda a pasta `mobile/` (Fase 11).
+- Áreas do `mobile/` fora do fluxo de criação de proposta (mantidas para evolução da Fase 11).
 
 ---
 
@@ -298,4 +308,4 @@ git push
 
 A Fase 10 é o "fechamento da experiência admin de parceiros": com ela, o admin consegue **(a)** entender o programa em números (funil), **(b)** agir no nível mais granular (membro de equipe), e **(c)** manter a base de convites limpa automaticamente (bounce webhook).
 
-**Se algo do schema não bate com este doc, o código no repo é a fonte da verdade — este documento foi escrito em 2026-05-20.**
+**Se algo do schema não bate com este doc, o código no repo é a fonte da verdade.** Este documento nasceu em 2026-05-20 e recebeu atualização de escopo em 2026-07-07 para registrar a ativação da criação de proposta no mobile.
