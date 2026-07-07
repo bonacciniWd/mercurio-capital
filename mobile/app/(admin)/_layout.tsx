@@ -10,6 +10,7 @@ export default function AdminLayout() {
       <Stack.Screen name="parceiros" />
       <Stack.Screen name="partner-equipes" />
       <Stack.Screen name="propostas" />
+      <Stack.Screen name="propostas-nova" />
       <Stack.Screen name="proposta/[id]" />
       <Stack.Screen name="rede" />
       <Stack.Screen name="campanhas" />

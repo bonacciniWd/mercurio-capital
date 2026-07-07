@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar'
 import { router } from 'expo-router'
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Clock, TrendingUp, Search } from 'lucide-react-native'
+import { ArrowLeft, Clock, TrendingUp, Search, Plus } from 'lucide-react-native'
 import { brl } from '@/lib/utils'
 import { calcularLTV } from '@/lib/credito'
 import { supabase } from '@/lib/supabase'
@@ -79,6 +79,10 @@ export default function Propostas() {
           <Text style={s.headerEyebrow}>MODO ADMIN</Text>
           <Text style={s.headerTitle}>Propostas</Text>
         </View>
+        <Pressable onPress={() => router.push('/(admin)/propostas-nova' as any)} style={s.addBtn}>
+          <Plus size={16} color="#FFFFFF" />
+          <Text style={s.addBtnText}>Nova</Text>
+        </Pressable>
         <View style={s.countPill}>
           <Text style={s.countText}>{ativas.length} ativas</Text>
         </View>
@@ -168,6 +172,8 @@ const s = StyleSheet.create({
   backBtn: { padding: 8, marginLeft: -8 },
   headerEyebrow: { fontSize: 10, letterSpacing: 1.5, color: '#DC2626', fontWeight: '700' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', marginTop: 1 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#DC2626', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+  addBtnText: { fontSize: 11, fontWeight: '700', color: '#fff' },
   countPill: { backgroundColor: '#16A34A22', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   countText: { fontSize: 11, fontWeight: '700', color: '#16A34A' },
   kpiStrip: { flexDirection: 'row', gap: 10, padding: 16, paddingBottom: 0 },
