@@ -11,6 +11,16 @@
 - Escopo atualizado sem alteração de regra de negócio: criação admin continua exigindo parceiro `approved`, e o fluxo parceiro/team_member mantém o contrato existente.
 - Evidências de implementação: `supabase/migrations/20260707000023_admin_create_proposta.sql`, `app/src/router.tsx`, `app/src/pages/partner/Wizard.tsx`, `app/src/pages/admin/Propostas.tsx`, `mobile/app/(admin)/_layout.tsx`, `mobile/app/(admin)/propostas.tsx`, `mobile/app/(admin)/propostas-nova.tsx`, `mobile/app/propostas/nova.tsx`.
 
+## Evidência final de publicação (2026-07-07)
+
+- Status final da branch após publicação: `## main...origin/main` (sem `ahead` pendente e árvore limpa).
+- Faixa enviada no push: `4ec6dc5..914087b` (`main -> main`).
+- Commits publicados em `main`:
+  - `914087b` — `docs(project): alinhar escopo e paridade da criacao admin`
+  - `516badd` — `feat(mobile): ativar criacao de proposta no fluxo admin`
+  - `ce6e507` — `feat(web): ativar criacao admin no wizard de propostas`
+  - `2ce0108` — `feat(db): adicionar rpc admin_create_proposta`
+
 ---
 
 ## 1. Onde estamos
