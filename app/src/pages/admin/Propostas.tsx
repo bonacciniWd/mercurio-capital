@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Search, Eye, Loader2, Download } from 'lucide-react'
+import { Search, Eye, Loader2, Download, Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { KPICard } from '@/components/KPICard'
@@ -142,6 +142,9 @@ export function AdminPropostas() {
           <p className="text-sm text-silver-600">Lista completa em todas as etapas.</p>
         </div>
         <div className="flex gap-2">
+          <Link to="/admin/propostas/nova" className="btn-gold inline-flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Nova proposta
+          </Link>
           <Link to="/admin/kanban" className="btn-outline">Ver Kanban</Link>
           <button className="btn-gold inline-flex items-center gap-2" disabled>
             <Download className="h-4 w-4" /> Exportar

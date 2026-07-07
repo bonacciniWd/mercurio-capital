@@ -1,12 +1,17 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Building, Home as HomeIcon, Hammer, Check, Plus, Trash2, MapPin, ChevronDown, Copy, Loader2, RefreshCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
+import { parseRangeInteger } from '@/lib/range'
 
 const STEPS = ['Produto', 'Cliente', 'Localização', 'Valores', 'Proponentes', 'Imóveis', 'Revisão']
+const PRAZO_MIN_MESES = 12
+const PRAZO_MAX_MESES = 240
+const CARENCIA_MIN_MESES = 0
+const CARENCIA_MAX_MESES = 3
 
 type ProdutoTipo = 'home_equity' | 'credito_construcao' | 'financiamento_imobiliario'
 type PessoaTipo = 'PF' | 'PJ'
@@ -90,12 +95,40 @@ interface SubmitResult {
   magic_token: string
 }
 
-export function PartnerWizard() {
+type WizardMode = 'partner' | 'admin'
+
+interface AdminPartnerOption {
+  partner_id: string
+  nome: string | null
+  email: string | null
+  status: string
+}
+
+export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) {
   const navigate = useNavigate()
+  const isAdminMode = mode === 'admin'
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<FormState>(initialState)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<SubmitResult | null>(null)
+  const [adminPartnerId, setAdminPartnerId] = useState('')
+
+  const adminPartnersQ = useQuery({
+    queryKey: ['admin-propostas-create-partners'],
+    enabled: isAdminMode,
+    queryFn: async (): Promise<AdminPartnerOption[]> => {
+      const { data, error } = await supabase
+        .from('v_admin_partners')
+        .select('partner_id, nome, email, status')
+        .eq('status', 'approved')
+        .order('nome', { ascending: true })
+
+      if (error) throw error
+      return (data ?? []) as AdminPartnerOption[]
+    },
+  })
+
+  const adminPartners = adminPartnersQ.data ?? []
 
   const patch = (p: Partial<FormState>) => setForm(f => ({ ...f, ...p }))
   const patchCliente = (p: Partial<FormState['cliente']>) =>
@@ -157,6 +190,17 @@ export function PartnerWizard() {
         })),
         imoveis: form.imoveis,
       }
+
+      if (isAdminMode) {
+        if (!adminPartnerId) throw new Error('Selecione um parceiro aprovado para criar a proposta.')
+        const { data, error } = await supabase.rpc('admin_create_proposta', {
+          p_partner_id: adminPartnerId,
+          p_payload: payload,
+        })
+        if (error) throw error
+        return data as SubmitResult
+      }
+
       const { data, error } = await supabase.rpc('partner_create_proposta', { p_payload: payload })
       if (error) throw error
       return data as SubmitResult
@@ -170,10 +214,18 @@ export function PartnerWizard() {
 
   // Validação básica por step
   const canAdvance = (s: number): boolean => {
-    if (s === 0) return !!form.produto && !!form.pessoa_tipo
+    if (s === 0) {
+      if (!form.produto || !form.pessoa_tipo) return false
+      if (!isAdminMode) return true
+      return !!adminPartnerId && !adminPartnersQ.isLoading
+    }
     if (s === 1) return !!form.cliente.nome_completo && !!form.cliente.cpf
     if (s === 2) return !!form.imoveis[0].cidade && !!form.imoveis[0].estado
-    if (s === 3) return form.valor_solicitado > 0 && form.prazo_meses >= 12
+    if (s === 3) {
+      const prazoValido = Number.isInteger(form.prazo_meses) && form.prazo_meses >= PRAZO_MIN_MESES && form.prazo_meses <= PRAZO_MAX_MESES
+      const carenciaValida = Number.isInteger(form.carencia_meses) && form.carencia_meses >= CARENCIA_MIN_MESES && form.carencia_meses <= CARENCIA_MAX_MESES
+      return form.valor_solicitado > 0 && prazoValido && carenciaValida
+    }
     if (s === 4) return form.proponentes.every(p => p.nome && p.cpf_cnpj)
     if (s === 5) return form.imoveis.every(i => i.valor > 0)
     return true
@@ -187,16 +239,44 @@ export function PartnerWizard() {
   }
 
   if (result) {
-    return <SuccessPanel result={result} onNew={() => { setResult(null); setForm(initialState); setStep(0) }} onDetalhe={() => navigate(`/p/propostas/${result.proposta_id}`)} />
+    return <SuccessPanel result={result} onNew={() => { setResult(null); setForm(initialState); setStep(0) }} onDetalhe={() => navigate(isAdminMode ? `/admin/propostas/${result.proposta_id}` : `/p/propostas/${result.proposta_id}`)} />
   }
 
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-2 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-navy">Nova proposta</h1>
-        <Link to="/p/propostas" className="text-sm text-silver-500 hover:underline">Cancelar</Link>
+        <h1 className="text-2xl font-bold text-navy">{isAdminMode ? 'Nova proposta (admin)' : 'Nova proposta'}</h1>
+        <Link to={isAdminMode ? '/admin/propostas' : '/p/propostas'} className="text-sm text-silver-500 hover:underline">Cancelar</Link>
       </div>
       <p className="mb-6 text-sm text-silver-600">Passo {step + 1} de {STEPS.length} — {STEPS[step]}</p>
+
+      {isAdminMode && (
+        <div className="mb-5 rounded-lg border border-gold/30 bg-gold/5 p-4">
+          <label className="label">Parceiro responsável pela proposta *</label>
+          {adminPartnersQ.isLoading ? (
+            <div className="inline-flex items-center gap-2 text-sm text-silver-600">
+              <Loader2 className="h-4 w-4 animate-spin" /> Carregando parceiros aprovados...
+            </div>
+          ) : adminPartnersQ.error ? (
+            <p className="text-sm text-danger">Não foi possível carregar os parceiros aprovados.</p>
+          ) : adminPartners.length === 0 ? (
+            <p className="text-sm text-warning">Nenhum parceiro aprovado disponível para criação.</p>
+          ) : (
+            <select
+              className="input"
+              value={adminPartnerId}
+              onChange={(e) => setAdminPartnerId(e.target.value)}
+            >
+              <option value="">Selecione um parceiro</option>
+              {adminPartners.map((partner) => (
+                <option key={partner.partner_id} value={partner.partner_id}>
+                  {(partner.nome || partner.email || partner.partner_id)}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
 
       <div className="mb-8 flex items-center gap-2">
         {STEPS.map((s, i) => (
@@ -226,7 +306,7 @@ export function PartnerWizard() {
       <div className="mt-6 flex justify-between">
         <button onClick={() => setStep(s => Math.max(0, s - 1))} className="btn-ghost" disabled={step === 0 || submitMut.isPending}>← Anterior</button>
         {step < STEPS.length - 1 ? (
-          <button onClick={next} className="btn-gold">Próximo →</button>
+          <button onClick={next} className="btn-gold" disabled={isAdminMode && !adminPartnerId}>Próximo →</button>
         ) : (
           <button
             onClick={() => submitMut.mutate()}
@@ -528,6 +608,18 @@ function Step4({
   ltv: number
   valorImoveisTotal: number
 }) {
+  const updatePrazo = (rawValue: string) => {
+    patch({
+      prazo_meses: parseRangeInteger(rawValue, form.prazo_meses, PRAZO_MIN_MESES, PRAZO_MAX_MESES),
+    })
+  }
+
+  const updateCarencia = (rawValue: string) => {
+    patch({
+      carencia_meses: parseRangeInteger(rawValue, form.carencia_meses, CARENCIA_MIN_MESES, CARENCIA_MAX_MESES),
+    })
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <div>
@@ -560,15 +652,29 @@ function Step4({
           </div>
           <div>
             <label className="label">Prazo: {form.prazo_meses} meses</label>
-            <input type="range" min={12} max={240} step={6} value={form.prazo_meses}
-              onChange={e => patch({ prazo_meses: Number(e.target.value) })}
-              className="w-full accent-red-600" />
+            <input
+              type="range"
+              min={PRAZO_MIN_MESES}
+              max={PRAZO_MAX_MESES}
+              step={1}
+              value={form.prazo_meses}
+              onChange={e => updatePrazo(e.currentTarget.value)}
+              onInput={e => updatePrazo(e.currentTarget.value)}
+              className="w-full accent-red-600"
+            />
           </div>
           <div>
             <label className="label">Carência: {form.carencia_meses} meses</label>
-            <input type="range" min={0} max={3} value={form.carencia_meses}
-              onChange={e => patch({ carencia_meses: Number(e.target.value) })}
-              className="w-full accent-red-600" />
+            <input
+              type="range"
+              min={CARENCIA_MIN_MESES}
+              max={CARENCIA_MAX_MESES}
+              step={1}
+              value={form.carencia_meses}
+              onChange={e => updateCarencia(e.currentTarget.value)}
+              onInput={e => updateCarencia(e.currentTarget.value)}
+              className="w-full accent-red-600"
+            />
           </div>
         </div>
       </div>

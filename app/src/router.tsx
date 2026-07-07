@@ -209,6 +209,7 @@ export const router = createBrowserRouter([
                   { path: 'rede', element: <AdminRede /> },
                   { path: 'kanban', element: <AdminKanban /> },
                   { path: 'propostas', element: <AdminPropostas /> },
+                  { path: 'propostas/nova', element: <PartnerWizard mode="admin" /> },
                   { path: 'propostas/:id', element: <AdminPropostaDetalhe /> },
                   { path: 'financeiro/carteiras', element: <AdminCarteiras /> },
                   { path: 'financeiro/precos', element: <AdminPrecos /> },
