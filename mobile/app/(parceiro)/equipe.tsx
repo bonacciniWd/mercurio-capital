@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { ScrollView, View, Text, Pressable, TextInput, ActivityIndicator, Alert, Modal } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import { ArrowLeft, Plus, Mail, X, Trash2 } from 'lucide-react-native'
+import { ArrowLeft, Plus, Mail, X, Trash2, Copy } from 'lucide-react-native'
+import * as Clipboard from 'expo-clipboard'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 
@@ -30,6 +31,38 @@ interface Convite {
   created_at: string
 }
 
+interface InviteResponse {
+  convite_token: string
+  equipe_id: string
+  email: string
+  expires_in_min: number
+  email_status?: string
+  email_erro?: string
+}
+
+interface InviteResult {
+  url: string
+  emailStatus: string | null
+  emailError: string | null
+}
+
+const INVITE_BASE_URL = (process.env.EXPO_PUBLIC_APP_URL ?? 'https://mercuriocapitalsa.com.br').replace(/\/+$/, '')
+
+function getEquipeErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : 'Falha ao executar ação na equipe.'
+  const normalized = raw.toLowerCase()
+
+  if (normalized.includes('no api key found')) {
+    return 'Falha de autenticação com a API. Atualize o app e tente novamente.'
+  }
+
+  if (normalized.includes('digest(') && normalized.includes('does not exist')) {
+    return 'Ambiente de banco desatualizado para convites. Solicite atualização da migration.'
+  }
+
+  return raw
+}
+
 export default function Equipe() {
   const qc = useQueryClient()
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -37,6 +70,7 @@ export default function Equipe() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteNome, setInviteNome] = useState('')
   const [novaEquipeNome, setNovaEquipeNome] = useState('')
+  const [lastInviteResult, setLastInviteResult] = useState<InviteResult | null>(null)
 
   const equipesQ = useQuery({
     queryKey: ['p-equipes'],
@@ -85,7 +119,7 @@ export default function Equipe() {
       setNovaEquipeNome('')
       qc.invalidateQueries({ queryKey: ['p-equipes'] })
     },
-    onError: (e: Error) => Alert.alert('Erro', e.message),
+    onError: (e: unknown) => Alert.alert('Erro', getEquipeErrorMessage(e)),
   })
 
   const convidar = useMutation({
@@ -99,16 +133,40 @@ export default function Equipe() {
         p_permissoes: {},
       })
       if (error) throw error
-      return data as { convite_token: string }
+      const payload = (data ?? {}) as InviteResponse
+      return {
+        url: `${INVITE_BASE_URL}/convite/${payload.convite_token}`,
+        emailStatus: payload.email_status ?? null,
+        emailError: payload.email_erro ?? null,
+      }
     },
-    onSuccess: () => {
+    onSuccess: async (result) => {
       setInviteOpen(false)
       setInviteEmail('')
       setInviteNome('')
-      Alert.alert('Convite enviado', 'Link de convite gerado (válido 30 min).')
+      setLastInviteResult(result)
+      await Clipboard.setStringAsync(result.url)
+
+      if (result.emailStatus === 'enfileirado') {
+        Alert.alert(
+          'Convite enviado',
+          'Link de convite gerado (válido 30 min) e e-mail transacional enfileirado. O link também foi copiado.'
+        )
+      } else if (result.emailStatus === 'falha_enqueue') {
+        Alert.alert(
+          'Convite gerado com ressalva',
+          'O convite foi criado, mas houve falha no envio automático de e-mail. O link foi copiado para envio manual.'
+        )
+      } else {
+        Alert.alert(
+          'Convite gerado',
+          'Link de convite criado (válido 30 min). O link foi copiado para envio manual, se necessário.'
+        )
+      }
+
       qc.invalidateQueries({ queryKey: ['p-convites'] })
     },
-    onError: (e: Error) => Alert.alert('Erro', e.message),
+    onError: (e: unknown) => Alert.alert('Erro', getEquipeErrorMessage(e)),
   })
 
   const remover = useMutation({
@@ -120,6 +178,7 @@ export default function Equipe() {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['p-membros'] }),
+    onError: (e: unknown) => Alert.alert('Erro', getEquipeErrorMessage(e)),
   })
 
   const equipes = equipesQ.data ?? []
@@ -173,6 +232,50 @@ export default function Equipe() {
             </Pressable>
           </View>
         </View>
+
+        {lastInviteResult && (
+          <View className="rounded-xl border border-silver-200 bg-white p-4">
+            <Text className="font-semibold text-navy">Último convite gerado</Text>
+            <Text className="mt-2 text-xs text-silver-500" numberOfLines={1}>
+              {lastInviteResult.url}
+            </Text>
+
+            {lastInviteResult.emailStatus === 'enfileirado' && (
+              <Text className="mt-2 rounded-md bg-green-50 px-2 py-1 text-xs text-green-700">
+                E-mail transacional enfileirado automaticamente.
+              </Text>
+            )}
+
+            {lastInviteResult.emailStatus === 'falha_enqueue' && (
+              <Text className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-700">
+                Falha no envio automático. Use o link copiado para envio manual.
+              </Text>
+            )}
+
+            {lastInviteResult.emailStatus !== 'enfileirado' && lastInviteResult.emailStatus !== 'falha_enqueue' && (
+              <Text className="mt-2 rounded-md bg-silver-100 px-2 py-1 text-xs text-silver-700">
+                Convite gerado com sucesso. Envie manualmente o link quando necessário.
+              </Text>
+            )}
+
+            {lastInviteResult.emailError && (
+              <Text className="mt-2 text-[11px] text-silver-500" numberOfLines={2}>
+                Detalhe técnico do envio automático: {lastInviteResult.emailError}
+              </Text>
+            )}
+
+            <Pressable
+              onPress={async () => {
+                await Clipboard.setStringAsync(lastInviteResult.url)
+                Alert.alert('Link copiado', 'Link de convite copiado para compartilhamento manual.')
+              }}
+              className="mt-3 flex-row items-center justify-center gap-2 rounded-lg border border-silver-200 bg-silver-50 py-2 active:opacity-80"
+            >
+              <Copy size={14} color="#374151" />
+              <Text className="text-xs font-semibold text-silver-700">Copiar link novamente</Text>
+            </Pressable>
+          </View>
+        )}
 
         {equipesQ.isLoading ? (
           <ActivityIndicator color="#DC2626" />

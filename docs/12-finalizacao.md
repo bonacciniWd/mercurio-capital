@@ -26,6 +26,17 @@
 
 Smoke tests transacionais: Fase 3, 8, 10, 12, 13, 14 — todos verdes contra `bhagksfvszeogtjvjtpx`.
 
+### Atualização pós-snapshot (2026-07-06)
+
+- Convite de equipe evoluído para envio automático de e-mail transacional sem quebrar geração de link manual.
+- Nova migration `20260706000019_partner_invite_email_outbox.sql`:
+	- evolução da RPC `partner_invite_membro` com enqueue em `email_outbox`;
+	- fallback de template para nunca bloquear o convite;
+	- retorno compatível com payload anterior + campo `email_status`.
+- Template seedado no catálogo admin (`templates_mensagem`) com código `convite_equipe_v1`.
+- UI parceiro web/mobile passou a exibir status de envio automático (`enfileirado` / falha com fallback manual).
+- Smoke `supabase/smoke-tests/fase-16-equipes-convite.sql` ampliado para validar convite + enqueue de outbox em transação reversível.
+
 ---
 
 ## 2. Pendências externas (não bloqueiam release)

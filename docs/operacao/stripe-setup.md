@@ -23,7 +23,7 @@ Configurar em **Supabase Dashboard → Project → Edge Functions → Secrets** 
 |--------|------------|----------|
 | `STRIPE_SECRET_KEY` | Stripe → Developers → API keys → **Secret key** (`sk_test_...` / `sk_live_...`) | `wallet-topup` (cria Checkout Session) |
 | `STRIPE_WEBHOOK_SECRET` | Stripe → Developers → Webhooks → endpoint → **Signing secret** (`whsec_...`) | `stripe-webhook` (verificação HMAC) |
-| `APP_URL` | URL pública do app (ex.: `https://app.mercuriocapital.com.br`) | `wallet-topup` (success/cancel URLs) |
+| `APP_URL` | URL pública do app (ex.: `https://mercuriocapitalsa.com.br`) | `wallet-topup` (success/cancel URLs) |
 | `STRIPE_ALLOW_DEV_MODE` | Definido internamente (`true`/`false`) | `wallet-topup` (permite/bloqueia fallback dev) |
 
 > ⚠️ **Nunca commitar** essas variáveis. Em produção, defina `STRIPE_ALLOW_DEV_MODE=false` para bloquear fallback dev sem chave Stripe.

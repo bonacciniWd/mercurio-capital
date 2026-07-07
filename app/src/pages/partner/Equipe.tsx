@@ -29,6 +29,36 @@ interface Convite {
   created_at: string
 }
 
+interface InviteResponse {
+  convite_token: string
+  equipe_id: string
+  email: string
+  expires_in_min: number
+  email_status?: string
+  email_erro?: string
+}
+
+interface InviteResult {
+  url: string
+  emailStatus: string | null
+  emailError: string | null
+}
+
+function getEquipeErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : 'Falha ao executar ação na equipe.'
+  const normalized = raw.toLowerCase()
+
+  if (normalized.includes('no api key found')) {
+    return 'Falha de autenticação com a API. Recarregue a página e tente novamente.'
+  }
+
+  if (normalized.includes('digest(') && normalized.includes('does not exist')) {
+    return 'Ambiente de banco desatualizado para convites. Solicite aplicação da migration mais recente.'
+  }
+
+  return raw
+}
+
 export function PartnerEquipe() {
   const qc = useQueryClient()
   const [creatingEquipe, setCreatingEquipe] = useState(false)
@@ -39,7 +69,7 @@ export function PartnerEquipe() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteNome, setInviteNome] = useState('')
   const [invitePapel, setInvitePapel] = useState<'membro' | 'admin_equipe'>('membro')
-  const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null)
+  const [lastInviteResult, setLastInviteResult] = useState<InviteResult | null>(null)
   const [copied, setCopied] = useState(false)
 
   const equipesQuery = useQuery({
@@ -105,11 +135,16 @@ export function PartnerEquipe() {
         p_permissoes: {},
       })
       if (error) throw error
-      const token = (data as { convite_token: string }).convite_token
-      return `${window.location.origin}/convite/${token}`
+      const payload = (data ?? {}) as InviteResponse
+      const token = payload.convite_token
+      return {
+        url: `${window.location.origin}/convite/${token}`,
+        emailStatus: payload.email_status ?? null,
+        emailError: payload.email_erro ?? null,
+      }
     },
-    onSuccess: (url) => {
-      setLastInviteUrl(url)
+    onSuccess: (result) => {
+      setLastInviteResult(result)
       setInviteEmail('')
       setInviteNome('')
       qc.invalidateQueries({ queryKey: ['p-convites'] })
@@ -125,6 +160,9 @@ export function PartnerEquipe() {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['p-membros'] }),
+    onError: (err) => {
+      alert(getEquipeErrorMessage(err))
+    },
   })
 
   const equipes = equipesQuery.data ?? []
@@ -148,7 +186,7 @@ export function PartnerEquipe() {
             onClick={() => {
               setSelectedEquipe(equipes[0]?.id ?? null)
               setInviteOpen(true)
-              setLastInviteUrl(null)
+              setLastInviteResult(null)
             }}
           >
             <Plus className="h-4 w-4" /> Convidar membro
@@ -180,7 +218,7 @@ export function PartnerEquipe() {
           </div>
           {criarEquipe.isError && (
             <p className="mt-2 flex items-center gap-1 text-xs text-danger">
-              <AlertTriangle className="h-3.5 w-3.5" /> {(criarEquipe.error as Error).message}
+              <AlertTriangle className="h-3.5 w-3.5" /> {getEquipeErrorMessage(criarEquipe.error)}
             </p>
           )}
         </div>
@@ -202,7 +240,7 @@ export function PartnerEquipe() {
             </select>
           </div>
           <div className="mt-3 flex justify-end gap-2">
-            <button className="btn-ghost" onClick={() => { setInviteOpen(false); setLastInviteUrl(null) }}>Fechar</button>
+            <button className="btn-ghost" onClick={() => { setInviteOpen(false); setLastInviteResult(null) }}>Fechar</button>
             <button
               className="btn-gold"
               disabled={convidar.isPending || !selectedEquipe || inviteEmail.length < 5}
@@ -211,15 +249,15 @@ export function PartnerEquipe() {
               {convidar.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Gerar convite'}
             </button>
           </div>
-          {lastInviteUrl && (
+          {lastInviteResult?.url && (
             <div className="mt-4 rounded-md border border-silver-200 bg-silver-50 p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-silver-500">Link de convite (válido 30 min)</p>
               <div className="mt-2 flex items-center gap-2">
-                <input readOnly className="input flex-1 font-mono text-xs" value={lastInviteUrl} />
+                <input readOnly className="input flex-1 font-mono text-xs" value={lastInviteResult.url} />
                 <button
                   className="btn-outline"
                   onClick={async () => {
-                    await navigator.clipboard.writeText(lastInviteUrl)
+                    await navigator.clipboard.writeText(lastInviteResult.url)
                     setCopied(true)
                     setTimeout(() => setCopied(false), 2000)
                   }}
@@ -228,11 +266,33 @@ export function PartnerEquipe() {
                   {copied ? 'Copiado' : 'Copiar'}
                 </button>
               </div>
+
+              {lastInviteResult.emailStatus === 'enfileirado' && (
+                <p className="mt-2 rounded-md border border-success/20 bg-success/5 px-3 py-2 text-xs text-success">
+                  E-mail transacional enfileirado automaticamente para o convidado.
+                </p>
+              )}
+
+              {lastInviteResult.emailStatus === 'falha_enqueue' && (
+                <p className="mt-2 rounded-md border border-gold/30 bg-gold/10 px-3 py-2 text-xs text-gold-700">
+                  Convite gerado, mas houve falha ao enfileirar o e-mail automático. Use o link acima para envio manual.
+                </p>
+              )}
+
+              {lastInviteResult.emailStatus !== 'enfileirado' && lastInviteResult.emailStatus !== 'falha_enqueue' && (
+                <p className="mt-2 rounded-md border border-silver-200 bg-white px-3 py-2 text-xs text-silver-600">
+                  Convite gerado com sucesso. Caso necessário, copie o link e envie manualmente ao membro.
+                </p>
+              )}
+
+              {lastInviteResult.emailError && (
+                <p className="mt-2 text-[11px] text-silver-500">Detalhe técnico do envio automático: {lastInviteResult.emailError}</p>
+              )}
             </div>
           )}
           {convidar.isError && (
             <p className="mt-2 flex items-center gap-1 text-xs text-danger">
-              <AlertTriangle className="h-3.5 w-3.5" /> {(convidar.error as Error).message}
+              <AlertTriangle className="h-3.5 w-3.5" /> {getEquipeErrorMessage(convidar.error)}
             </p>
           )}
         </div>

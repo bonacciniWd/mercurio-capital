@@ -65,6 +65,7 @@
 
 - [x] Migrações `equipes`, `equipe_membros` (já em `20260513000002_identidade.sql`) + RPCs e views em `20260518000008_equipes_convites.sql`.
 - [x] Convites por magic link — RPCs `partner_invite_membro` / `membro_accept_convite` + página `/convite/:token`.
+- [x] Pós-go-live: convite de equipe com e-mail transacional automático (`email_outbox`) + template `convite_equipe_v1` + fallback manual nas telas web/mobile (`20260706000019_partner_invite_email_outbox.sql`).
 - [x] Dashboard parceiro (recharts): KPIs, funil, gargalos, evolução 12 meses — views `v_partner_dashboard_kpis`, `v_partner_funil_status`, `v_partner_propostas_por_mes`, `v_partner_gargalos`.
 - [x] Filtros (data, status, produto) na edge de exportação; UI parceiro com filtros já presentes.
 - [x] Exportação CSV (edge `relatorios-exportar`, UTF-8 BOM, RLS via JWT do caller).

@@ -23,6 +23,26 @@ npm run android   # emulador Android
 npm run start     # QR code (Expo Go)
 ```
 
+## Variaveis de ambiente
+
+Defina no `mobile/.env`:
+
+```bash
+EXPO_PUBLIC_SUPABASE_URL=https://bhagksfvszeogtjvjtpx.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=...
+EXPO_PUBLIC_APP_URL=https://mercuriocapitalsa.com.br
+```
+
+`EXPO_PUBLIC_APP_URL` e usada para montar links absolutos de convite no app parceiro.
+
+### Pipeline (espelhamento obrigatorio)
+
+No CI/CD (GitHub Actions/EAS Build), espelhe a mesma variavel:
+
+- `EXPO_PUBLIC_APP_URL=https://mercuriocapitalsa.com.br`
+
+Sem esse espelhamento, builds de pipeline podem gerar links com fallback local diferente do ambiente alvo.
+
 ## Estrutura
 
 ```

@@ -32,7 +32,7 @@ const CLAUSULAS = [
   {
     n: '6',
     titulo: 'DA PROTEÇÃO DE DADOS (LGPD)',
-    texto: `As partes comprometem-se a tratar os dados pessoais dos clientes indicados em estrita conformidade com a Lei 13.709/2018 (LGPD). A PARCEIRA atuará como "operadora" nos termos do art. 5º, VII, da LGPD, sendo vedada a utilização dos dados para finalidade diversa da execução deste Contrato. O Encarregado de Dados (DPO) da MERCURIO CAPITAL é o responsável pelo canal de atendimento de titulares: dpo@mercuriocapital.com.br.`,
+    texto: `As partes comprometem-se a tratar os dados pessoais dos clientes indicados em estrita conformidade com a Lei 13.709/2018 (LGPD). A PARCEIRA atuará como "operadora" nos termos do art. 5º, VII, da LGPD, sendo vedada a utilização dos dados para finalidade diversa da execução deste Contrato. O Encarregado de Dados (DPO) da MERCURIO CAPITAL é o responsável pelo canal de atendimento de titulares: dpo@mercuriocapitalsa.com.br.`,
   },
   {
     n: '7',
@@ -205,7 +205,7 @@ export function PartnerContrato() {
 
         {/* Rodapé */}
         <div className="mt-10 border-t border-gray-100 pt-4 text-center text-[10px] text-gray-300">
-          Mercurio Capital Ltda. · mercuriocapital.com.br · Este documento é válido como instrumento particular nos termos do art. 221 do Código Civil Brasileiro.
+          Mercurio Capital Ltda. · mercuriocapitalsa.com.br · Este documento é válido como instrumento particular nos termos do art. 221 do Código Civil Brasileiro.
         </div>
       </div>
 

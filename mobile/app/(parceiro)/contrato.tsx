@@ -20,7 +20,7 @@ const CLAUSULAS = [
   { n: '3', titulo: 'DAS OBRIGAÇÕES DA MERCURIO CAPITAL', texto: 'São obrigações da MERCURIO CAPITAL: (i) disponibilizar acesso ao sistema de gestão de propostas; (ii) analisar as propostas indicadas no prazo máximo de 5 (cinco) dias úteis após o recebimento da documentação completa; (iii) remunerar a PARCEIRA conforme tabela de comissões vigente, Anexo I; (iv) manter sigilo sobre dados cadastrais dos clientes indicados; (v) comunicar à PARCEIRA qualquer alteração de produto, taxa ou política de crédito com antecedência mínima de 30 dias.' },
   { n: '4', titulo: 'DA REMUNERAÇÃO E COMISSÕES', texto: 'Pela intermediação bem-sucedida, a PARCEIRA fará jus a comissão calculada sobre o valor liberado de cada operação, conforme tabela constante do Anexo I, que integra este instrumento. O pagamento será realizado em até 5 (cinco) dias úteis após o efetivo desembolso dos recursos ao tomador final, mediante emissão de Nota Fiscal de Serviços pela PARCEIRA. Operações canceladas após liberação parcial serão apuradas proporcionalmente.' },
   { n: '5', titulo: 'DA VEDAÇÃO À CONCORRÊNCIA DESLEAL', texto: 'Durante a vigência deste Contrato e por 12 (doze) meses após seu término, a PARCEIRA compromete-se a não utilizar informações operacionais, de precificação ou de clientes obtidas por meio da plataforma MERCURIO CAPITAL para beneficiar concorrentes diretos, sob pena de rescisão imediata e indenização por perdas e danos.' },
-  { n: '6', titulo: 'DA PROTEÇÃO DE DADOS (LGPD)', texto: 'As partes comprometem-se a tratar os dados pessoais dos clientes indicados em estrita conformidade com a Lei 13.709/2018 (LGPD). A PARCEIRA atuará como "operadora" nos termos do art. 5º, VII, da LGPD, sendo vedada a utilização dos dados para finalidade diversa da execução deste Contrato. O Encarregado de Dados (DPO) da MERCURIO CAPITAL é o responsável pelo canal de atendimento de titulares: dpo@mercuriocapital.com.br.' },
+  { n: '6', titulo: 'DA PROTEÇÃO DE DADOS (LGPD)', texto: 'As partes comprometem-se a tratar os dados pessoais dos clientes indicados em estrita conformidade com a Lei 13.709/2018 (LGPD). A PARCEIRA atuará como "operadora" nos termos do art. 5º, VII, da LGPD, sendo vedada a utilização dos dados para finalidade diversa da execução deste Contrato. O Encarregado de Dados (DPO) da MERCURIO CAPITAL é o responsável pelo canal de atendimento de titulares: dpo@mercuriocapitalsa.com.br.' },
   { n: '7', titulo: 'DA VIGÊNCIA E RESCISÃO', texto: 'O presente Contrato é firmado por prazo indeterminado, podendo qualquer das partes rescindi-lo mediante notificação escrita com antecedência mínima de 30 (trinta) dias. A rescisão imotivada não gera direito a indenizações, exceto quanto a comissões de operações já liberadas. A MERCURIO CAPITAL poderá rescindir imediatamente, sem ônus, em caso de comprovada fraude, violação de compliance ou descumprimento de cláusulas essenciais.' },
   { n: '8', titulo: 'DO FORO E LEI APLICÁVEL', texto: 'As partes elegem o Foro Central da Comarca de São Paulo/SP, com exclusão de qualquer outro, por mais privilegiado que seja, para dirimir quaisquer controvérsias oriundas do presente instrumento. Aplica-se a lei brasileira em sua integralidade.' },
 ]
@@ -164,7 +164,7 @@ function buildHtml(): string {
   </div>
 
   <div class="rodape">
-    Mercurio Capital Ltda. · mercuriocapital.com.br · Este documento é válido como instrumento particular
+    Mercurio Capital Ltda. · mercuriocapitalsa.com.br · Este documento é válido como instrumento particular
     nos termos do art. 221 do Código Civil Brasileiro.
   </div>
 </body></html>`
@@ -339,7 +339,7 @@ export default function PartnerContrato() {
           <View style={s.rodape}>
             <FileText size={10} color="#CCCCCC" />
             <Text style={s.rodapeText}>
-              Mercurio Capital Ltda. · mercuriocapital.com.br · Válido como instrumento particular
+              Mercurio Capital Ltda. · mercuriocapitalsa.com.br · Válido como instrumento particular
               (art. 221 CC).
             </Text>
           </View>

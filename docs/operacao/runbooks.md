@@ -91,20 +91,33 @@ Pipeline padrão (Vercel/Cloudflare Pages):
 **Diagnóstico**:
 ```sql
 -- itens travados em email_outbox
-select status, count(*), max(updated_at)
+select status, count(*), max(created_at) as ultimo_item
   from email_outbox
  group by 1;
 
-select * from email_outbox where status = 'erro' order by updated_at desc limit 20;
+select id, destinatario, assunto, origem, status, tentativas, ultimo_erro, created_at
+  from email_outbox
+ where status = 'erro'
+ order by created_at desc
+ limit 20;
+
+-- monitorar especificamente convites de equipe
+select id, destinatario, status, ultimo_erro, metadata->>'evento' as evento, created_at
+  from email_outbox
+ where metadata->>'evento' = 'convite_equipe'
+ order by created_at desc
+ limit 20;
 ```
 
 **Causas comuns**:
-- SMTP creds incorretos → revisar secrets da Edge Function `email-dispatcher`.
+- `RESEND_API_KEY`/`RESEND_FROM` incorretos ou ausentes → revisar secrets da Edge Function `email-dispatcher`.
 - Bounces alto → checar `email_bounces_inbox`, suspender envios.
+- Template de convite removido/inativo no admin (`convite_equipe_v1`) — a RPC possui fallback, mas revisar catálogo para manter padronização visual.
 
 **Ação**:
-- Resetar itens travados: `update email_outbox set status='pendente' where status='enviando' and updated_at < now() - interval '10 min';`
+- Resetar itens travados: `update email_outbox set status='pendente' where status='processando' and agendado_para < now() - interval '10 min';`
 - Re-disparar dispatcher (cron / `supabase functions invoke email-dispatcher`).
+- Se convite de equipe voltar com `email_status='falha_enqueue'`, orientar fallback manual com o link de convite gerado na tela de Equipe (web/mobile).
 
 ---
 

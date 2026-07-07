@@ -136,7 +136,7 @@ function EmpresaTab({ initial }: { initial: Empresa }) {
       <Input label="CNPJ" value={form.cnpj ?? ''} onChange={t => set('cnpj', t)} placeholder="00.000.000/0001-00" keyboardType="numbers-and-punctuation" />
       <Input label="Inscrição estadual" value={form.inscricao_estadual ?? ''} onChange={t => set('inscricao_estadual', t)} />
       <Input label="Endereço" value={form.endereco ?? ''} onChange={t => set('endereco', t)} placeholder="Av. Paulista, 1000 — SP" />
-      <Input label="E-mail de contato" value={form.email ?? ''} onChange={t => set('email', t)} placeholder="contato@mercuriocapital.com.br" keyboardType="email-address" autoCapitalize="none" />
+      <Input label="E-mail de contato" value={form.email ?? ''} onChange={t => set('email', t)} placeholder="contato@mercuriocapitalsa.com.br" keyboardType="email-address" autoCapitalize="none" />
       <Input label="Telefone" value={form.telefone ?? ''} onChange={t => set('telefone', t)} placeholder="(11) 3000-0000" keyboardType="phone-pad" />
       <Feedback msg={msg} />
       <Pressable style={[s.saveBtn, saveMut.isPending && { opacity: 0.6 }]} onPress={() => saveMut.mutate()} disabled={saveMut.isPending}>

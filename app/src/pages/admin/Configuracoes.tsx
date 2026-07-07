@@ -96,7 +96,7 @@ function EmpresaTab() {
         <div><label className="label">CNPJ</label><input className="input font-mono" value={form.cnpj} onChange={e => set('cnpj', e.target.value)} placeholder="00.000.000/0001-00" /></div>
         <div><label className="label">Inscrição estadual</label><input className="input" value={form.inscricao_estadual} onChange={e => set('inscricao_estadual', e.target.value)} /></div>
         <div className="md:col-span-2"><label className="label">Endereço</label><input className="input" value={form.endereco} onChange={e => set('endereco', e.target.value)} placeholder="Av. Paulista, 1000 — São Paulo/SP" /></div>
-        <div><label className="label">E-mail de contato</label><input className="input" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="contato@mercuriocapital.com.br" /></div>
+        <div><label className="label">E-mail de contato</label><input className="input" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="contato@mercuriocapitalsa.com.br" /></div>
         <div><label className="label">Telefone</label><input className="input" value={form.telefone} onChange={e => set('telefone', e.target.value)} placeholder="(11) 3000-0000" /></div>
       </div>
       {msg && <p className={`mt-4 text-sm font-medium ${msg.ok ? 'text-success' : 'text-danger'}`}>{msg.text}</p>}
@@ -325,8 +325,8 @@ function DominioTab() {
     <>
       <h2 className="mb-5 font-semibold text-navy">Domínio e identidade visual</h2>
       <div className="grid gap-4 md:grid-cols-2">
-        <div><label className="label">Domínio principal</label><input className="input" defaultValue="app.mercuriocapital.com.br" /></div>
-        <div><label className="label">URL de status (CNAME)</label><input className="input" defaultValue="status.mercuriocapital.com.br" /></div>
+        <div><label className="label">Domínio principal</label><input className="input" defaultValue="mercuriocapitalsa.com.br" /></div>
+        <div><label className="label">URL de status (CNAME)</label><input className="input" defaultValue="status.mercuriocapitalsa.com.br" /></div>
         <div className="md:col-span-2">
           <label className="label">Logo (light)</label>
           <div className="rounded-lg border-2 border-dashed border-silver-300 p-8 text-center text-sm text-silver-500">Arraste o arquivo SVG/PNG ou clique para enviar</div>
