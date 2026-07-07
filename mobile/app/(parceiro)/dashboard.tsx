@@ -1,10 +1,11 @@
 import { ScrollView, View, Text, Pressable, Image, ActivityIndicator } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import { Bell, Plus, TrendingUp, AlertCircle } from 'lucide-react-native'
+import { Plus, TrendingUp, AlertCircle } from 'lucide-react-native'
 import { useQuery } from '@tanstack/react-query'
 import { KPICard } from '@/components/KPICard'
 import { StatusBadge } from '@/components/Badge'
+import { NotificationsSheet } from '@/components/NotificationsSheet'
 import { brl } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import {
@@ -95,13 +96,11 @@ export default function Dashboard() {
             {profileQ.isLoading ? '...' : nome}
           </Text>
         </View>
-        <Pressable
-          onPress={() => router.push('/(parceiro)/configuracoes' as any)}
-          className="relative"
-        >
-          <Bell size={24} color="white" />
-          <View className="absolute right-0 top-0 h-2 w-2 rounded-full bg-danger" />
-        </Pressable>
+        <NotificationsSheet
+          variant="dark"
+          iconSize={24}
+          onOpenLink={(route) => router.push(route as any)}
+        />
       </View>
 
       <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingTop: 16, paddingBottom: 130, gap: 16 }}>

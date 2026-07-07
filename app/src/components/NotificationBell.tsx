@@ -28,9 +28,12 @@ export function NotificationBell() {
     refetchInterval: userId ? 60_000 : false,
     refetchOnWindowFocus: true,
     queryFn: async () => {
+      if (!userId) return []
+
       const { data, error } = await supabase
         .from('notificacoes')
         .select('id, titulo, mensagem, link, lida_em, created_at, metadata')
+        .eq('usuario_id', userId)
         .eq('canal', 'in_app')
         .order('lida_em', { ascending: true, nullsFirst: true })
         .order('created_at', { ascending: false })
@@ -90,7 +93,7 @@ export function NotificationBell() {
     <div className="relative" ref={popoverRef}>
       <button
         type="button"
-        className="relative rounded-full p-2 hover:bg-silver-100"
+        className="btn-no-liquid relative rounded-full border border-transparent p-2 hover:border-silver-200 hover:bg-silver-100"
         onClick={() => setOpen((v) => !v)}
         aria-label="Notificações"
       >
@@ -103,13 +106,13 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-96 overflow-hidden rounded-lg border border-silver-200 bg-white shadow-xl">
+        <div className="fixed inset-x-2 top-16 z-40 max-h-[calc(100dvh-5rem)] overflow-hidden rounded-lg border border-silver-200 bg-white shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 sm:max-h-none">
           <div className="flex items-center justify-between border-b border-silver-200 px-4 py-3">
             <p className="text-sm font-semibold text-silver-900">Notificações</p>
             {naoLidas > 0 && (
               <button
                 type="button"
-                className="flex items-center gap-1 text-xs text-navy hover:underline disabled:opacity-50"
+                className="btn-no-liquid flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-navy hover:bg-silver-100 disabled:opacity-50"
                 onClick={() => marcarTodas.mutate()}
                 disabled={marcarTodas.isPending}
               >
@@ -117,7 +120,7 @@ export function NotificationBell() {
               </button>
             )}
           </div>
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-[min(70dvh,24rem)] overflow-y-auto sm:max-h-96">
             {isLoading ? (
               <div className="flex items-center justify-center p-6">
                 <Loader2 className="h-4 w-4 animate-spin text-silver-400" />
@@ -134,7 +137,7 @@ export function NotificationBell() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-silver-900">{n.titulo}</p>
-                        <p className="mt-0.5 line-clamp-3 text-xs text-silver-600">{n.mensagem}</p>
+                        <p className="mt-0.5 line-clamp-3 break-words text-xs text-silver-600">{n.mensagem}</p>
                         <p className="mt-1 text-[10px] text-silver-400">
                           {new Date(n.created_at).toLocaleString('pt-BR')}
                         </p>
@@ -151,7 +154,7 @@ export function NotificationBell() {
                       {n.lida_em == null && (
                         <button
                           type="button"
-                          className="shrink-0 rounded-full p-1 text-silver-400 hover:bg-silver-100 hover:text-silver-700"
+                          className="btn-no-liquid shrink-0 rounded-full p-1 text-silver-400 hover:bg-silver-100 hover:text-silver-700"
                           onClick={() => marcarLida.mutate(n.id)}
                           title="Marcar como lida"
                         >

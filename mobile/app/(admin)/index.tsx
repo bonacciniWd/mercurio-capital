@@ -12,6 +12,7 @@ import {
 import { brl } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
+import { NotificationsSheet } from '@/components/NotificationsSheet'
 
 const items = [
   { href: '/(admin)/dashboard',      label: 'Dashboard',     icon: LayoutDashboard, color: '#DC2626' },
@@ -187,10 +188,16 @@ export default function AdminHome() {
           <Text style={s.headerEyebrow}>MODO ADMIN</Text>
           <Text style={s.headerTitle}>Mercurio · Backoffice</Text>
         </View>
-        <Pressable onPress={handleLogout} style={s.logoutBtn}>
-          <LogOut size={16} color="#DC2626" />
-          <Text style={s.logoutText}>Sair</Text>
-        </Pressable>
+        <View style={s.headerActions}>
+          <NotificationsSheet
+            variant="dark"
+            onOpenLink={(route) => router.push(route as any)}
+          />
+          <Pressable onPress={handleLogout} style={s.logoutBtn}>
+            <LogOut size={16} color="#DC2626" />
+            <Text style={s.logoutText}>Sair</Text>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
@@ -338,6 +345,7 @@ function KPI({
 
 const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#1f1f1f' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerEyebrow: { fontSize: 10, letterSpacing: 1.5, color: '#DC2626', fontWeight: '700' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', marginTop: 1 },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#DC262615', borderWidth: 1, borderColor: '#DC262640', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },

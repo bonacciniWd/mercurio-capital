@@ -9,6 +9,7 @@ import {
 } from 'lucide-react-native'
 import { brl } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
+import { NotificationsSheet } from '@/components/NotificationsSheet'
 
 type KpiRow = {
   total_propostas: number; propostas_mes: number; ativas: number
@@ -119,6 +120,10 @@ export default function AdminDashboard() {
           <Text style={s.headerEyebrow}>MODO ADMIN</Text>
           <Text style={s.headerTitle}>Dashboard</Text>
         </View>
+        <NotificationsSheet
+          variant="dark"
+          onOpenLink={(route) => router.push(route as any)}
+        />
       </View>
 
       {loading ? (
