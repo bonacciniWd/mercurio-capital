@@ -22,5 +22,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
     storageKey: 'mercurio.mobile.auth',
   },
+  global: {
+    headers: {
+      apikey: supabaseAnonKey,
+    },
+  },
 })
 

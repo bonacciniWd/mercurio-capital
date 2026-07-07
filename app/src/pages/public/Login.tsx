@@ -103,8 +103,10 @@ export function Login({
 
     try {
       const redirectTo = await login({ email, password, allowedRoles })
-      const from = (location.state as { from?: string } | null)?.from
-      navigate(from ?? redirectTo, { replace: true })
+      const fromState = (location.state as { from?: string } | null)?.from
+      const nextQuery = new URLSearchParams(location.search).get('next')
+      const safeNext = (fromState ?? nextQuery)?.startsWith('/') ? (fromState ?? nextQuery) : null
+      navigate(safeNext ?? redirectTo, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível autenticar.')
     } finally {

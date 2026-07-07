@@ -35,24 +35,17 @@ export function TwoFactorSetup({ friendlyName = 'Mercurio TOTP', onVerified, com
     setError(null)
     setSuccess(false)
     setCode('')
-    setQrDataUrl(null)
+    setEnrollment(null)
     try {
       const result = await beginTwoFactorEnrollment(friendlyName)
       setEnrollment(result)
-      // Renderiza o QR a partir do URI otpauth:// devolvido pelo Supabase.
-      // O SDK retorna também um `qr_code` como data URI SVG, mas ele costuma vir
-      // sem xmlns/viewBox e, quando injetado no DOM, o Google Authenticator não
-      // consegue ler os módulos. Gerar localmente a partir do URI garante um
-      // PNG bem formatado, com correção de erro alta e margem adequada.
-      const dataUrl = await QRCode.toDataURL(result.uri, {
-        errorCorrectionLevel: 'M',
-        margin: 2,
-        width: 240,
-        color: { dark: '#0A2B4E', light: '#FFFFFF' },
-      })
-      setQrDataUrl(dataUrl)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao iniciar o cadastro do 2FA.')
+      const message = err instanceof Error ? err.message : 'Falha ao iniciar o cadastro do 2FA.'
+      if (message.toLowerCase().includes('friendly name') && message.toLowerCase().includes('already exists')) {
+        setError('Já existe um fator com este nome. Tente novamente para gerar um novo QR.')
+      } else {
+        setError(message)
+      }
     } finally {
       setLoading(false)
     }
@@ -62,6 +55,35 @@ export function TwoFactorSetup({ friendlyName = 'Mercurio TOTP', onVerified, com
     void start()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (!enrollment) {
+      setQrDataUrl(null)
+      return
+    }
+
+    let cancelled = false
+
+    void QRCode.toDataURL(enrollment.uri, {
+      width: 360,
+      margin: 2,
+      errorCorrectionLevel: 'M',
+      color: {
+        dark: '#111827',
+        light: '#FFFFFF',
+      },
+    })
+      .then((dataUrl) => {
+        if (!cancelled) setQrDataUrl(dataUrl)
+      })
+      .catch(() => {
+        if (!cancelled) setQrDataUrl(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [enrollment])
 
   async function handleVerify(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -122,28 +144,19 @@ export function TwoFactorSetup({ friendlyName = 'Mercurio TOTP', onVerified, com
       {enrollment && !success && (
         <div className="grid gap-6 md:grid-cols-[220px_1fr]">
           <div className="flex flex-col items-center gap-3">
-            <div className="rounded-lg border border-silver-200 bg-white p-3">
-              {qrDataUrl ? (
-                <img
-                  src={qrDataUrl}
-                  alt="QR code TOTP"
-                  className="h-44 w-44"
-                  width={176}
-                  height={176}
-                />
-              ) : (
-                <div className="flex h-44 w-44 items-center justify-center text-xs text-silver-500">
-                  Gerando QR…
-                </div>
-              )}
-            </div>
-            <a
-              href={enrollment.uri}
-              className="text-[11px] text-silver-500 underline hover:text-navy"
-              title="Abrir diretamente no app autenticador (mobile)"
-            >
-              Abrir no app autenticador
-            </a>
+            {qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt="QR code para autenticação em duas etapas"
+                className="h-56 w-56 rounded-lg border border-silver-200 bg-white p-3"
+              />
+            ) : (
+              <div
+                className="rounded-lg border border-silver-200 bg-white p-3 [&>svg]:h-56 [&>svg]:w-56"
+                // Fallback para o SVG retornado pelo Supabase se a conversão para PNG falhar.
+                dangerouslySetInnerHTML={{ __html: enrollment.qrCodeSvg }}
+              />
+            )}
             <button type="button" onClick={start} className="btn-outline btn-no-liquid text-xs" disabled={loading}>
               <RefreshCw className="h-3.5 w-3.5" /> Gerar novo QR
             </button>

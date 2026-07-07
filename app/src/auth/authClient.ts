@@ -14,6 +14,19 @@ type MeRow = {
   requires_2fa: boolean
 }
 
+type MfaTotpFactor = {
+  id: string
+  status: 'verified' | 'unverified'
+  friendly_name?: string | null
+  created_at: string
+}
+
+type AuthClientError = Error & {
+  code?: string
+}
+
+export const AAL2_REQUIRED_FOR_UNENROLL_CODE = 'AAL2_REQUIRED_FOR_UNENROLL'
+
 const ROLE_MODULE_PATH: Record<AppRole, '/admin' | '/p' | '/c'> = {
   admin: '/admin',
   partner: '/p',
@@ -48,6 +61,29 @@ function isTransientNetworkError(err: unknown): boolean {
         : ''
   const normalized = message.toLowerCase()
   return TRANSIENT_ERROR_MARKERS.some((marker) => normalized.includes(marker))
+}
+
+function isFriendlyNameConflictError(errorMessage: string | undefined): boolean {
+  if (!errorMessage) return false
+  const normalized = errorMessage.toLowerCase()
+  return normalized.includes('friendly name') && normalized.includes('already exists')
+}
+
+function isAal2RequiredToUnenroll(errorMessage: string | undefined): boolean {
+  if (!errorMessage) return false
+  const normalized = errorMessage.toLowerCase()
+  return normalized.includes('aal2 required') && normalized.includes('unenroll')
+}
+
+function buildAuthClientError(message: string, code?: string): AuthClientError {
+  const error = new Error(message) as AuthClientError
+  if (code) error.code = code
+  return error
+}
+
+function buildUniqueFriendlyName(base: string): string {
+  const suffix = new Date().toISOString().replace(/[:.]/g, '-')
+  return `${base} ${suffix}`
 }
 
 function sanitizeRole(value: unknown): AppRole {
@@ -344,53 +380,37 @@ export type TwoFactorEnrollment = {
 /**
  * Inicia (ou reinicia) o cadastro de um fator TOTP.
  * - Remove fatores anteriores não verificados (evita o erro "factor already exists").
- * - Garante que o `friendly_name` seja único no escopo do usuário (retry com sufixo).
  * - Cria um fator novo e devolve o material para exibir o QR.
  */
 export async function enrollTwoFactor(friendlyName = 'Mercurio TOTP'): Promise<TwoFactorEnrollment> {
   const { data: existing, error: listErr } = await supabase.auth.mfa.listFactors()
   if (listErr) throw new Error(listErr.message)
 
-  // Remove rascunhos anteriores (fatores TOTP criados mas nunca verificados).
-  const unverified = existing?.totp?.filter((f) => f.status !== 'verified') ?? []
+  const unverified = (existing?.totp?.filter((f) => f.status !== 'verified') ?? []) as MfaTotpFactor[]
   for (const f of unverified) {
-    const { error: unErr } = await supabase.auth.mfa.unenroll({ factorId: f.id })
-    if (unErr) {
+    const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId: f.id })
+    if (unenrollError) {
       // eslint-disable-next-line no-console
-      console.warn('[auth] falha ao remover fator TOTP não verificado', f.id, unErr)
+      console.warn('[auth] Não foi possível remover fator TOTP pendente', {
+        factorId: f.id,
+        message: unenrollError.message,
+      })
     }
   }
 
-  // Se já houver algum fator (verificado ou remanescente) com o mesmo friendly_name,
-  // usa um nome único para não colidir com o constraint do Supabase.
-  const takenNames = new Set(
-    (existing?.totp ?? [])
-      .map((f) => f.friendly_name)
-      .filter((name): name is string => typeof name === 'string' && name.length > 0),
-  )
-
-  function uniqueSuffix() {
-    const now = new Date()
-    const pad = (n: number) => String(n).padStart(2, '0')
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
-  }
-
-  const initialName = takenNames.has(friendlyName)
-    ? `${friendlyName} (${uniqueSuffix()})`
-    : friendlyName
-
   let { data, error } = await supabase.auth.mfa.enroll({
     factorType: 'totp',
-    friendlyName: initialName,
+    friendlyName,
   })
 
-  // Fallback defensivo: mesmo após a limpeza, o backend ainda reclama de nome duplicado.
-  if (error && /already exists/i.test(error.message)) {
-    const forcedUniqueName = `${friendlyName} (${uniqueSuffix()} #${Date.now().toString(36)})`
-    ;({ data, error } = await supabase.auth.mfa.enroll({
+  if (!data && error && isFriendlyNameConflictError(error.message)) {
+    const retryFriendlyName = buildUniqueFriendlyName(friendlyName)
+    const retry = await supabase.auth.mfa.enroll({
       factorType: 'totp',
-      friendlyName: forcedUniqueName,
-    }))
+      friendlyName: retryFriendlyName,
+    })
+    data = retry.data
+    error = retry.error
   }
 
   if (error || !data) {
@@ -402,7 +422,7 @@ export async function enrollTwoFactor(friendlyName = 'Mercurio TOTP'): Promise<T
     qrCodeSvg: data.totp.qr_code,
     secret: data.totp.secret,
     uri: data.totp.uri,
-    friendlyName: data.friendly_name ?? initialName,
+    friendlyName: data.friendly_name ?? friendlyName,
   }
 }
 
@@ -431,9 +451,40 @@ export async function verifyTwoFactorEnrollment(factorId: string, code: string):
 /**
  * Remove um fator TOTP (verificado ou não). Após remoção a sessão volta para aal1.
  */
-export async function unenrollTwoFactor(factorId: string): Promise<void> {
-  const { error } = await supabase.auth.mfa.unenroll({ factorId })
-  if (error) throw new Error(error.message)
+export async function unenrollTwoFactor(factorId: string, verificationCode?: string): Promise<void> {
+  const removeFactor = async () => {
+    const { error } = await supabase.auth.mfa.unenroll({ factorId })
+    return error
+  }
+
+  const initialError = await removeFactor()
+  if (!initialError) return
+
+  if (!isAal2RequiredToUnenroll(initialError.message)) {
+    throw new Error(initialError.message)
+  }
+
+  if (!verificationCode) {
+    throw buildAuthClientError(
+      'Confirme com o código de 6 dígitos do app autenticador para remover este fator.',
+      AAL2_REQUIRED_FOR_UNENROLL_CODE,
+    )
+  }
+
+  const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId })
+  if (challengeError || !challenge) {
+    throw new Error(challengeError?.message ?? 'Não foi possível iniciar a confirmação de segurança para remover o fator.')
+  }
+
+  const { error: verifyError } = await supabase.auth.mfa.verify({
+    factorId,
+    challengeId: challenge.id,
+    code: verificationCode,
+  })
+  if (verifyError) throw new Error(verifyError.message)
+
+  const retryError = await removeFactor()
+  if (retryError) throw new Error(retryError.message)
 }
 
 /** Lista os fatores TOTP do usuário atual. */

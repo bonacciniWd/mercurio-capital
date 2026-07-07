@@ -92,6 +92,21 @@ function formatPhone(s: string): string {
   return d.replace(/(\d{2})(\d{5})(\d)/, '($1) $2-$3')
 }
 
+function getPartnerProfileSaveErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err)
+  const normalized = raw.toLowerCase()
+
+  if (
+    normalized.includes('partners_cpf_key') ||
+    normalized.includes('cpf/cnpj já está vinculado') ||
+    (normalized.includes('duplicate key value') && normalized.includes('cpf'))
+  ) {
+    return 'CPF/CNPJ já está vinculado a outro parceiro.'
+  }
+
+  return raw
+}
+
 // ─── Empresa ────────────────────────────────────────────────────────────────
 interface EmpresaForm {
   razao_social: string
@@ -134,9 +149,10 @@ function Empresa() {
 
   const saveMut = useMutation({
     mutationFn: async () => {
+      const cpfDigits = onlyDigits(form.cpf)
       const payload = {
         razao_social: form.razao_social,
-        cpf: onlyDigits(form.cpf),
+        ...(cpfDigits ? { cpf: cpfDigits } : {}),
         website: form.website,
         telefone_ddi: profileQ.data?.telefone_ddi ?? '55',
         telefone: onlyDigits(form.telefone),
@@ -156,7 +172,7 @@ function Empresa() {
       qc.setQueryData(PARTNER_PROFILE_QUERY_KEY, data)
       Alert.alert('Sucesso', 'Perfil atualizado.')
     },
-    onError: (e: unknown) => Alert.alert('Erro', e instanceof Error ? e.message : String(e)),
+    onError: (e: unknown) => Alert.alert('Erro', getPartnerProfileSaveErrorMessage(e)),
   })
 
   const profile = profileQ.data

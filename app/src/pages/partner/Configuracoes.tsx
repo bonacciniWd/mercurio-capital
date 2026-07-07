@@ -144,6 +144,21 @@ function emptyForm(): PerfilForm {
   }
 }
 
+function getPartnerProfileSaveErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : 'Falha ao salvar.'
+  const normalized = raw.toLowerCase()
+
+  if (
+    normalized.includes('partners_cpf_key') ||
+    normalized.includes('cpf/cnpj já está vinculado') ||
+    (normalized.includes('duplicate key value') && normalized.includes('cpf'))
+  ) {
+    return 'CPF/CNPJ já está vinculado a outro parceiro.'
+  }
+
+  return raw
+}
+
 function fromProfile(p: PartnerProfile): PerfilForm {
   const telDigits = onlyDigits(p.telefone ?? '')
   // se vier com DDD+número, separa os 2 primeiros como DDD
@@ -178,7 +193,7 @@ function Perfil() {
   }, [profileQ.data])
 
   const updateMut = useMutation({
-    mutationFn: async (payload: Record<string, string>) => {
+    mutationFn: async (payload: Record<string, unknown>) => {
       const { data, error } = await supabase.rpc('partner_update_profile', { p_payload: payload })
       if (error) throw error
       return data as PartnerProfile
@@ -188,7 +203,7 @@ function Perfil() {
       setFeedback({ kind: 'ok', msg: 'Perfil atualizado com sucesso.' })
     },
     onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : 'Falha ao salvar.'
+      const msg = getPartnerProfileSaveErrorMessage(err)
       setFeedback({ kind: 'err', msg })
     },
   })
@@ -301,9 +316,10 @@ function Perfil() {
         onSubmit={(e) => {
           e.preventDefault()
           setFeedback(null)
+          const cpfDigits = onlyDigits(form.cpf)
           const payload = {
             razao_social: form.razao_social,
-            cpf: onlyDigits(form.cpf),
+            ...(cpfDigits ? { cpf: cpfDigits } : {}),
             website: form.website,
             telefone_ddi: onlyDigits(form.telefone_ddi),
             telefone: onlyDigits(form.telefone_ddd) + onlyDigits(form.telefone),

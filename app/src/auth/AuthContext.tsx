@@ -31,7 +31,7 @@ type AuthContextValue = {
   submitTwoFactor: (code: string) => Promise<AuthRedirect>
   beginTwoFactorEnrollment: (friendlyName?: string) => Promise<TwoFactorEnrollment>
   confirmTwoFactorEnrollment: (factorId: string, code: string) => Promise<AuthRedirect>
-  removeTwoFactorFactor: (factorId: string) => Promise<void>
+  removeTwoFactorFactor: (factorId: string, verificationCode?: string) => Promise<void>
   logout: () => Promise<void>
   refresh: () => Promise<void>
 }
@@ -181,8 +181,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(nextSession)
         return resolveRedirect(nextSession)
       },
-      removeTwoFactorFactor: async (factorId) => {
-        await unenrollTwoFactorClient(factorId)
+      removeTwoFactorFactor: async (factorId, verificationCode) => {
+        await unenrollTwoFactorClient(factorId, verificationCode)
         const current = await getCurrentSession()
         setSession(current)
       },
