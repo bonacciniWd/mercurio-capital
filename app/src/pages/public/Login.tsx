@@ -95,6 +95,7 @@ export function Login({
 
   const hero = pickHero(allowedRoles)
   const registerLink = pickRegisterLink(allowedRoles)
+  const isAdminLogin = allowedRoles?.length === 1 && allowedRoles[0] === 'admin'
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -167,6 +168,15 @@ export function Login({
               <button type="submit" className="btn-gold w-full" disabled={loading}>
                 {loading ? 'Entrando...' : 'Entrar'}
               </button>
+
+              {!isAdminLogin && (
+                <Link
+                  to="/admin/login"
+                  className="btn-outline rounded-full flex w-full items-center justify-center gap-2 border-navy/20 text-navy hover:border-navy/40"
+                >
+                  É um Administrador?
+                </Link>
+              )}
 
               {registerLink && (
                 <p className="text-center text-sm text-silver-600">

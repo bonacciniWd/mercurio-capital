@@ -26,6 +26,19 @@ type AuthClientError = Error & {
 }
 
 export const AAL2_REQUIRED_FOR_UNENROLL_CODE = 'AAL2_REQUIRED_FOR_UNENROLL'
+export const AUTH_SESSION_MISSING_FOR_MFA_CODE = 'AUTH_SESSION_MISSING'
+
+const MFA_RELOGIN_REQUIRED_MESSAGE =
+  'Sua sessão expirou. Faça login novamente para continuar com a autenticação em duas etapas.'
+
+const MFA_SESSION_MISSING_MARKERS = [
+  'auth session missing',
+  'session missing',
+  'invalid refresh token',
+  'refresh token not found',
+  'refresh token is invalid',
+  'jwt expired',
+]
 
 const ROLE_MODULE_PATH: Record<AppRole, '/admin' | '/p' | '/c'> = {
   admin: '/admin',
@@ -81,6 +94,77 @@ function buildAuthClientError(message: string, code?: string): AuthClientError {
   return error
 }
 
+function getErrorMessage(err: unknown): string | undefined {
+  if (typeof err === 'string') return err
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    return String((err as { message: unknown }).message)
+  }
+  return undefined
+}
+
+function normalizeMfaErrorMessage(err: unknown, fallbackMessage: string): string {
+  const rawMessage = getErrorMessage(err)
+  if (!rawMessage) return fallbackMessage
+
+  const normalized = rawMessage.toLowerCase()
+  if (MFA_SESSION_MISSING_MARKERS.some((marker) => normalized.includes(marker))) {
+    return MFA_RELOGIN_REQUIRED_MESSAGE
+  }
+
+  return rawMessage
+}
+
+function buildMfaError(err: unknown, fallbackMessage: string): AuthClientError {
+  const message = normalizeMfaErrorMessage(err, fallbackMessage)
+  if (message === MFA_RELOGIN_REQUIRED_MESSAGE) {
+    return buildAuthClientError(message, AUTH_SESSION_MISSING_FOR_MFA_CODE)
+  }
+  return buildAuthClientError(message)
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+async function getSessionWithRefresh() {
+  const first = await supabase.auth.getSession()
+  if (first.data.session) {
+    return { session: first.data.session, error: first.error ?? null }
+  }
+
+  const refreshed = await supabase.auth.refreshSession()
+  return { session: refreshed.data.session ?? null, error: refreshed.error ?? first.error ?? null }
+}
+
+async function ensureMfaSession(): Promise<void> {
+  let lastError: unknown = { message: 'Auth session missing' }
+  const delaysMs = [0, 120, 300]
+
+  for (const delay of delaysMs) {
+    if (delay > 0) {
+      await wait(delay)
+    }
+
+    const { session, error } = await getSessionWithRefresh()
+    if (session) {
+      return
+    }
+
+    if (error) {
+      lastError = error
+    }
+  }
+
+  const normalizedLastError = getErrorMessage(lastError)?.toLowerCase() ?? ''
+  const terminalError = MFA_SESSION_MISSING_MARKERS.some((marker) => normalizedLastError.includes(marker))
+    ? lastError
+    : { message: 'Auth session missing' }
+
+  throw buildMfaError(terminalError, MFA_RELOGIN_REQUIRED_MESSAGE)
+}
+
 function buildUniqueFriendlyName(base: string): string {
   const suffix = new Date().toISOString().replace(/[:.]/g, '-')
   return `${base} ${suffix}`
@@ -119,14 +203,14 @@ function buildFallbackProfileFromSessionUser(user: SupabaseSessionUser): AuthPro
 }
 
 async function readFallbackProfile(): Promise<AuthProfile | null> {
-  const { data, error } = await supabase.auth.getSession()
-  if (error || !data.session) return null
+  const { session, error } = await getSessionWithRefresh()
+  if (error || !session) return null
 
-  const userId = data.session.user.id
+  const userId = session.user.id
   const cached = cachedProfilesByUserId.get(userId)
   if (cached) return cached
 
-  return buildFallbackProfileFromSessionUser(data.session.user as SupabaseSessionUser)
+  return buildFallbackProfileFromSessionUser(session.user as SupabaseSessionUser)
 }
 
 export async function fetchProfile(): Promise<AuthProfile | null> {
@@ -182,27 +266,49 @@ export async function fetchProfile(): Promise<AuthProfile | null> {
 }
 
 async function readTwoFactorVerified(): Promise<boolean> {
-  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-  if (error) {
+  try {
+    await ensureMfaSession()
+
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[auth] getAuthenticatorAssuranceLevel falhou',
+        normalizeMfaErrorMessage(error, 'Não foi possível validar o estado de 2FA.'),
+      )
+      return false
+    }
+    if (!data) return false
+    if (data.nextLevel === 'aal2') {
+      return data.currentLevel === 'aal2'
+    }
+    return true
+  } catch (error) {
     // eslint-disable-next-line no-console
-    console.warn('[auth] getAuthenticatorAssuranceLevel falhou', error)
+    console.warn('[auth] readTwoFactorVerified falhou', normalizeMfaErrorMessage(error, MFA_RELOGIN_REQUIRED_MESSAGE))
     return false
   }
-  if (!data) return false
-  if (data.nextLevel === 'aal2') {
-    return data.currentLevel === 'aal2'
-  }
-  return true
 }
 
 async function readTwoFactorEnrolled(): Promise<boolean> {
-  const { data, error } = await supabase.auth.mfa.listFactors()
-  if (error) {
+  try {
+    await ensureMfaSession()
+
+    const { data, error } = await supabase.auth.mfa.listFactors()
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[auth] listFactors falhou',
+        normalizeMfaErrorMessage(error, 'Não foi possível consultar os fatores de 2FA.'),
+      )
+      return false
+    }
+    return Boolean(data?.totp?.some((f) => f.status === 'verified'))
+  } catch (error) {
     // eslint-disable-next-line no-console
-    console.warn('[auth] listFactors falhou', error)
+    console.warn('[auth] readTwoFactorEnrolled falhou', normalizeMfaErrorMessage(error, MFA_RELOGIN_REQUIRED_MESSAGE))
     return false
   }
-  return Boolean(data?.totp?.some((f) => f.status === 'verified'))
 }
 
 export async function buildSession(profile: AuthProfile, userId: string): Promise<AuthSession> {
@@ -224,8 +330,8 @@ export function resolveRedirect(session: AuthSession): AuthRedirect {
 
 export async function getCurrentSession(): Promise<AuthSession | null> {
   try {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-    if (sessionError) {
+    const { session: supaSession, error: sessionError } = await getSessionWithRefresh()
+    if (sessionError && !supaSession) {
       // eslint-disable-next-line no-console
       console.warn('[auth] getSession falhou', sessionError)
 
@@ -236,7 +342,7 @@ export async function getCurrentSession(): Promise<AuthSession | null> {
 
       return null
     }
-    const supaSession = sessionData.session
+
     if (!supaSession) return null
 
     const profile = await fetchProfile()
@@ -284,12 +390,28 @@ export async function loginWithPassword(input: LoginInput): Promise<AuthSession>
     throw new Error('Falha ao autenticar.')
   }
 
-  const { data, error } = await supabase.auth.setSession({
+  const { data: setSessionData, error: setSessionError } = await supabase.auth.setSession({
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
   })
-  if (error || !data.session) {
-    throw new Error(error?.message ?? 'Falha ao estabelecer a sessão.')
+  void setSessionData
+  if (setSessionError) {
+    throw new Error(setSessionError.message ?? 'Falha ao estabelecer a sessão.')
+  }
+
+  let effectiveSession = (await getSessionWithRefresh()).session
+
+  if (!effectiveSession) {
+    const { data: fallbackData, error: fallbackError } = await supabase.auth.signInWithPassword({
+      email: input.email,
+      password: input.password,
+    })
+
+    if (fallbackError || !fallbackData.session) {
+      throw new Error('Falha ao estabelecer a sessão.')
+    }
+
+    effectiveSession = fallbackData.session
   }
 
   const profile = await fetchProfile()
@@ -309,7 +431,7 @@ export async function loginWithPassword(input: LoginInput): Promise<AuthSession>
     throw new Error(`Esta conta pertence a outro módulo. Acesse ${moduleByRole[profile.role]}.`)
   }
 
-  return buildSession(profile, data.session.user.id)
+  return buildSession(profile, effectiveSession.user.id)
 }
 
 export async function consumeMagicToken(tokenHash: string): Promise<AuthSession> {
@@ -337,33 +459,45 @@ export type MfaChallenge = {
 }
 
 export async function startTwoFactorChallenge(): Promise<MfaChallenge> {
-  const { data: factors, error } = await supabase.auth.mfa.listFactors()
-  if (error) throw new Error(error.message)
+  try {
+    await ensureMfaSession()
 
-  const factor = factors.totp?.find((f) => f.status === 'verified')
-  if (!factor) {
-    throw new Error('Você ainda não possui um fator TOTP verificado. Conclua o cadastro em /2fa/setup.')
+    const { data: factors, error } = await supabase.auth.mfa.listFactors()
+    if (error) throw buildMfaError(error, 'Não foi possível consultar os fatores de 2FA.')
+
+    const factor = factors.totp?.find((f) => f.status === 'verified')
+    if (!factor) {
+      throw new Error('Você ainda não possui um fator TOTP verificado. Conclua o cadastro em /2fa/setup.')
+    }
+
+    const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: factor.id })
+    if (challengeError || !challenge) {
+      throw buildMfaError(challengeError, 'Não foi possível iniciar o desafio 2FA.')
+    }
+
+    return { factorId: factor.id, challengeId: challenge.id }
+  } catch (error) {
+    throw buildMfaError(error, 'Não foi possível iniciar o desafio 2FA.')
   }
-
-  const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: factor.id })
-  if (challengeError || !challenge) {
-    throw new Error(challengeError?.message ?? 'Não foi possível iniciar o desafio 2FA.')
-  }
-
-  return { factorId: factor.id, challengeId: challenge.id }
 }
 
 export async function verifyTwoFactorCode(challenge: MfaChallenge, code: string): Promise<AuthSession> {
-  const { error } = await supabase.auth.mfa.verify({
-    factorId: challenge.factorId,
-    challengeId: challenge.challengeId,
-    code,
-  })
-  if (error) throw new Error(error.message)
+  try {
+    await ensureMfaSession()
 
-  const session = await getCurrentSession()
-  if (!session) throw new Error('Sessão expirou. Faça login novamente.')
-  return session
+    const { error } = await supabase.auth.mfa.verify({
+      factorId: challenge.factorId,
+      challengeId: challenge.challengeId,
+      code,
+    })
+    if (error) throw buildMfaError(error, 'Código 2FA inválido ou expirado.')
+
+    const session = await getCurrentSession()
+    if (!session) throw buildMfaError({ message: 'Auth session missing' }, MFA_RELOGIN_REQUIRED_MESSAGE)
+    return session
+  } catch (error) {
+    throw buildMfaError(error, 'Não foi possível validar o código 2FA.')
+  }
 }
 
 export type TwoFactorEnrollment = {
@@ -383,46 +517,52 @@ export type TwoFactorEnrollment = {
  * - Cria um fator novo e devolve o material para exibir o QR.
  */
 export async function enrollTwoFactor(friendlyName = 'Mercurio TOTP'): Promise<TwoFactorEnrollment> {
-  const { data: existing, error: listErr } = await supabase.auth.mfa.listFactors()
-  if (listErr) throw new Error(listErr.message)
+  try {
+    await ensureMfaSession()
 
-  const unverified = (existing?.totp?.filter((f) => f.status !== 'verified') ?? []) as MfaTotpFactor[]
-  for (const f of unverified) {
-    const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId: f.id })
-    if (unenrollError) {
-      // eslint-disable-next-line no-console
-      console.warn('[auth] Não foi possível remover fator TOTP pendente', {
-        factorId: f.id,
-        message: unenrollError.message,
-      })
+    const { data: existing, error: listErr } = await supabase.auth.mfa.listFactors()
+    if (listErr) throw buildMfaError(listErr, 'Não foi possível consultar os fatores de 2FA.')
+
+    const unverified = (existing?.totp?.filter((f) => f.status !== 'verified') ?? []) as MfaTotpFactor[]
+    for (const f of unverified) {
+      const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId: f.id })
+      if (unenrollError) {
+        // eslint-disable-next-line no-console
+        console.warn('[auth] Não foi possível remover fator TOTP pendente', {
+          factorId: f.id,
+          message: normalizeMfaErrorMessage(unenrollError, 'Falha ao limpar fator 2FA pendente.'),
+        })
+      }
     }
-  }
 
-  let { data, error } = await supabase.auth.mfa.enroll({
-    factorType: 'totp',
-    friendlyName,
-  })
-
-  if (!data && error && isFriendlyNameConflictError(error.message)) {
-    const retryFriendlyName = buildUniqueFriendlyName(friendlyName)
-    const retry = await supabase.auth.mfa.enroll({
+    let { data, error } = await supabase.auth.mfa.enroll({
       factorType: 'totp',
-      friendlyName: retryFriendlyName,
+      friendlyName,
     })
-    data = retry.data
-    error = retry.error
-  }
 
-  if (error || !data) {
-    throw new Error(error?.message ?? 'Não foi possível iniciar o cadastro do 2FA.')
-  }
+    if (!data && error && isFriendlyNameConflictError(error.message)) {
+      const retryFriendlyName = buildUniqueFriendlyName(friendlyName)
+      const retry = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        friendlyName: retryFriendlyName,
+      })
+      data = retry.data
+      error = retry.error
+    }
 
-  return {
-    factorId: data.id,
-    qrCodeSvg: data.totp.qr_code,
-    secret: data.totp.secret,
-    uri: data.totp.uri,
-    friendlyName: data.friendly_name ?? friendlyName,
+    if (error || !data) {
+      throw buildMfaError(error, 'Não foi possível iniciar o cadastro do 2FA.')
+    }
+
+    return {
+      factorId: data.id,
+      qrCodeSvg: data.totp.qr_code,
+      secret: data.totp.secret,
+      uri: data.totp.uri,
+      friendlyName: data.friendly_name ?? friendlyName,
+    }
+  } catch (error) {
+    throw buildMfaError(error, 'Não foi possível iniciar o cadastro do 2FA.')
   }
 }
 
@@ -431,67 +571,91 @@ export async function enrollTwoFactor(friendlyName = 'Mercurio TOTP'): Promise<T
  * com o código TOTP digitado pelo usuário. Após verificação a AAL sobe para aal2.
  */
 export async function verifyTwoFactorEnrollment(factorId: string, code: string): Promise<AuthSession> {
-  const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId })
-  if (challengeError || !challenge) {
-    throw new Error(challengeError?.message ?? 'Não foi possível iniciar o desafio de cadastro.')
+  try {
+    await ensureMfaSession()
+
+    const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId })
+    if (challengeError || !challenge) {
+      throw buildMfaError(challengeError, 'Não foi possível iniciar o desafio de cadastro.')
+    }
+
+    const { error } = await supabase.auth.mfa.verify({
+      factorId,
+      challengeId: challenge.id,
+      code,
+    })
+    if (error) throw buildMfaError(error, 'Código 2FA inválido ou expirado.')
+
+    const session = await getCurrentSession()
+    if (!session) throw buildMfaError({ message: 'Auth session missing' }, MFA_RELOGIN_REQUIRED_MESSAGE)
+    return session
+  } catch (error) {
+    throw buildMfaError(error, 'Não foi possível concluir o cadastro do 2FA.')
   }
-
-  const { error } = await supabase.auth.mfa.verify({
-    factorId,
-    challengeId: challenge.id,
-    code,
-  })
-  if (error) throw new Error(error.message)
-
-  const session = await getCurrentSession()
-  if (!session) throw new Error('Sessão expirou. Faça login novamente.')
-  return session
 }
 
 /**
  * Remove um fator TOTP (verificado ou não). Após remoção a sessão volta para aal1.
  */
 export async function unenrollTwoFactor(factorId: string, verificationCode?: string): Promise<void> {
-  const removeFactor = async () => {
-    const { error } = await supabase.auth.mfa.unenroll({ factorId })
-    return error
+  try {
+    await ensureMfaSession()
+
+    const removeFactor = async () => {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId })
+      return error
+    }
+
+    const initialError = await removeFactor()
+    if (!initialError) return
+
+    if (!isAal2RequiredToUnenroll(initialError.message)) {
+      throw buildMfaError(initialError, 'Não foi possível remover o fator de 2FA.')
+    }
+
+    if (!verificationCode) {
+      throw buildAuthClientError(
+        'Confirme com o código de 6 dígitos do app autenticador para remover este fator.',
+        AAL2_REQUIRED_FOR_UNENROLL_CODE,
+      )
+    }
+
+    const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId })
+    if (challengeError || !challenge) {
+      throw buildMfaError(
+        challengeError,
+        'Não foi possível iniciar a confirmação de segurança para remover o fator.',
+      )
+    }
+
+    const { error: verifyError } = await supabase.auth.mfa.verify({
+      factorId,
+      challengeId: challenge.id,
+      code: verificationCode,
+    })
+    if (verifyError) throw buildMfaError(verifyError, 'Código 2FA inválido ou expirado.')
+
+    const retryError = await removeFactor()
+    if (retryError) throw buildMfaError(retryError, 'Não foi possível remover o fator de 2FA.')
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error) {
+      throw error
+    }
+    throw buildMfaError(error, 'Não foi possível remover o fator de 2FA.')
   }
-
-  const initialError = await removeFactor()
-  if (!initialError) return
-
-  if (!isAal2RequiredToUnenroll(initialError.message)) {
-    throw new Error(initialError.message)
-  }
-
-  if (!verificationCode) {
-    throw buildAuthClientError(
-      'Confirme com o código de 6 dígitos do app autenticador para remover este fator.',
-      AAL2_REQUIRED_FOR_UNENROLL_CODE,
-    )
-  }
-
-  const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId })
-  if (challengeError || !challenge) {
-    throw new Error(challengeError?.message ?? 'Não foi possível iniciar a confirmação de segurança para remover o fator.')
-  }
-
-  const { error: verifyError } = await supabase.auth.mfa.verify({
-    factorId,
-    challengeId: challenge.id,
-    code: verificationCode,
-  })
-  if (verifyError) throw new Error(verifyError.message)
-
-  const retryError = await removeFactor()
-  if (retryError) throw new Error(retryError.message)
 }
 
 /** Lista os fatores TOTP do usuário atual. */
 export async function listTwoFactorFactors() {
-  const { data, error } = await supabase.auth.mfa.listFactors()
-  if (error) throw new Error(error.message)
-  return data?.totp ?? []
+  try {
+    await ensureMfaSession()
+
+    const { data, error } = await supabase.auth.mfa.listFactors()
+    if (error) throw buildMfaError(error, 'Não foi possível consultar os fatores de 2FA.')
+    return data?.totp ?? []
+  } catch (error) {
+    throw buildMfaError(error, 'Não foi possível consultar os fatores de 2FA.')
+  }
 }
 
 export async function signOut(): Promise<void> {

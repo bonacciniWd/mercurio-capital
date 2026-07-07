@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
+  invoke: vi.fn(),
   getSession: vi.fn(),
+  refreshSession: vi.fn(),
+  setSession: vi.fn(),
+  signInWithPassword: vi.fn(),
   signOut: vi.fn(),
   getAuthenticatorAssuranceLevel: vi.fn(),
   listFactors: vi.fn(),
@@ -17,6 +21,9 @@ vi.mock('@/lib/supabase', () => ({
     rpc: mocks.rpc,
     auth: {
       getSession: mocks.getSession,
+      refreshSession: mocks.refreshSession,
+      setSession: mocks.setSession,
+      signInWithPassword: mocks.signInWithPassword,
       signOut: mocks.signOut,
       mfa: {
         getAuthenticatorAssuranceLevel: mocks.getAuthenticatorAssuranceLevel,
@@ -28,12 +35,12 @@ vi.mock('@/lib/supabase', () => ({
       },
     },
     functions: {
-      invoke: vi.fn(),
+      invoke: mocks.invoke,
     },
   },
 }))
 
-import { enrollTwoFactor, fetchProfile, getCurrentSession, unenrollTwoFactor } from '@/auth/authClient'
+import { enrollTwoFactor, fetchProfile, getCurrentSession, loginWithPassword, unenrollTwoFactor } from '@/auth/authClient'
 
 describe('authClient resiliente', () => {
   beforeEach(() => {
@@ -50,6 +57,47 @@ describe('authClient resiliente', () => {
               approved: true,
               partner_id: 'partner-1',
             },
+          },
+        },
+      },
+      error: null,
+    })
+
+    mocks.setSession.mockResolvedValue({
+      data: {
+        session: {
+          user: {
+            id: 'user-1',
+          },
+        },
+      },
+      error: null,
+    })
+
+    mocks.signInWithPassword.mockResolvedValue({
+      data: {
+        session: {
+          user: {
+            id: 'user-1',
+          },
+        },
+      },
+      error: null,
+    })
+
+    mocks.invoke.mockResolvedValue({
+      data: {
+        access_token: 'token-access',
+        refresh_token: 'token-refresh',
+      },
+      error: null,
+    })
+
+    mocks.refreshSession.mockResolvedValue({
+      data: {
+        session: {
+          user: {
+            id: 'user-1',
           },
         },
       },
@@ -206,5 +254,157 @@ describe('authClient resiliente', () => {
 
     expect(mocks.challenge).not.toHaveBeenCalled()
     expect(mocks.verify).not.toHaveBeenCalled()
+  })
+
+  it('tenta refresh quando sessão MFA está ausente e retorna mensagem amigável para relogin', async () => {
+    mocks.getSession.mockResolvedValue({ data: { session: null }, error: null })
+    mocks.refreshSession.mockResolvedValue({ data: { session: null }, error: { message: 'Auth session missing' } })
+
+    await expect(enrollTwoFactor('Mercurio TOTP')).rejects.toMatchObject({
+      message: 'Sua sessão expirou. Faça login novamente para continuar com a autenticação em duas etapas.',
+      code: 'AUTH_SESSION_MISSING',
+    })
+
+    expect(mocks.refreshSession).toHaveBeenCalledTimes(3)
+  })
+
+  it('recupera sessão MFA via refresh e permite iniciar cadastro de 2FA', async () => {
+    mocks.getSession.mockResolvedValueOnce({
+      data: { session: null },
+      error: null,
+    })
+    mocks.refreshSession.mockResolvedValueOnce({
+      data: {
+        session: {
+          user: {
+            id: 'user-1',
+          },
+        },
+      },
+      error: null,
+    })
+
+    const enrollment = await enrollTwoFactor('Mercurio TOTP')
+
+    expect(mocks.refreshSession).toHaveBeenCalledTimes(1)
+    expect(enrollment.factorId).toBe('factor-1')
+  })
+
+  it('recupera sessão MFA na última tentativa do retry progressivo', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: null },
+      error: null,
+    })
+    mocks.refreshSession
+      .mockResolvedValueOnce({ data: { session: null }, error: { message: 'Auth session missing' } })
+      .mockResolvedValueOnce({ data: { session: null }, error: { message: 'Auth session missing' } })
+      .mockResolvedValueOnce({
+        data: {
+          session: {
+            user: {
+              id: 'user-1',
+            },
+          },
+        },
+        error: null,
+      })
+
+    const enrollment = await enrollTwoFactor('Mercurio TOTP')
+
+    expect(mocks.refreshSession).toHaveBeenCalledTimes(3)
+    expect(enrollment.factorId).toBe('factor-1')
+  })
+
+  it('retorna erro apropriado quando setSession falha no login', async () => {
+    mocks.setSession.mockResolvedValueOnce({
+      data: { session: null },
+      error: { message: 'set session failed' },
+    })
+
+    await expect(
+      loginWithPassword({
+        email: 'partner@mercurio.test',
+        password: 'Test@1234',
+      }),
+    ).rejects.toThrow('set session failed')
+
+    expect(mocks.signInWithPassword).not.toHaveBeenCalled()
+  })
+
+  it('faz fallback com signInWithPassword quando setSession não hidrata sessão local', async () => {
+    mocks.getSession.mockResolvedValueOnce({
+      data: {
+        session: null,
+      },
+      error: null,
+    })
+    mocks.refreshSession.mockResolvedValueOnce({
+      data: { session: null },
+      error: null,
+    })
+    mocks.signInWithPassword.mockResolvedValueOnce({
+      data: {
+        session: {
+          user: {
+            id: 'fallback-user',
+          },
+        },
+      },
+      error: null,
+    })
+    mocks.rpc.mockResolvedValueOnce({
+      data: {
+        id: 'fallback-user',
+        email: 'partner@mercurio.test',
+        nome: 'Partner Teste',
+        role: 'partner',
+        ativo: true,
+        partner_id: 'partner-1',
+        partner_status: 'approved',
+        equipe_id: null,
+        approved: true,
+        requires_2fa: false,
+      },
+      error: null,
+    })
+
+    const session = await loginWithPassword({
+      email: 'partner@mercurio.test',
+      password: 'Test@1234',
+    })
+
+    expect(mocks.invoke).toHaveBeenCalledWith('auth-login', {
+      body: {
+        email: 'partner@mercurio.test',
+        password: 'Test@1234',
+      },
+    })
+    expect(mocks.signInWithPassword).toHaveBeenCalledWith({
+      email: 'partner@mercurio.test',
+      password: 'Test@1234',
+    })
+    expect(session.userId).toBe('fallback-user')
+  })
+
+  it('retorna erro apropriado quando fallback de signInWithPassword falha', async () => {
+    mocks.getSession.mockResolvedValueOnce({
+      data: { session: null },
+      error: null,
+    })
+    mocks.refreshSession.mockResolvedValueOnce({
+      data: { session: null },
+      error: null,
+    })
+    mocks.signInWithPassword.mockResolvedValueOnce({
+      data: { session: null },
+      error: { message: 'invalid login credentials' },
+    })
+
+    await expect(
+      loginWithPassword({
+        email: 'partner@mercurio.test',
+        password: 'Test@1234',
+      }),
+    ).rejects.toThrow('Falha ao estabelecer a sessão.')
   })
 })

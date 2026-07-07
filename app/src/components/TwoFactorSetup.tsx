@@ -1,8 +1,8 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 import { ShieldCheck, Copy, Check, RefreshCw } from 'lucide-react'
 import QRCode from 'qrcode'
 import { useAuth } from '@/auth/AuthContext'
-import type { TwoFactorEnrollment } from '@/auth/authClient'
+import { AUTH_SESSION_MISSING_FOR_MFA_CODE, type TwoFactorEnrollment } from '@/auth/authClient'
 
 type Props = {
   /** Nome amigável persistido no Supabase (ex.: "Mercurio Admin"). */
@@ -20,7 +20,8 @@ type Props = {
  *  3. Usuário digita o código de 6 dígitos → `confirmTwoFactorEnrollment` valida e ativa o factor.
  */
 export function TwoFactorSetup({ friendlyName = 'Mercurio TOTP', onVerified, compact }: Props) {
-  const { beginTwoFactorEnrollment, confirmTwoFactorEnrollment } = useAuth()
+  const { beginTwoFactorEnrollment, confirmTwoFactorEnrollment, loading: authLoading, session } = useAuth()
+  const bootstrappedRef = useRef(false)
   const [enrollment, setEnrollment] = useState<TwoFactorEnrollment | null>(null)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [code, setCode] = useState('')
@@ -30,6 +31,19 @@ export function TwoFactorSetup({ friendlyName = 'Mercurio TOTP', onVerified, com
   const [success, setSuccess] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  const delay = (ms: number) =>
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, ms)
+    })
+
+  const readErrorCode = (err: unknown): string | undefined => {
+    if (typeof err === 'object' && err !== null && 'code' in err) {
+      const code = (err as { code?: unknown }).code
+      return typeof code === 'string' ? code : undefined
+    }
+    return undefined
+  }
+
   async function start() {
     setLoading(true)
     setError(null)
@@ -37,8 +51,22 @@ export function TwoFactorSetup({ friendlyName = 'Mercurio TOTP', onVerified, com
     setCode('')
     setEnrollment(null)
     try {
-      const result = await beginTwoFactorEnrollment(friendlyName)
-      setEnrollment(result)
+      let retryUsed = false
+
+      while (true) {
+        try {
+          const result = await beginTwoFactorEnrollment(friendlyName)
+          setEnrollment(result)
+          break
+        } catch (err) {
+          if (!retryUsed && readErrorCode(err) === AUTH_SESSION_MISSING_FOR_MFA_CODE) {
+            retryUsed = true
+            await delay(500)
+            continue
+          }
+          throw err
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Falha ao iniciar o cadastro do 2FA.'
       if (message.toLowerCase().includes('friendly name') && message.toLowerCase().includes('already exists')) {
@@ -52,9 +80,12 @@ export function TwoFactorSetup({ friendlyName = 'Mercurio TOTP', onVerified, com
   }
 
   useEffect(() => {
+    if (bootstrappedRef.current) return
+    if (authLoading || !session) return
+
+    bootstrappedRef.current = true
     void start()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [authLoading, session])
 
   useEffect(() => {
     if (!enrollment) {
