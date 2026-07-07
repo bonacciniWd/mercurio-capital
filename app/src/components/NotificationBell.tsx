@@ -25,6 +25,8 @@ export function NotificationBell() {
   const { data: notifs, isLoading } = useQuery({
     queryKey: ['notificacoes', userId],
     enabled: !!userId,
+    refetchInterval: userId ? 60_000 : false,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('notificacoes')
@@ -50,7 +52,11 @@ export function NotificationBell() {
         { event: 'INSERT', schema: 'public', table: 'notificacoes', filter: `usuario_id=eq.${userId}` },
         () => { qc.invalidateQueries({ queryKey: ['notificacoes', userId] }) },
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          qc.invalidateQueries({ queryKey: ['notificacoes', userId] })
+        }
+      })
     return () => { void supabase.removeChannel(channel) }
   }, [userId, qc])
 

@@ -79,6 +79,8 @@ export function AdminKanban() {
 
   const { data: propostas, isLoading } = useQuery({
     queryKey: ['admin-kanban-propostas'],
+    refetchInterval: 45_000,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<Card[]> => {
       // RPC SECURITY DEFINER: traz propostas do admin e de todos os parceiros.
       const { data, error } = await supabase.rpc('admin_list_propostas', { p_limit: 500 })
@@ -119,9 +121,13 @@ export function AdminKanban() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'propostas' }, () => {
         qc.invalidateQueries({ queryKey: ['admin-kanban-propostas'] })
       })
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          qc.invalidateQueries({ queryKey: ['admin-kanban-propostas'] })
+        }
+      })
     return () => {
-      supabase.removeChannel(channel)
+      void supabase.removeChannel(channel)
     }
   }, [qc])
 

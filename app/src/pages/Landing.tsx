@@ -16,7 +16,7 @@ import {
   GraduationCap,
   FileSignature,
 } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import iconUrl from '@/assets/logos/mercurio-icon.png'
@@ -29,6 +29,7 @@ gsap.registerPlugin(ScrollTrigger)
 export function Landing() {
   const [params] = useSearchParams()
   const showPreview = params.get('preview') === '1'
+  const shouldReduceMotion = useReducedMotion()
   const plataformaSectionRef = useRef<HTMLElement | null>(null)
   const plataformaHeaderRef = useRef<HTMLDivElement | null>(null)
   const plataformaCardsRef = useRef<HTMLDivElement | null>(null)
@@ -117,21 +118,21 @@ export function Landing() {
       </header>
 
       {/* ============================== HERO ============================== */}
-      <section className="relative overflow-hidden min-h-[100vh] bg-black text-white">
+      <section className="relative overflow-hidden min-h-[100vh] lg:min-h-[90vh] bg-black text-white">
         <AtmosphereBackground />
 
-        <div className="relative mx-auto grid max-w-6xl gap-12 px-6 py-24 lg:grid-cols-2 lg:items-center lg:py-32">
-          <div>
+        <div className="relative mx-auto grid max-w-6xl gap-14 lg:mt-10 px-6 py-20 lg:grid-cols-[minmax(0,1.04fr)_minmax(0,0.96fr)] lg:items-center lg:gap-16 lg:py-28 xl:gap-20 xl:py-32">
+          <div className="mx-auto w-full max-w-2xl lg:mx-0 lg:max-w-xl xl:max-w-2xl">
             <p className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-red-400">
               <span className="h-1.5 w-1.5 rounded-full bg-red-500" /> Crédito imobiliário
             </p>
-            <h1 className="mt-5 text-5xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
+            <h1 className="mt-5 text-5xl font-bold leading-[1.03] tracking-tight sm:text-6xl lg:text-[3.5rem] xl:text-[4.1rem]">
               Originação de crédito imobiliário <span className="text-red-500">sem fricção</span>
             </h1>
-            <p className="mt-6 max-w-xl text-lg text-white/70">
+            <p className="mt-6 max-w-lg text-lg leading-relaxed text-white/70 xl:max-w-xl xl:text-[1.15rem]">
               Home Equity, Crédito Construção e Financiamento — da simulação ao registro do contrato em uma única plataforma.
             </p>
-            <div className="mt-10 flex flex-wrap items-center gap-3">
+            <div className="mt-10 flex flex-wrap items-center gap-3 lg:max-w-xl">
               <Link
                 to="/login"
                 className="inline-flex items-center gap-2 rounded-md bg-red-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-red-900/30 transition hover:bg-red-700"
@@ -152,7 +153,7 @@ export function Landing() {
               </Link>
             </div>
 
-            <div className="mt-12 grid grid-cols-3 gap-6 border-t border-white/10 pt-8">
+            <div className="mt-12 grid max-w-xl grid-cols-3 gap-6 border-t border-white/40 pt-8 xl:max-w-2xl">
               <Stat value="R$ 1B+" label="Originado" />
               <Stat value="98%" label="Aprovação" />
               <Stat value="3 dias" label="Análise média" />
@@ -160,9 +161,23 @@ export function Landing() {
           </div>
 
           {/* Visual lateral */}
-          <div className="relative hidden lg:block">
-            <div className="relative mx-auto h-[440px] w-full max-w-md">
-              <div className="absolute right-0 top-0 w-72 rotate-3 rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900 to-black p-5 shadow-2xl">
+          <div className="relative hidden lg:block lg:pl-6 xl:pl-10">
+            <div className="relative mx-auto h-[470px] w-full max-w-md xl:h-[500px] xl:max-w-lg">
+              <motion.div
+                className="absolute right-0 top-0 w-72 rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900 to-black p-5 shadow-2xl will-change-transform xl:w-80"
+                animate={shouldReduceMotion ? { y: 0, rotate: 3, scale: 1.05 } : { y: [0, -10, 0], rotate: 3, scale: 1.05 }}
+                transition={
+                  shouldReduceMotion
+                    ? undefined
+                    : {
+                        duration: 7.4,
+                        repeat: Infinity,
+                        repeatType: 'reverse',
+                        ease: 'easeInOut',
+                        delay: 0.15,
+                      }
+                }
+              >
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-600/20 text-red-500">
                     <Building2 className="h-4 w-4" />
@@ -180,9 +195,23 @@ export function Landing() {
                   <div><p className="text-[10px] uppercase text-white/40">Prazo</p><p className="text-sm font-bold">120m</p></div>
                   <div><p className="text-[10px] uppercase text-white/40">Taxa</p><p className="text-sm font-bold">1,39%</p></div>
                 </div>
-              </div>
+              </motion.div>
 
-              <div className="absolute left-0 top-32 w-80 -rotate-2 rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-950/80 to-black p-5 shadow-2xl shadow-red-900/40">
+              <motion.div
+                className="absolute left-0 top-32 w-80 rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-950/80 to-black p-5 shadow-2xl shadow-red-900/40 will-change-transform xl:top-36 xl:w-[23rem]"
+                animate={shouldReduceMotion ? { y: 0, rotate: -2, scale: 1.05 } : { y: [0, -14, 0], rotate: -2, scale: 1.05 }}
+                transition={
+                  shouldReduceMotion
+                    ? undefined
+                    : {
+                        duration: 8.2,
+                        repeat: Infinity,
+                        repeatType: 'reverse',
+                        ease: 'easeInOut',
+                        delay: 0.45,
+                      }
+                }
+              >
                 <p className="text-xs font-semibold uppercase tracking-widest text-red-400">Protocolo #MC-2026-A8</p>
                 <p className="mt-2 text-lg font-bold">Contrato assinado</p>
                 <div className="mt-4 flex items-center gap-2 text-xs">
@@ -197,16 +226,30 @@ export function Landing() {
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
                   <span className="text-white/70">Registro automático</span>
                 </div>
-              </div>
+              </motion.div>
 
-              <div className="absolute bottom-0 right-4 w-64 rotate-1 rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900 to-black p-4 shadow-2xl">
+              <motion.div
+                className="absolute bottom-0 right-4 w-64 rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900 to-black p-4 shadow-2xl will-change-transform xl:right-0 xl:w-72"
+                animate={shouldReduceMotion ? { y: 0, rotate: 1, scale: 1.05 } : { y: [0, -8, 0], rotate: 1, scale: 1.05 }}
+                transition={
+                  shouldReduceMotion
+                    ? undefined
+                    : {
+                        duration: 6.6,
+                        repeat: Infinity,
+                        repeatType: 'reverse',
+                        ease: 'easeInOut',
+                        delay: 0.25,
+                      }
+                }
+              >
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-white/50">Carteira</p>
                   <Wallet className="h-3.5 w-3.5 text-red-500" />
                 </div>
                 <p className="mt-1 text-2xl font-bold">R$ 2.847,50</p>
                 <p className="mt-1 text-[10px] text-emerald-400">+ R$ 500,00 nesta semana</p>
-              </div>
+              </motion.div>
             </div>
           </div>
         </div>
@@ -214,7 +257,6 @@ export function Landing() {
 
       {/* ============================== PRODUTOS ============================== */}
       <section id="produtos" className="mx-auto max-w-6xl px-6 py-20">
-        <p className="mb-6 text-base text-center font-bold uppercase tracking-widest text-red-600">Produtos</p>
         <img
           src={callToBanner}
           alt="Três linhas de crédito. Uma única esteira."
@@ -268,7 +310,7 @@ export function Landing() {
       </section>
 
       {/* ============================== CTA DOWNLOAD ============================== */}
-      <section className="relative overflow-hidden min-h-screen bg-black py-20 text-white">
+      <section className="relative overflow-hidden min-h-screen lg:min-h-[80vh] bg-black py-20 text-white">
         <AtmosphereBackground />
         <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-6 lg:grid-cols-[1.2fr_1fr]">
           <div>
@@ -308,7 +350,7 @@ export function Landing() {
 
       {/* ============================== FOOTER ============================== */}
       <footer className="relative overflow-hidden border-t border-white/10 bg-black text-black">
-        <AtmosphereBackground variant="footer" />
+        
         <div className="relative mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-10 text-sm text-white sm:flex-row">
           <div className="flex items-center gap-2.5">
             <img src={logoDark} alt="Mercurio Capital" className="h-16 w-auto" />
@@ -436,11 +478,11 @@ function FeatureCard({ Icon, title, desc }: { Icon: typeof Zap; title: string; d
   return (
     <div
       data-feature-card
-      className="group relative py-12 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.02] p-5 transition duration-300 hover:-translate-y-1 hover:border-red-500/45 hover:shadow-xl hover:shadow-red-900/20"
+      className="group relative py-12 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.18] to-white/[0.02] p-5 transition duration-300 hover:-translate-y-1 hover:border-red-500/45 hover:shadow-xl hover:shadow-red-900/20"
     >
       <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-red-500/10 to-transparent opacity-0 transition group-hover:opacity-100" />
       <div className="relative flex mb-12 h-16 w-16 items-center justify-center rounded-lg">
-        <Icon className="h-16 text-red-600 w-16" />
+        <Icon className="h-12 text-red-600 w-12" />
       </div>
       <h2 className="relative text-xl mt-4 font-semibold text-white">{title}</h2>
       <p className="relative mt-1.5 text-base text-white/65">{desc}</p>
