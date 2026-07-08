@@ -3,7 +3,21 @@
 ## Objetivo
 
 Garantir que o release desktop macOS so publique artefatos assinados e notarizados.
-Se qualquer credencial estiver invalida, o pipeline precisa falhar antes do publish.
+Se qualquer credencial ou validacao critica de assinatura/notarizacao falhar (app ou dmg), o job macOS precisa falhar e o publish deve ser bloqueado.
+
+## Politica final do gate macOS (hard-fail)
+
+- Stable only: o pipeline de release continua exclusivo para tags `v*.*.*` e canal `stable`.
+- Validacoes obrigatorias de app bundle (hard-fail).
+- `codesign --verify --deep --strict --verbose=2 <app>.app`
+- `spctl --assess --type execute --verbose=4 <app>.app`
+- `xcrun stapler validate <app>.app`
+- Validacoes obrigatorias de DMG em ordem deterministica (hard-fail).
+- `xcrun stapler staple <arquivo>.dmg`
+- `xcrun stapler validate <arquivo>.dmg`
+- `spctl --assess --type open --context context:primary-signature --verbose=4 <arquivo>.dmg`
+- Nao existe caminho de warning para falhas de DMG (incluindo `source=no usable signature` e `does not have a ticket`).
+- Qualquer falha critica no job macOS impede o `publish-release`.
 
 ## Escopo
 
@@ -92,9 +106,27 @@ gh secret list | grep -E "APPLE_SIGNING_CERT_BASE64|APPLE_SIGNING_CERT_PASSWORD|
 1. Validar p12 localmente (integridade + senha).
 2. Validar autenticacao Apple com `notarytool --validate`.
 3. Subir tag de teste e validar as etapas do workflow:
-	 - `Validate mac signing secrets`
-	 - `Build desktop artifacts (mac signed + notarized)`
-	 - `Verify mac signature and notarization`
+   - `Validate mac signing secrets`
+   - `Build desktop artifacts (mac signed + notarized)`
+   - `Verify mac signature and notarization`
+
+### Checklist N para N+1 (pos-build mac)
+
+Executar no macOS runner/local de verificacao com os artefatos gerados em `app/desktop/artifacts`:
+
+```bash
+codesign --verify --deep --strict --verbose=2 "app/desktop/artifacts/mac/Mercurio Capital.app"
+spctl --assess --type execute --verbose=4 "app/desktop/artifacts/mac/Mercurio Capital.app"
+xcrun stapler validate "app/desktop/artifacts/mac/Mercurio Capital.app"
+
+xcrun stapler staple "app/desktop/artifacts/Mercurio Capital-<versao>-arm64.dmg"
+xcrun stapler validate "app/desktop/artifacts/Mercurio Capital-<versao>-arm64.dmg"
+spctl --assess --type open --context context:primary-signature --verbose=4 "app/desktop/artifacts/Mercurio Capital-<versao>-arm64.dmg"
+
+xcrun stapler staple "app/desktop/artifacts/Mercurio Capital-<versao>.dmg"
+xcrun stapler validate "app/desktop/artifacts/Mercurio Capital-<versao>.dmg"
+spctl --assess --type open --context context:primary-signature --verbose=4 "app/desktop/artifacts/Mercurio Capital-<versao>.dmg"
+```
 
 ## Validacao tecnica local (antes da tag)
 
@@ -150,7 +182,9 @@ unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD
 - [ ] `APPLE_ID` autentica com `APPLE_APP_SPECIFIC_PASSWORD`.
 - [ ] `APPLE_TEAM_ID` corresponde ao Team oficial de publicacao.
 - [ ] Workflow mac passa em assinatura e notarizacao.
-- [ ] Falha de credencial bloqueia publicacao.
+- [ ] App bundles passam em `codesign`, `spctl execute` e `stapler validate`.
+- [ ] DMGs passam em `stapler staple`, `stapler validate` e `spctl open` sem bypass.
+- [ ] Falha de credencial ou validacao critica no macOS bloqueia publicacao.
 - [ ] Nenhuma credencial aparece em logs ou no repositorio.
 
 ## Evidencias obrigatorias

@@ -444,6 +444,9 @@ supabase functions logs whatsapp-webhook --project-ref bhagksfvszeogtjvjtpx --ta
 - [ ] `APPLE_ID` autentica com `APPLE_APP_SPECIFIC_PASSWORD`.
 - [ ] `APPLE_TEAM_ID` corresponde ao Team de producao do app.
 - [ ] Workflow `Desktop Release` passa no mac (`Validate mac signing secrets`, `Build desktop artifacts (mac signed + notarized)`, `Verify mac signature and notarization`).
+- [ ] Verificacao de app bundle no mac segue hard-fail (`codesign verify`, `spctl execute`, `stapler validate`).
+- [ ] Verificacao de DMG no mac segue hard-fail deterministico (`stapler staple`, `stapler validate`, `spctl open`) sem bypass por warning.
+- [ ] Qualquer falha critica no job mac bloqueia `Publish GitHub Release` (dependencia em `build-desktop` verde).
 
 **Validacao local (Mac de confianca)**:
 ```bash

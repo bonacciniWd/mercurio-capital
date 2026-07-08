@@ -11,8 +11,9 @@ name: Desktop Release
 # - codesign --verify --deep --strict --verbose=2 <app>.app
 # - spctl --assess --type execute --verbose=4 <app>.app
 # - xcrun stapler validate <app>.app
-# - spctl --assess --type open --context context:primary-signature --verbose=4 <arquivo>.dmg
+# - xcrun stapler staple <arquivo>.dmg
 # - xcrun stapler validate <arquivo>.dmg
+# - spctl --assess --type open --context context:primary-signature --verbose=4 <arquivo>.dmg
 
 on:
   push:
@@ -193,21 +194,9 @@ jobs:
 
           for dmg in "${dmg_files[@]}"; do
             echo "Verifying signature and notarization for $dmg"
-            if ! spctl --assess --type open --context context:primary-signature --verbose=4 "$dmg"; then
-              echo "::warning::DMG Gatekeeper signature assessment did not pass for $dmg; app signature/notarization and DMG stapler checks remain enforced"
-            fi
-
-            stapler_output=""
-            if ! stapler_output=$(xcrun stapler validate "$dmg" 2>&1); then
-              if echo "$stapler_output" | grep -qi "does not have a ticket"; then
-                echo "::warning::DMG stapler ticket missing for $dmg; app notarization remains enforced via .app checks"
-              else
-                echo "$stapler_output"
-                exit 1
-              fi
-            else
-              echo "$stapler_output"
-            fi
+            xcrun stapler staple "$dmg"
+            xcrun stapler validate "$dmg"
+            spctl --assess --type open --context context:primary-signature --verbose=4 "$dmg"
           done
 
       - name: Build desktop artifacts (non-mac)
