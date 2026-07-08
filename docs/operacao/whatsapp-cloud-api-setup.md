@@ -80,9 +80,10 @@ opera em **modo dev** (registra a mensagem mas não envia).
 4. Preencha o **perfil comercial** (logo, descrição, site, endereço).
 
 Anote dois identificadores que aparecem nesta tela:
-- **Phone Number ID** (ID do número de telefone) → vira `WHATSAPP_PHONE_NUMBER_ID`
-- **WhatsApp Business Account ID** (ID da WABA) → vira `WHATSAPP_BUSINESS_ACCOUNT_ID`
+- **Phone Number ID** (ID do número de telefone) → vira `WHATSAPP_PHONE_NUMBER_ID` (exemplo fictício: `123456789012345`).
+- **WhatsApp Business Account ID** (ID da WABA) → vira `WHATSAPP_BUSINESS_ACCOUNT_ID` (exemplo fictício: `109876543210987`).
 
+> Todos os IDs nesta seção são exemplos fictícios para documentação.
 ---
 
 ## 4. Gerar o token permanente (Usuário do Sistema)
@@ -119,11 +120,11 @@ O webhook permite que o sistema saiba quando a mensagem foi **entregue** e **lid
 e receba respostas do cliente.
 
 1. Combine com o time técnico um **token de verificação** — uma senha aleatória
-   qualquer que você inventa (ex.: `mercurio_wpp_4f9a2c...`). Esse valor vira
+   qualquer que você inventa (ex.: `mercurio_wpp_token_exemplo_2026`). Esse valor vira
    `WHATSAPP_VERIFY_TOKEN` (o mesmo string vai nos secrets e no painel da Meta).
 2. No painel do app → **WhatsApp → Configuração → Webhook → Editar**:
    - **URL de callback:**
-     `https://bhagksfvszeogtjvjtpx.supabase.co/functions/v1/whatsapp-webhook`
+     `https://<PROJECT_REF>.supabase.co/functions/v1/whatsapp-webhook`
    - **Token de verificação:** o mesmo `WHATSAPP_VERIFY_TOKEN` acima.
    - Clique em **Verificar e salvar** (a Meta faz um GET de validação).
 3. Em **Gerenciar campos do webhook**, assine no mínimo:
@@ -176,6 +177,8 @@ Reúna estes **6 valores** e entregue ao time técnico (eles configuram em
 
 > 🔒 **Nunca** envie o `WHATSAPP_ACCESS_TOKEN` por e-mail/chat aberto. Use um cofre de
 > senhas ou digite direto no painel do Supabase.
+>
+> Se um valor real aparecer em documentação, trate como comprometido e siga o runbook §14 em `docs/operacao/runbooks.md`.
 
 ---
 

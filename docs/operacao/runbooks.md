@@ -17,6 +17,7 @@
 11. [Incidente: upload Vimeo no admin não conclui](#11-incidente-upload-vimeo-no-admin-não-conclui)
 12. [Incidente: consulta Bacen SCR falhando](#12-incidente-consulta-bacen-scr-falhando)
 13. [Incidente: parceiro aprovado bloqueado como não aprovado](#13-incidente-parceiro-aprovado-bloqueado-como-não-aprovado)
+14. [Incidente: credencial comprometida em documentação](#14-incidente-credencial-comprometida-em-documentação)
 
 ---
 
@@ -387,3 +388,41 @@ select public.app_partner_id(), public.app_is_approved();
 - Partner aprovado consegue acessar `/p/propostas/nova` e concluir criação de proposta.
 - Partner pendente continua redirecionado para `/acesso-pendente`.
 - Sem novos 403 indevidos com mensagem de parceiro não aprovado.
+
+---
+
+## 14. Incidente: credencial comprometida em documentação
+
+**Gatilho**:
+- Token, API key, secret ou credencial real identificado em arquivo de documentação, comentário de PR, issue ou snippet público.
+
+**Resposta imediata (curta)**:
+1. Revogar a credencial no provedor de origem (Meta, Supabase, Stripe, Vimeo, Resend etc.).
+2. Gerar nova credencial com escopo mínimo necessário.
+3. Atualizar secrets de runtime (Supabase/Vercel/GitHub Actions) com o novo valor.
+4. Reimplantar somente funções/serviços que dependem da credencial alterada.
+5. Sanitizar documentação: substituir valor real por placeholder explícito.
+6. Registrar incidente com horário da exposição, escopo e responsável pela rotação.
+
+**Comandos operacionais recomendados (rotação WhatsApp)**:
+```bash
+# 1) Atualizar segredo no Supabase
+supabase secrets set WHATSAPP_ACCESS_TOKEN=<NOVO_TOKEN> --project-ref bhagksfvszeogtjvjtpx
+
+# 2) Reimplantar função afetada
+supabase functions deploy whatsapp-webhook --project-ref bhagksfvszeogtjvjtpx
+
+# 3) Verificar logs pós-rotação
+supabase functions logs whatsapp-webhook --project-ref bhagksfvszeogtjvjtpx --tail
+```
+
+**Checklist preventivo para documentação**:
+- [ ] Nunca registrar tokens/chaves completos em docs (usar `<PLACEHOLDER>`).
+- [ ] Não publicar IDs reais de produção quando não forem estritamente necessários.
+- [ ] Antes de merge, rodar varredura rápida em docs: `rg -n "(EAA[[:alnum:]_\-]+|sk_live_|xoxb-|AKIA|BEGIN (RSA|EC|OPENSSH) PRIVATE KEY|WHATSAPP_ACCESS_TOKEN=)" docs`.
+- [ ] Garantir que `.env` local não seja referenciado em documentação com valores reais.
+- [ ] Em caso de exposição, rotacionar primeiro e só depois discutir limpeza de histórico Git.
+
+**Validação de recuperação**:
+- Fluxo afetado volta a operar com o novo segredo (sem 401/403 do provedor).
+- Não há credencial real remanescente nos docs alterados.

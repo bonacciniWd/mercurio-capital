@@ -1,0 +1,161 @@
+name: Desktop Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-desktop:
+    name: Build Desktop (${{ matrix.target_name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target_name: macos
+            npm_script: desktop:pack:mac
+            artifact_name: desktop-macos
+            artifact_paths: |
+              app/desktop/artifacts/*.dmg
+              app/desktop/artifacts/*-mac.zip
+          - os: windows-latest
+            target_name: windows
+            npm_script: desktop:pack:win
+            artifact_name: desktop-windows
+            artifact_paths: |
+              app/desktop/artifacts/*Setup*.exe
+          - os: ubuntu-latest
+            target_name: linux
+            npm_script: desktop:pack:linux
+            artifact_name: desktop-linux
+            artifact_paths: |
+              app/desktop/artifacts/*.AppImage
+              app/desktop/artifacts/*_amd64.deb
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Build web app
+        working-directory: app
+        run: npm run build
+
+      - name: Build desktop artifacts
+        working-directory: app
+        run: npm run ${{ matrix.npm_script }}
+
+      - name: Upload platform artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_paths }}
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: build-desktop
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Validate mandatory binaries and create checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          arm64_dmg=(release-assets/*arm64.dmg)
+          x64_dmg=()
+          for file in release-assets/*.dmg; do
+            [[ "$file" == *arm64.dmg ]] && continue
+            x64_dmg+=("$file")
+          done
+          win_exe=(release-assets/*Setup*.exe)
+          linux_appimage=(release-assets/*.AppImage)
+          linux_deb=(release-assets/*_amd64.deb)
+
+          if [ ${#arm64_dmg[@]} -eq 0 ]; then
+            echo "Missing macOS arm64 dmg artifact"
+            exit 1
+          fi
+
+          if [ ${#x64_dmg[@]} -eq 0 ]; then
+            echo "Missing macOS x64 dmg artifact"
+            exit 1
+          fi
+
+          if [ ${#win_exe[@]} -eq 0 ]; then
+            echo "Missing Windows x64 installer artifact"
+            exit 1
+          fi
+
+          if [ ${#linux_appimage[@]} -eq 0 ]; then
+            echo "Missing Linux AppImage x64 artifact"
+            exit 1
+          fi
+
+          if [ ${#linux_deb[@]} -eq 0 ]; then
+            echo "Missing Linux deb x64 artifact"
+            exit 1
+          fi
+
+          mapfile -d '' assets < <(find release-assets -maxdepth 1 -type f \( \
+            -name '*.dmg' -o \
+            -name '*-mac.zip' -o \
+            -name '*Setup*.exe' -o \
+            -name '*.AppImage' -o \
+            -name '*_amd64.deb' \
+          \) -print0 | sort -z)
+
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "No release assets found to checksum"
+            exit 1
+          fi
+
+          : > release-assets/sha256sums.txt
+          for asset in "${assets[@]}"; do
+            hash=$(sha256sum "$asset" | awk '{print $1}')
+            printf '%s  %s\n' "$hash" "$(basename "$asset")" >> release-assets/sha256sums.txt
+          done
+
+          echo "Generated checksums for ${#assets[@]} assets"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ github.ref_name }}
+          name: Desktop ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            release-assets/*.dmg
+            release-assets/*-mac.zip
+            release-assets/*Setup*.exe
+            release-assets/*.AppImage
+            release-assets/*_amd64.deb
+            release-assets/sha256sums.txt
