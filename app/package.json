@@ -13,6 +13,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:desktop:web": "tsc -b && vite build --mode desktop",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
@@ -25,7 +26,7 @@
     "desktop:pack:mac": "electron-builder --config electron-builder.json --mac --x64 --arm64 --publish never",
     "desktop:pack:win": "electron-builder --config electron-builder.json --win --x64 --publish never",
     "desktop:pack:linux": "electron-builder --config electron-builder.json --linux AppImage deb --x64 --publish never",
-    "desktop:build": "npm run build && npm run desktop:pack:mac && npm run desktop:pack:win && npm run desktop:pack:linux"
+    "desktop:build": "npm run build:desktop:web && npm run desktop:pack:mac && npm run desktop:pack:win && npm run desktop:pack:linux"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
