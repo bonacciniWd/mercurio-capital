@@ -72,7 +72,7 @@ jobs:
 
       - name: Build web app
         working-directory: app
-        run: npm run build
+        run: npm run build:desktop:web
 
       - name: Validate mac signing secrets
         if: matrix.target_name == 'macos'
