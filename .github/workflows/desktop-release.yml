@@ -1,5 +1,19 @@
 name: Desktop Release
 
+# macOS hard gate (stable only):
+# Required secrets (repository/environment secrets):
+# - APPLE_SIGNING_CERT_BASE64: certificado Developer ID Application em base64 (.p12)
+# - APPLE_SIGNING_CERT_PASSWORD: senha do .p12
+# - APPLE_ID: Apple ID com permissao de notarizacao
+# - APPLE_APP_SPECIFIC_PASSWORD: app-specific password do Apple ID
+# - APPLE_TEAM_ID: Team ID da conta Apple Developer
+# Post-build verification commands (executados no job mac):
+# - codesign --verify --deep --strict --verbose=2 <app>.app
+# - spctl --assess --type execute --verbose=4 <app>.app
+# - xcrun stapler validate <app>.app
+# - spctl --assess --type open --context context:primary-signature --verbose=4 <arquivo>.dmg
+# - xcrun stapler validate <arquivo>.dmg
+
 on:
   push:
     tags:
@@ -23,12 +37,14 @@ jobs:
             artifact_paths: |
               app/desktop/artifacts/*.dmg
               app/desktop/artifacts/*-mac.zip
+              app/desktop/artifacts/stable-mac.yml
           - os: windows-latest
             target_name: windows
             npm_script: desktop:pack:win
             artifact_name: desktop-windows
             artifact_paths: |
               app/desktop/artifacts/*Setup*.exe
+              app/desktop/artifacts/stable.yml
           - os: ubuntu-latest
             target_name: linux
             npm_script: desktop:pack:linux
@@ -36,6 +52,7 @@ jobs:
             artifact_paths: |
               app/desktop/artifacts/*.AppImage
               app/desktop/artifacts/*_amd64.deb
+              app/desktop/artifacts/stable-linux.yml
 
     steps:
       - name: Checkout
@@ -56,7 +73,114 @@ jobs:
         working-directory: app
         run: npm run build
 
-      - name: Build desktop artifacts
+      - name: Validate mac signing secrets
+        if: matrix.target_name == 'macos'
+        shell: bash
+        env:
+          APPLE_SIGNING_CERT_BASE64: ${{ secrets.APPLE_SIGNING_CERT_BASE64 }}
+          APPLE_SIGNING_CERT_PASSWORD: ${{ secrets.APPLE_SIGNING_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for secret_name in \
+            APPLE_SIGNING_CERT_BASE64 \
+            APPLE_SIGNING_CERT_PASSWORD \
+            APPLE_ID \
+            APPLE_APP_SPECIFIC_PASSWORD \
+            APPLE_TEAM_ID; do
+            if [ -z "${!secret_name:-}" ]; then
+              missing+=("$secret_name")
+            fi
+          done
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "Missing required mac signing/notarization secrets: ${missing[*]}"
+            exit 1
+          fi
+
+          cert_file="$(mktemp "${RUNNER_TEMP}/apple-signing-XXXXXX.p12")"
+          cert_info_file="$(mktemp "${RUNNER_TEMP}/apple-signing-info-XXXXXX.txt")"
+          trap 'rm -f "$cert_file" "$cert_info_file"' EXIT
+
+          # macOS runner can expose BSD base64; support both GNU and BSD flags.
+          if ! printf '%s' "$APPLE_SIGNING_CERT_BASE64" | base64 --decode > "$cert_file" 2>/dev/null; then
+            if ! printf '%s' "$APPLE_SIGNING_CERT_BASE64" | base64 -D > "$cert_file" 2>/dev/null; then
+              echo "APPLE_SIGNING_CERT_BASE64 is not valid base64"
+              exit 1
+            fi
+          fi
+
+          if ! openssl pkcs12 -in "$cert_file" -passin env:APPLE_SIGNING_CERT_PASSWORD -nokeys -clcerts -info -noout > "$cert_info_file" 2>&1; then
+            echo "APPLE_SIGNING_CERT_PASSWORD cannot open APPLE_SIGNING_CERT_BASE64 (.p12)"
+            exit 1
+          fi
+
+          if ! grep -q "Developer ID Application" "$cert_info_file"; then
+            echo "The provided certificate is not a Developer ID Application certificate"
+            exit 1
+          fi
+
+          if ! xcrun notarytool store-credentials "ci-notary-preflight" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --validate > /dev/null; then
+            echo "APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID failed notarytool validation"
+            exit 1
+          fi
+
+          echo "mac signing/notarization secrets validated (presence + p12 + notary auth)"
+
+      - name: Build desktop artifacts (mac signed + notarized)
+        if: matrix.target_name == 'macos'
+        working-directory: app
+        env:
+          CSC_LINK: ${{ secrets.APPLE_SIGNING_CERT_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_SIGNING_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run ${{ matrix.npm_script }}
+
+      - name: Verify mac signature and notarization
+        if: matrix.target_name == 'macos'
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          mapfile -d '' app_bundles < <(find desktop/artifacts -maxdepth 2 -type d -name '*.app' -print0 | sort -z)
+          mapfile -d '' dmg_files < <(find desktop/artifacts -maxdepth 1 -type f -name '*.dmg' -print0 | sort -z)
+
+          if [ ${#app_bundles[@]} -lt 2 ]; then
+            echo "Expected both macOS app bundles (x64 and arm64), found ${#app_bundles[@]}"
+            exit 1
+          fi
+
+          if [ ${#dmg_files[@]} -lt 2 ]; then
+            echo "Expected both macOS dmg files (x64 and arm64), found ${#dmg_files[@]}"
+            exit 1
+          fi
+
+          for app_bundle in "${app_bundles[@]}"; do
+            echo "Verifying codesign and notarization for $app_bundle"
+            codesign --verify --deep --strict --verbose=2 "$app_bundle"
+            spctl --assess --type execute --verbose=4 "$app_bundle"
+            xcrun stapler validate "$app_bundle"
+          done
+
+          for dmg in "${dmg_files[@]}"; do
+            echo "Verifying signature and notarization for $dmg"
+            spctl --assess --type open --context context:primary-signature --verbose=4 "$dmg"
+            xcrun stapler validate "$dmg"
+          done
+
+      - name: Build desktop artifacts (non-mac)
+        if: matrix.target_name != 'macos'
         working-directory: app
         run: npm run ${{ matrix.npm_script }}
 
@@ -96,6 +220,9 @@ jobs:
           win_exe=(release-assets/*Setup*.exe)
           linux_appimage=(release-assets/*.AppImage)
           linux_deb=(release-assets/*_amd64.deb)
+          win_metadata=(release-assets/stable.yml)
+          mac_metadata=(release-assets/stable-mac.yml)
+          linux_metadata=(release-assets/stable-linux.yml)
 
           if [ ${#arm64_dmg[@]} -eq 0 ]; then
             echo "Missing macOS arm64 dmg artifact"
@@ -122,12 +249,28 @@ jobs:
             exit 1
           fi
 
+          if [ ${#win_metadata[@]} -eq 0 ]; then
+            echo "Missing stable.yml metadata"
+            exit 1
+          fi
+
+          if [ ${#mac_metadata[@]} -eq 0 ]; then
+            echo "Missing stable-mac.yml metadata"
+            exit 1
+          fi
+
+          if [ ${#linux_metadata[@]} -eq 0 ]; then
+            echo "Missing stable-linux.yml metadata"
+            exit 1
+          fi
+
           mapfile -d '' assets < <(find release-assets -maxdepth 1 -type f \( \
             -name '*.dmg' -o \
             -name '*-mac.zip' -o \
             -name '*Setup*.exe' -o \
             -name '*.AppImage' -o \
-            -name '*_amd64.deb' \
+            -name '*_amd64.deb' -o \
+            -name 'stable*.yml' \
           \) -print0 | sort -z)
 
           if [ ${#assets[@]} -eq 0 ]; then
@@ -158,4 +301,5 @@ jobs:
             release-assets/*Setup*.exe
             release-assets/*.AppImage
             release-assets/*_amd64.deb
+            release-assets/stable*.yml
             release-assets/sha256sums.txt

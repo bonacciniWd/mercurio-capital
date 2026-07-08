@@ -18,6 +18,7 @@
 12. [Incidente: consulta Bacen SCR falhando](#12-incidente-consulta-bacen-scr-falhando)
 13. [Incidente: parceiro aprovado bloqueado como não aprovado](#13-incidente-parceiro-aprovado-bloqueado-como-não-aprovado)
 14. [Incidente: credencial comprometida em documentação](#14-incidente-credencial-comprometida-em-documentação)
+15. [Pre-flight Apple para release desktop macOS](#15-pre-flight-apple-para-release-desktop-macos)
 
 ---
 
@@ -426,3 +427,46 @@ supabase functions logs whatsapp-webhook --project-ref bhagksfvszeogtjvjtpx --ta
 **Validação de recuperação**:
 - Fluxo afetado volta a operar com o novo segredo (sem 401/403 do provedor).
 - Não há credencial real remanescente nos docs alterados.
+
+---
+
+## 15. Pre-flight Apple para release desktop macOS
+
+**Gatilho**:
+- Antes de criar tag `v*.*.*` para release desktop.
+
+**Fonte primaria**:
+- `docs/operacao/desktop-release-macos-signing.md`.
+
+**Checklist P0**:
+- [ ] `APPLE_SIGNING_CERT_BASE64` decodifica para `.p12` valido.
+- [ ] `APPLE_SIGNING_CERT_PASSWORD` abre o `.p12` sem erro.
+- [ ] `APPLE_ID` autentica com `APPLE_APP_SPECIFIC_PASSWORD`.
+- [ ] `APPLE_TEAM_ID` corresponde ao Team de producao do app.
+- [ ] Workflow `Desktop Release` passa no mac (`Validate mac signing secrets`, `Build desktop artifacts (mac signed + notarized)`, `Verify mac signature and notarization`).
+
+**Validacao local (Mac de confianca)**:
+```bash
+tmp_p12="$(mktemp /tmp/apple-signing.XXXXXX.p12)"
+printf '%s' "$APPLE_SIGNING_CERT_BASE64" | base64 -D > "$tmp_p12"
+openssl pkcs12 -in "$tmp_p12" -passin env:APPLE_SIGNING_CERT_PASSWORD -nokeys -clcerts -info -noout
+rm -f "$tmp_p12"
+
+xcrun notarytool store-credentials "mc-preflight" \
+  --apple-id "$APPLE_ID" \
+  --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+  --team-id "$APPLE_TEAM_ID" \
+  --validate
+```
+
+**Governanca minima**:
+1. Segredos Apple somente em GitHub Actions Secrets (nunca em codigo).
+2. Permissao de editar secrets restrita a poucos owners.
+3. Registrar responsavel e data de rotacao.
+
+**Registro de rotacao (preencher a cada troca)**:
+
+| Item | Responsavel | Ultima rotacao | Proxima rotacao | Observacoes |
+| --- | --- | --- | --- | --- |
+| APPLE_SIGNING_CERT_BASE64 + APPLE_SIGNING_CERT_PASSWORD | _definir_ | _aaaa-mm-dd_ | _aaaa-mm-dd_ | _anual ou incidente_ |
+| APPLE_APP_SPECIFIC_PASSWORD | _definir_ | _aaaa-mm-dd_ | _aaaa-mm-dd_ | _rotacao imediata em revogacao_ |
