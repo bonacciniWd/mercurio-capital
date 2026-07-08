@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
   Download as DownloadIcon,
   Terminal,
@@ -13,6 +14,11 @@ import appleLogo from '@/assets/apple-logo-svgrepo-com.svg'
 import windowsLogo from '@/assets/windows-174-svgrepo-com.svg'
 import iconUrl from '@/assets/logos/mercurio-icon.png'
 import logoWide from '@/assets/logos/logowide.png'
+import {
+  buildDownloadsFromRelease,
+  fetchLatestDesktopRelease,
+  formatFileSize,
+} from '@/lib/desktopReleaseAssets'
 
 type OS = 'mac' | 'windows' | 'linux' | 'unknown'
 
@@ -26,20 +32,8 @@ function detectOS(): OS {
   return 'unknown'
 }
 
-// Placeholders — substituir pelas URLs reais quando os builds do Electron forem publicados
-const DOWNLOADS: Record<Exclude<OS, 'unknown'>, { url: string; label: string; ext: string; arch?: string }[]> = {
-  mac: [
-    { url: '#em-breve', label: 'macOS (Apple Silicon)', ext: '.dmg', arch: 'arm64' },
-    { url: '#em-breve', label: 'macOS (Intel)', ext: '.dmg', arch: 'x64' },
-  ],
-  windows: [
-    { url: '#em-breve', label: 'Windows 10/11', ext: '.exe', arch: 'x64' },
-  ],
-  linux: [
-    { url: '#em-breve', label: 'Linux (AppImage)', ext: '.AppImage', arch: 'x64' },
-    { url: '#em-breve', label: 'Debian / Ubuntu', ext: '.deb', arch: 'x64' },
-  ],
-}
+const RELEASE_OWNER = import.meta.env.VITE_DESKTOP_RELEASE_OWNER ?? 'bonacciniWd'
+const RELEASE_REPO = import.meta.env.VITE_DESKTOP_RELEASE_REPO ?? 'mercurio-capital'
 
 const OS_ICONS = {
   mac:     () => <img src={appleLogo}   alt="macOS"   className="h-6 w-6 brightness-0 invert" />,
@@ -55,7 +49,34 @@ const OS_META = {
 
 export function Download() {
   const [detected, setDetected] = useState<OS>('unknown')
+  const releaseQuery = useQuery({
+    queryKey: ['desktop-release-latest', RELEASE_OWNER, RELEASE_REPO],
+    queryFn: () => fetchLatestDesktopRelease(RELEASE_OWNER, RELEASE_REPO),
+    staleTime: 5 * 60_000,
+  })
+
   useEffect(() => { setDetected(detectOS()) }, [])
+
+  const downloads = useMemo(
+    () => buildDownloadsFromRelease(releaseQuery.data),
+    [releaseQuery.data],
+  )
+
+  const totalVariants = Object.values(downloads).reduce((total, list) => total + list.length, 0)
+  const availableVariants = Object.values(downloads).reduce(
+    (total, list) => total + list.filter(item => item.available).length,
+    0,
+  )
+  const isPartial = availableVariants > 0 && availableVariants < totalVariants
+  const hasNoAssets = availableVariants === 0
+
+  const publishedAtLabel = useMemo(() => {
+    if (!releaseQuery.data?.published_at) return null
+    return new Date(releaseQuery.data.published_at).toLocaleString('pt-BR', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    })
+  }, [releaseQuery.data?.published_at])
 
   const ordered: Array<keyof typeof OS_META> =
     detected !== 'unknown' && detected in OS_META
@@ -111,7 +132,7 @@ export function Download() {
         <div className="grid gap-5 md:grid-cols-3">
           {ordered.map((os, idx) => {
             const meta = OS_META[os]
-            const variants = DOWNLOADS[os]
+            const variants = downloads[os]
             const isPrimary = idx === 0 && detected === os
             return (
               <div
@@ -134,11 +155,11 @@ export function Download() {
 
                 <div className="mt-5 space-y-2">
                   {variants.map(v => {
-                    const disabled = v.url === '#em-breve'
+                    const disabled = !v.available
                     return (
                       <a
                         key={v.label + v.arch}
-                        href={v.url}
+                        href={disabled ? '#indisponivel' : v.url}
                         onClick={e => disabled && e.preventDefault()}
                         className={`group flex w-full items-center justify-between rounded-lg border px-4 py-3 text-sm transition ${
                           disabled
@@ -146,12 +167,20 @@ export function Download() {
                             : 'border-white/10 bg-white/5 text-white hover:border-red-500/40 hover:bg-red-600/10'
                         }`}
                         aria-disabled={disabled}
+                        target={disabled ? undefined : '_blank'}
+                        rel={disabled ? undefined : 'noreferrer'}
                       >
                         <span className="flex flex-col text-left">
                           <span className="font-medium">{v.label}</span>
                           <span className="text-[11px] text-white/40">
-                            {v.ext}{v.arch ? ` · ${v.arch}` : ''}{disabled ? ' · em breve' : ''}
+                            {v.ext}
+                            {v.arch ? ` · ${v.arch}` : ''}
+                            {disabled ? ' · indisponível nesta release' : ''}
+                            {!disabled && v.size ? ` · ${formatFileSize(v.size)}` : ''}
                           </span>
+                          {!disabled && v.fileName ? (
+                            <span className="mt-1 truncate text-[10px] text-white/35">{v.fileName}</span>
+                          ) : null}
                         </span>
                         <DownloadIcon className={`h-4 w-4 ${disabled ? '' : 'transition group-hover:text-red-500'}`} />
                       </a>
@@ -163,10 +192,45 @@ export function Download() {
           })}
         </div>
 
-        {/* Aviso enquanto não há builds publicados */}
-        <div className="mx-auto mt-8 max-w-2xl rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-center text-sm text-amber-200/90">
-          <strong>Em breve.</strong> As versões desktop estão em fase final de empacotamento.
-          Enquanto isso, acesse a plataforma pelo navegador em <Link to="/login" className="underline hover:text-amber-100">login</Link>.
+        <div className="mx-auto mt-8 max-w-3xl rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/80">
+          {releaseQuery.isLoading ? (
+            <p>
+              Carregando links oficiais da última release pública...
+            </p>
+          ) : null}
+
+          {releaseQuery.isError ? (
+            <p className="text-amber-200/90">
+              Não foi possível buscar os assets no momento. A interface continua disponível e exibe fallback seguro sem quebrar navegação.
+            </p>
+          ) : null}
+
+          {!releaseQuery.isLoading && !releaseQuery.isError && releaseQuery.data ? (
+            <p>
+              Release carregada: <strong className="text-white">{releaseQuery.data.name}</strong>
+              {' '}({releaseQuery.data.tag_name})
+              {publishedAtLabel ? ` · publicada em ${publishedAtLabel}` : ''}.
+            </p>
+          ) : null}
+
+          {!releaseQuery.isLoading && hasNoAssets ? (
+            <p className="mt-2 text-amber-200/90">
+              Nenhum asset compatível foi encontrado na última release. Enquanto isso, acesse a plataforma pelo navegador em{' '}
+              <Link to="/login" className="underline hover:text-amber-100">login</Link>.
+            </p>
+          ) : null}
+
+          {!releaseQuery.isLoading && isPartial ? (
+            <p className="mt-2 text-amber-200/90">
+              Alguns instaladores não estão presentes na release atual ({availableVariants}/{totalVariants} disponíveis). Os itens ausentes ficam desabilitados automaticamente.
+            </p>
+          ) : null}
+
+          {!releaseQuery.isLoading && !releaseQuery.isError && availableVariants === totalVariants ? (
+            <p className="mt-2 text-emerald-300/90">
+              Todos os instaladores esperados foram encontrados para macOS, Windows e Linux.
+            </p>
+          ) : null}
         </div>
       </section>
 
