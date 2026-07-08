@@ -70,6 +70,23 @@ jobs:
         working-directory: app
         run: npm ci
 
+      - name: Sync app version from tag
+        working-directory: app
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            echo "Tag invalida para versionamento desktop: $RELEASE_TAG"
+            exit 1
+          fi
+
+          app_version="${BASH_REMATCH[1]}"
+          npm pkg set version="$app_version"
+          echo "Desktop version sincronizada para $app_version (tag: $RELEASE_TAG)"
+          node -p "require('./package.json').version"
+
       - name: Build web app
         working-directory: app
         run: npm run build:desktop:web
