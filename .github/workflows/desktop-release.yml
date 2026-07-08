@@ -113,9 +113,12 @@ jobs:
             fi
           fi
 
+          # Some Apple-exported .p12 files still use legacy RC2 encryption.
           if ! openssl pkcs12 -in "$cert_file" -passin env:APPLE_SIGNING_CERT_PASSWORD -nokeys -clcerts -info -noout > "$cert_info_file" 2>&1; then
-            echo "APPLE_SIGNING_CERT_PASSWORD cannot open APPLE_SIGNING_CERT_BASE64 (.p12)"
-            exit 1
+            if ! openssl pkcs12 -legacy -in "$cert_file" -passin env:APPLE_SIGNING_CERT_PASSWORD -nokeys -clcerts -info -noout > "$cert_info_file" 2>&1; then
+              echo "APPLE_SIGNING_CERT_PASSWORD cannot open APPLE_SIGNING_CERT_BASE64 (.p12)"
+              exit 1
+            fi
           fi
 
           if ! grep -q "Developer ID Application" "$cert_info_file"; then

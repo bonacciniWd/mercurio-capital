@@ -449,7 +449,9 @@ supabase functions logs whatsapp-webhook --project-ref bhagksfvszeogtjvjtpx --ta
 ```bash
 tmp_p12="$(mktemp /tmp/apple-signing.XXXXXX.p12)"
 printf '%s' "$APPLE_SIGNING_CERT_BASE64" | base64 -D > "$tmp_p12"
-openssl pkcs12 -in "$tmp_p12" -passin env:APPLE_SIGNING_CERT_PASSWORD -nokeys -clcerts -info -noout
+if ! openssl pkcs12 -in "$tmp_p12" -passin env:APPLE_SIGNING_CERT_PASSWORD -nokeys -clcerts -info -noout; then
+  openssl pkcs12 -legacy -in "$tmp_p12" -passin env:APPLE_SIGNING_CERT_PASSWORD -nokeys -clcerts -info -noout
+fi
 rm -f "$tmp_p12"
 
 xcrun notarytool store-credentials "mc-preflight" \
