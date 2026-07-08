@@ -1,19 +1,24 @@
 import { createClient } from '@supabase/supabase-js'
+import { resolveSupabaseConfig } from '@/lib/supabaseConfig'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
-const resolvedAnonKey = supabaseAnonKey ?? 'public-anon-key'
+const resolvedConfig = resolveSupabaseConfig({
+  supabaseUrl,
+  supabaseAnonKey,
+  isDev: import.meta.env.DEV,
+})
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  // eslint-disable-next-line no-console
+if (resolvedConfig.usedFallback) {
+  const fallbackType = import.meta.env.DEV ? 'local/dev' : 'produção'
   console.warn(
-    '[supabase] VITE_SUPABASE_URL e/ou VITE_SUPABASE_ANON_KEY não configurados. Configure o arquivo app/.env.',
+    `[supabase] VITE_SUPABASE_URL e/ou VITE_SUPABASE_ANON_KEY ausentes. Usando fallback ${fallbackType}: ${resolvedConfig.url}`,
   )
 }
 
 export const supabase = createClient(
-  supabaseUrl ?? 'http://localhost:54321',
-  resolvedAnonKey,
+  resolvedConfig.url,
+  resolvedConfig.anonKey,
   {
     auth: {
       persistSession: true,
@@ -24,7 +29,7 @@ export const supabase = createClient(
     },
     global: {
       headers: {
-        apikey: resolvedAnonKey,
+        apikey: resolvedConfig.anonKey,
       },
     },
   },

@@ -38,6 +38,7 @@ jobs:
             artifact_paths: |
               app/desktop/artifacts/*.dmg
               app/desktop/artifacts/*-mac.zip
+              app/desktop/artifacts/*.blockmap
               app/desktop/artifacts/stable-mac.yml
           - os: windows-latest
             target_name: windows
@@ -45,6 +46,7 @@ jobs:
             artifact_name: desktop-windows
             artifact_paths: |
               app/desktop/artifacts/*Setup*.exe
+              app/desktop/artifacts/*.blockmap
               app/desktop/artifacts/stable.yml
           - os: ubuntu-latest
             target_name: linux
@@ -53,6 +55,7 @@ jobs:
             artifact_paths: |
               app/desktop/artifacts/*.AppImage
               app/desktop/artifacts/*_amd64.deb
+              app/desktop/artifacts/*.blockmap
               app/desktop/artifacts/stable-linux.yml
 
     steps:
@@ -287,6 +290,60 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Normalize updater asset filenames
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          for file in release-assets/*; do
+            [ -f "$file" ] || continue
+            original_name="$(basename "$file")"
+            normalized_name="$original_name"
+
+            normalized_name="${normalized_name//Mercurio.Capital/Mercurio-Capital}"
+            normalized_name="${normalized_name//Mercurio Capital/Mercurio-Capital}"
+            normalized_name="${normalized_name//Mercurio-Capital.Setup./Mercurio-Capital-Setup-}"
+            normalized_name="${normalized_name// /-}"
+
+            if [ "$normalized_name" != "$original_name" ]; then
+              mv "$file" "release-assets/$normalized_name"
+              echo "Renamed $original_name -> $normalized_name"
+            fi
+          done
+
+      - name: Validate updater metadata references
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          mapfile -t referenced_files < <(
+            {
+              grep -hE '^path: ' release-assets/stable*.yml | sed -E 's/^path: //'
+              grep -hE '^[[:space:]]+- url: ' release-assets/stable*.yml | sed -E 's/^[[:space:]]+- url: //'
+            } | sed '/^$/d' | sort -u
+          )
+
+          if [ ${#referenced_files[@]} -eq 0 ]; then
+            echo "No updater assets referenced in stable metadata"
+            exit 1
+          fi
+
+          missing_refs=0
+          for referenced in "${referenced_files[@]}"; do
+            if [ ! -f "release-assets/$referenced" ]; then
+              echo "Missing updater asset referenced by metadata: $referenced"
+              missing_refs=1
+            fi
+          done
+
+          if [ $missing_refs -ne 0 ]; then
+            exit 1
+          fi
+
+          echo "Updater metadata references are consistent with published files"
+
       - name: Validate mandatory binaries and create checksums
         shell: bash
         run: |
@@ -352,6 +409,7 @@ jobs:
             -name '*Setup*.exe' -o \
             -name '*.AppImage' -o \
             -name '*_amd64.deb' -o \
+            -name '*.blockmap' -o \
             -name 'stable*.yml' \
           \) -print0 | sort -z)
 
@@ -383,5 +441,6 @@ jobs:
             release-assets/*Setup*.exe
             release-assets/*.AppImage
             release-assets/*_amd64.deb
+            release-assets/*.blockmap
             release-assets/stable*.yml
             release-assets/sha256sums.txt
