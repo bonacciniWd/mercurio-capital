@@ -223,7 +223,7 @@
 ## Estado de release (2026-07-08)
 
 - Desktop (Electron): governança de release macOS em hard-fail (assinatura + notarização de app e DMG) consolidada em operação.
-- Mobile (Expo): release iOS `0.0.2` operacional via EAS (build concluída e submissão TestFlight agendada).
+- Mobile (Expo): release iOS `0.0.2` operacional via EAS (build concluída) com envio para TestFlight realizado via Apple Transporter.
 - Windows: plano de assinatura de binários (EV/SmartScreen) permanece como pendência futura e não foi entregue neste ciclo.
 
 ---

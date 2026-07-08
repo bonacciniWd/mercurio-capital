@@ -491,7 +491,7 @@ xcrun notarytool store-credentials "mc-preflight" \
 
 **Estado consolidado (2026-07-08)**:
 - Desktop: gate macOS hard-fail ativo para assinatura/notarização (app + DMG) e bloqueio de publish em falha crítica.
-- Mobile iOS: fluxo EAS operacional para `0.0.2`, com build concluída e submissão TestFlight agendada.
+- Mobile iOS: fluxo operacional para `0.0.2` com build via EAS concluída e envio para TestFlight via Apple Transporter.
 - Windows: assinatura de binários (EV/SmartScreen) ainda **não entregue**; tratar como pendência futura de governança.
 
 ### 16.1 Go/No-Go Desktop
@@ -513,11 +513,13 @@ xcrun notarytool store-credentials "mc-preflight" \
 - [ ] `npm run typecheck` sem erro no `mobile/`.
 - [ ] `npx expo config --type public` válido para versão alvo.
 - [ ] `npx eas build -p ios --profile production` com status `FINISHED`.
-- [ ] `npx eas submit -p ios --profile production --latest` ao menos agendado com link de submissão.
+- [ ] Envio para TestFlight concluído por um dos caminhos aprovados:
+  - `npx eas submit -p ios --profile production --latest` com submissão agendada; ou
+  - upload via Apple Transporter com build visível no App Store Connect/TestFlight.
 
 **No-Go** se:
 - [ ] Build iOS falhar (EAS status diferente de `FINISHED`).
-- [ ] Submit não for agendado por credencial ou bloqueio de App Store Connect.
+- [ ] Envio para TestFlight falhar (EAS Submit ou Transporter) por credencial, validação ou bloqueio no App Store Connect.
 
 ### 16.3 Rollback Desktop
 

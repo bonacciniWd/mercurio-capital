@@ -37,7 +37,7 @@ Smoke tests transacionais: Fase 3, 8, 10, 12, 13, 14 — todos verdes contra `bh
 - UI parceiro web/mobile passou a exibir status de envio automático (`enfileirado` / falha com fallback manual).
 - Smoke `supabase/smoke-tests/fase-16-equipes-convite.sql` ampliado para validar convite + enqueue de outbox em transação reversível.
 - Conflito de escopo resolvido no handoff mais recente da Fase 10: criação de proposta ativada no mobile para `admin`, `partner` e `team_member`.
-- Release iOS `0.0.2` operacional via EAS com build concluída e submissão TestFlight agendada (acompanhamento no painel EAS/App Store Connect).
+- Release iOS `0.0.2` operacional via EAS com build concluída e envio para TestFlight realizado via Apple Transporter (acompanhamento no App Store Connect).
 - Governança de release desktop macOS consolidada com gate hard-fail para assinatura/notarização.
 
 ---
