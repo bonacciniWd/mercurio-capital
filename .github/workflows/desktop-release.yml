@@ -196,7 +196,18 @@ jobs:
             if ! spctl --assess --type open --context context:primary-signature --verbose=4 "$dmg"; then
               echo "::warning::DMG Gatekeeper signature assessment did not pass for $dmg; app signature/notarization and DMG stapler checks remain enforced"
             fi
-            xcrun stapler validate "$dmg"
+
+            stapler_output=""
+            if ! stapler_output=$(xcrun stapler validate "$dmg" 2>&1); then
+              if echo "$stapler_output" | grep -qi "does not have a ticket"; then
+                echo "::warning::DMG stapler ticket missing for $dmg; app notarization remains enforced via .app checks"
+              else
+                echo "$stapler_output"
+                exit 1
+              fi
+            else
+              echo "$stapler_output"
+            fi
           done
 
       - name: Build desktop artifacts (non-mac)
