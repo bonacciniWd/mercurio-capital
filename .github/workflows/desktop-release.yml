@@ -103,7 +103,9 @@ jobs:
 
           cert_file="$(mktemp "${RUNNER_TEMP}/apple-signing-XXXXXX.p12")"
           cert_info_file="$(mktemp "${RUNNER_TEMP}/apple-signing-info-XXXXXX.txt")"
-          trap 'rm -f "$cert_file" "$cert_info_file"' EXIT
+          temp_keychain="${RUNNER_TEMP}/apple-signing-$(uuidgen).keychain-db"
+          temp_keychain_password="$(uuidgen)"
+          trap 'security delete-keychain "$temp_keychain" >/dev/null 2>&1 || true; rm -f "$cert_file" "$cert_info_file"' EXIT
 
           # macOS runner can expose BSD base64; support both GNU and BSD flags.
           if ! printf '%s' "$APPLE_SIGNING_CERT_BASE64" | base64 --decode > "$cert_file" 2>/dev/null; then
@@ -113,12 +115,18 @@ jobs:
             fi
           fi
 
-          # Some Apple-exported .p12 files still use legacy RC2 encryption.
-          if ! openssl pkcs12 -in "$cert_file" -passin env:APPLE_SIGNING_CERT_PASSWORD -nokeys -clcerts -info -noout > "$cert_info_file" 2>&1; then
-            if ! openssl pkcs12 -legacy -in "$cert_file" -passin env:APPLE_SIGNING_CERT_PASSWORD -nokeys -clcerts -info -noout > "$cert_info_file" 2>&1; then
-              echo "APPLE_SIGNING_CERT_PASSWORD cannot open APPLE_SIGNING_CERT_BASE64 (.p12)"
-              exit 1
-            fi
+          security create-keychain -p "$temp_keychain_password" "$temp_keychain" >/dev/null
+          security unlock-keychain -p "$temp_keychain_password" "$temp_keychain" >/dev/null
+          security set-keychain-settings -lut 21600 "$temp_keychain" >/dev/null
+
+          if ! security import "$cert_file" -k "$temp_keychain" -P "$APPLE_SIGNING_CERT_PASSWORD" -f pkcs12 -A >/dev/null 2>&1; then
+            echo "APPLE_SIGNING_CERT_PASSWORD cannot open APPLE_SIGNING_CERT_BASE64 (.p12)"
+            exit 1
+          fi
+
+          if ! security find-identity -v -p codesigning "$temp_keychain" > "$cert_info_file" 2>&1; then
+            echo "Could not inspect the imported signing identity"
+            exit 1
           fi
 
           if ! grep -q "Developer ID Application" "$cert_info_file"; then
