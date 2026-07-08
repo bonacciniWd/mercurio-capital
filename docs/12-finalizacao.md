@@ -1,6 +1,6 @@
 # 12 — Finalização do MVP
 
-> Snapshot do projeto em **2026-05-20** — todas as 14 fases do roadmap concluídas. Este documento lista o que foi entregue, o que ficou pendente (e por quê) e os próximos passos operacionais.
+> Snapshot-base do projeto em **2026-05-20** com consolidação de atualizações até **2026-07-08**. Este documento lista o que foi entregue, o que ficou pendente (e por quê) e os próximos passos operacionais.
 
 ---
 
@@ -19,14 +19,14 @@
 | 8  | Universidade Mercurio + LMS + Stripe Subscription (dev) | ✅ |
 | 9  | Gestão de parceiros admin + convites + onboarding-pendente | ✅ |
 | 10 | Equipes admin + funil parceiros + bounce webhook | ✅ |
-| 11 | Mobile (Expo) — **não iniciada** | ⏸ deferida |
+| 11 | Mobile (Expo) — **parcial (criação de proposta ativa)** | 🟡 em evolução |
 | 12 | Fluxos Evolution + templates + campanhas + email outbox | ✅ |
 | 13 | Analytics MVs + React Flow rede + feature flags + lazy + tour + a11y | ✅ |
 | 14 | LGPD (export/anonimização) + PII masking + runbooks + DR plan + pen test checklist | ✅ |
 
 Smoke tests transacionais: Fase 3, 8, 10, 12, 13, 14 — todos verdes contra `bhagksfvszeogtjvjtpx`.
 
-### Atualização pós-snapshot (2026-07-06)
+### Atualizações pós-snapshot (2026-07-06 a 2026-07-08)
 
 - Convite de equipe evoluído para envio automático de e-mail transacional sem quebrar geração de link manual.
 - Nova migration `20260706000019_partner_invite_email_outbox.sql`:
@@ -36,6 +36,9 @@ Smoke tests transacionais: Fase 3, 8, 10, 12, 13, 14 — todos verdes contra `bh
 - Template seedado no catálogo admin (`templates_mensagem`) com código `convite_equipe_v1`.
 - UI parceiro web/mobile passou a exibir status de envio automático (`enfileirado` / falha com fallback manual).
 - Smoke `supabase/smoke-tests/fase-16-equipes-convite.sql` ampliado para validar convite + enqueue de outbox em transação reversível.
+- Conflito de escopo resolvido no handoff mais recente da Fase 10: criação de proposta ativada no mobile para `admin`, `partner` e `team_member`.
+- Release iOS `0.0.2` operacional via EAS com build concluída e submissão TestFlight agendada (acompanhamento no painel EAS/App Store Connect).
+- Governança de release desktop macOS consolidada com gate hard-fail para assinatura/notarização.
 
 ---
 
@@ -60,11 +63,16 @@ Estas integrações dependem de credenciais/contratos externos. O **schema, bill
 
 ### 2.3 Mobile (Fase 11)
 
-Toda a pasta `mobile/` está em **mock**. Para ativar:
-1. `npm i @supabase/supabase-js expo-secure-store` em `mobile/`.
-2. Replicar `app/src/auth/AuthContext.tsx` com `SecureStore` como storage.
-3. Deep link `mercurio://magic/partner-bootstrap`.
-4. Trocar mocks de `(admin)/*`, `(parceiro)/*` pelas RPCs já existentes.
+O mobile **não está 100% mock**. Estado atual consolidado:
+1. Criação de proposta ativa no mobile para `admin`, `partner` e `team_member` (extensão pós-handoff da Fase 10).
+2. Fluxo operacional de release iOS `0.0.2` via EAS documentado e executado (build concluída + submit agendado).
+3. Demais módulos mobile seguem majoritariamente em mock e continuam no escopo da Fase 11.
+
+Pendências para conclusão da Fase 11:
+1. Adotar `expo-secure-store` para tokens e paridade completa de auth.
+2. Replicar `app/src/auth/AuthContext.tsx` com storage seguro no app mobile.
+3. Deep link `mercurio://magic/partner-bootstrap` com fluxo ponta a ponta.
+4. Substituir mocks de `(admin)/*`, `(parceiro)/*` pelas views/RPCs já existentes.
 
 ### 2.4 OCR
 
@@ -80,6 +88,12 @@ Toda a pasta `mobile/` está em **mock**. Para ativar:
 - Marketplace de parceiros + ranking público.
 - White-label.
 - Open Banking / PIX.
+
+### 2.7 Governança de release desktop/mobile
+
+- Desktop macOS: release com gate hard-fail de assinatura/notarização (app + DMG) como pré-condição de publicação.
+- Mobile iOS: release `0.0.2` operacional via EAS, com publicação em TestFlight dependente do processamento final na Apple.
+- Assinatura Windows: **pendência futura** de governança (EV/SmartScreen), ainda não entregue.
 
 ---
 
@@ -154,4 +168,4 @@ Toda a pasta `mobile/` está em **mock**. Para ativar:
 
 MVP web do **Mercurio Capital** entregue. O sistema cobre o ciclo completo de originação imobiliária — registro de parceiro, equipe, simulação, proposta, KYC, consultas externas (estrutura), contrato, assinatura, liberação, comissão, Universidade e carteira — com administração, analytics, automações de comunicação, compliance LGPD e plano de recuperação.
 
-Próxima entrega natural: **Fase 11 (Mobile)** + ativação dos provedores reais.
+Próxima entrega natural: conclusão da **Fase 11 (Mobile)** (além da criação de proposta já ativa) + ativação dos provedores reais.

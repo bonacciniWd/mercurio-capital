@@ -19,6 +19,7 @@
 13. [Incidente: parceiro aprovado bloqueado como não aprovado](#13-incidente-parceiro-aprovado-bloqueado-como-não-aprovado)
 14. [Incidente: credencial comprometida em documentação](#14-incidente-credencial-comprometida-em-documentação)
 15. [Pre-flight Apple para release desktop macOS](#15-pre-flight-apple-para-release-desktop-macos)
+16. [Governança de release desktop/mobile (go/no-go, rollback e pós-release)](#16-governança-de-release-desktopmobile-go-no-go-rollback-e-pós-release)
 
 ---
 
@@ -475,3 +476,69 @@ xcrun notarytool store-credentials "mc-preflight" \
 | --- | --- | --- | --- | --- |
 | APPLE_SIGNING_CERT_BASE64 + APPLE_SIGNING_CERT_PASSWORD | _definir_ | _aaaa-mm-dd_ | _aaaa-mm-dd_ | _anual ou incidente_ |
 | APPLE_APP_SPECIFIC_PASSWORD | _definir_ | _aaaa-mm-dd_ | _aaaa-mm-dd_ | _rotacao imediata em revogacao_ |
+
+---
+
+## 16. Governança de release desktop/mobile (go/no-go, rollback e pós-release)
+
+**Gatilho**:
+- Antes de publicar release desktop (tag `v*.*.*`) e antes de promover build mobile para distribuição externa.
+
+**Fontes primárias**:
+- `docs/operacao/desktop-release-macos-signing.md`
+- `docs/operacao/runbooks.md` (esta seção)
+- `mobile/README.md`
+
+**Estado consolidado (2026-07-08)**:
+- Desktop: gate macOS hard-fail ativo para assinatura/notarização (app + DMG) e bloqueio de publish em falha crítica.
+- Mobile iOS: fluxo EAS operacional para `0.0.2`, com build concluída e submissão TestFlight agendada.
+- Windows: assinatura de binários (EV/SmartScreen) ainda **não entregue**; tratar como pendência futura de governança.
+
+### 16.1 Go/No-Go Desktop
+
+**Go** somente se:
+- [ ] Checklist P0 da seção 15 concluído sem exceções.
+- [ ] Jobs macOS de signing/notarização em verde e sem bypass de validação.
+- [ ] Evidências de release anexadas (run da Action + logs sem segredo + artefatos).
+- [ ] Release notes deixam explícito o escopo de assinatura por plataforma.
+
+**No-Go** se qualquer condição abaixo ocorrer:
+- [ ] Falha em `codesign`, `notarytool`, `stapler` ou `spctl` no macOS.
+- [ ] Inconsistência de Team ID/certificado Apple.
+- [ ] Tentativa de comunicar assinatura Windows como concluída (status atual: pendente).
+
+### 16.2 Go/No-Go Mobile iOS
+
+**Go** somente se:
+- [ ] `npm run typecheck` sem erro no `mobile/`.
+- [ ] `npx expo config --type public` válido para versão alvo.
+- [ ] `npx eas build -p ios --profile production` com status `FINISHED`.
+- [ ] `npx eas submit -p ios --profile production --latest` ao menos agendado com link de submissão.
+
+**No-Go** se:
+- [ ] Build iOS falhar (EAS status diferente de `FINISHED`).
+- [ ] Submit não for agendado por credencial ou bloqueio de App Store Connect.
+
+### 16.3 Rollback Desktop
+
+1. Se a falha ocorrer antes do publish, manter `no-go` e corrigir credenciais/assinatura antes de nova tag.
+2. Se já houver release publicada com artefato inválido, despublicar os assets afetados e republicar somente após novo run verde.
+3. Registrar incidente com causa raiz e timestamp no changelog operacional.
+
+### 16.4 Rollback Mobile iOS/TestFlight
+
+1. Não promover build com erro para grupos externos.
+2. Expirar/remover o build de teste no App Store Connect quando necessário.
+3. Gerar novo build number (`autoIncrement`) e refazer build+submit com correção.
+
+### 16.5 Pós-release (D0 a D7)
+
+1. Validar download/instalação dos artefatos desktop publicados.
+2. Monitorar logs de Edge Functions e erros críticos no app web/mobile (Sentry/PostHog).
+3. Revisar feedback inicial de parceiros/admin sobre onboarding, propostas e notificações.
+4. Registrar resultado de go-live e pendências em documento de operação da sprint.
+
+### 16.6 Pendências futuras de governança
+
+- Plano de assinatura Windows (EV certificate + reputação SmartScreen + política de rotação) permanece no backlog operacional.
+- Não tratar assinatura Windows como critério entregue até checklist dedicado existir e ser executado em CI.

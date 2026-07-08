@@ -1,12 +1,13 @@
 # Mercurio Capital — Documentação de Escopo & Arquitetura
 
-Esta pasta consolida o escopo inicial da plataforma **Mercurio Capital**, antes de qualquer codificação. Serve como fonte única de verdade para alinhar produto, design e engenharia.
+Esta pasta consolida o escopo da plataforma **Mercurio Capital** e as atualizações operacionais pós-entrega. Serve como fonte única de verdade para alinhar produto, design, engenharia e governança de release.
 
 ## Índice
 
 ### Principal (raiz)
 - [09 — Roadmap de Entregas (Fases)](./09-roadmap.md)
 - [12 — Finalização do MVP](./12-finalizacao.md)
+- [Status consolidado de release desktop/mobile](./operacao/runbooks.md)
 
 ### 📐 Blueprint — escopo & arquitetura ([`blueprint/`](./blueprint/))
 1. [01 — Visão Geral & Arquitetura](./blueprint/01-architecture.md)
@@ -25,6 +26,7 @@ Esta pasta consolida o escopo inicial da plataforma **Mercurio Capital**, antes 
 
 ### ⚙️ Operação ([`operacao/`](./operacao/))
 - [Runbooks operacionais](./operacao/runbooks.md)
+- [Release desktop macOS (signing + notarização)](./operacao/desktop-release-macos-signing.md)
 - [Plano de Disaster Recovery (PITR + dumps)](./operacao/dr-plan.md)
 - [Checklist de segurança (OWASP Top 10)](./operacao/security-checklist.md)
 - [Setup Stripe](./operacao/stripe-setup.md)

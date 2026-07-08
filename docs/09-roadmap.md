@@ -160,7 +160,7 @@
 ## Fase 10 — Equipes (Admin) & Métricas de Funil de Parceiros
 
 > Detalhamento técnico em [docs/handoffs/15-handoff-fase10.md](./handoffs/15-handoff-fase10.md).
-> Escopo **web-only** — mobile (`mobile/`) permanece 100% mock e será portado em fase futura.
+> Conflito resolvido (2026-07-08): o escopo original era **web-only**, mas o handoff mais recente registra extensão pós-fase com criação de proposta ativa no mobile (`admin`, `partner`, `team_member`). O restante do mobile segue majoritariamente em mock e permanece na Fase 11.
 
 - [x] UI admin de **equipes do parceiro** (`/admin/parceiros/:partnerId/equipes`) consumindo `equipes` + `v_equipe_membros_detalhe` + `v_equipe_convites_pendentes` (tudo já criado na Fase 4).
 - [x] RPCs admin para revogar convite pendente de membro e suspender membro ativo.
@@ -168,6 +168,7 @@
 - [x] Card de funil no `/admin` (dashboard global) com taxa de conversão por etapa.
 - [x] Tabela `email_bounces_inbox` + Edge `email-bounce-webhook` (verify_jwt=false, HMAC) marcando `partner_invites.status='expired'` automaticamente — pronta para SMTP customizado (SendGrid/Postmark) sem dependência.
 - [x] Smoke test E2E `supabase/smoke-tests/fase-10-funil.sql`.
+- [x] Extensão pós-handoff (2026-07-07): criação de proposta ativada no mobile em `mobile/app/propostas/nova.tsx` e `mobile/app/(admin)/propostas-nova.tsx`, mantendo a regra de parceiro `approved`.
 
 **Saída**: admin enxerga e age sobre equipes dos parceiros, tem visão de funil real do programa, e o ciclo de convites se auto-limpa quando o e-mail rejeitar.
 
@@ -175,7 +176,7 @@
 
 ## Fase 11 — Mobile (replicar web no Expo)
 
-- [ ] Instalar `@supabase/supabase-js` + `expo-secure-store` em `mobile/` (hoje 100% mock).
+- [ ] Instalar `@supabase/supabase-js` + `expo-secure-store` em `mobile/` (estado atual: criação de proposta ativa; demais fluxos ainda em mock).
 - [ ] Cliente Supabase com `SecureStore` para tokens + `AuthContext` espelhando o web.
 - [ ] Login real + deep-link `mercurio://magic/partner-bootstrap` (replicar `/auth/partner-bootstrap`).
 - [ ] Tela `(parceiro)/pendente.tsx` com `PartnerDocsUploader` (expo-document-picker + storage `partner-docs`).
@@ -216,6 +217,14 @@
 - [x] Mascaramento de PII em logs — helpers `mask_email/mask_cpf/mask_cnpj/mask_phone`.
 - [x] Documentação operacional — `docs/operacao/runbooks.md`.
 - [x] Plano de DR (PITR + drill semestral) — `docs/operacao/dr-plan.md`.
+
+---
+
+## Estado de release (2026-07-08)
+
+- Desktop (Electron): governança de release macOS em hard-fail (assinatura + notarização de app e DMG) consolidada em operação.
+- Mobile (Expo): release iOS `0.0.2` operacional via EAS (build concluída e submissão TestFlight agendada).
+- Windows: plano de assinatura de binários (EV/SmartScreen) permanece como pendência futura e não foi entregue neste ciclo.
 
 ---
 
