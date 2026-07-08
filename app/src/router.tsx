@@ -72,7 +72,7 @@ const AdminConfiguracoes   = lazy(() => import('@/pages/admin/Configuracoes').th
 const AdminUniversidade    = lazy(() => import('@/pages/admin/Universidade').then(m => ({ default: m.AdminUniversidade })))
 const AdminMilestones      = lazy(() => import('@/pages/admin/Milestones').then(m => ({ default: m.AdminMilestones })))
 
-export const router = createBrowserRouter([
+const appRoutes = [
   { path: '/', element: <Landing /> },
   { path: '/download', element: <Download /> },
   {
@@ -234,4 +234,8 @@ export const router = createBrowserRouter([
     ],
   },
   { path: '*', element: <Navigate to="/" replace /> },
-])
+]
+
+export function createAppRouter() {
+  return createBrowserRouter(appRoutes)
+}

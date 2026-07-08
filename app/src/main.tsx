@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { router } from './router'
+import { createAppRouter } from './router'
 import { AuthProvider } from '@/auth/AuthContext'
 import { queryClient } from '@/lib/queryClient'
 import { initObservability, Sentry } from '@/lib/observability'
@@ -12,6 +12,7 @@ import { DesktopUpdateWidget } from '@/components/DesktopUpdateWidget'
 import './index.css'
 
 applyDesktopInitialPath()
+const router = createAppRouter()
 
 initObservability()
 

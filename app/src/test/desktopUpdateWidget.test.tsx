@@ -80,10 +80,15 @@ describe('DesktopUpdateWidget hide/show', () => {
     render(<DesktopUpdateWidget />)
     await screen.findByText('Atualização Desktop')
 
+    expect(screen.getByRole('button', { name: 'Verificar agora' }).className).toContain('btn-no-liquid')
+
     fireEvent.click(screen.getByRole('button', { name: 'Ocultar widget de atualização' }))
     expect(screen.queryByText('Atualização Desktop')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Mostrar widget de atualização' }))
+    const showButton = screen.getByRole('button', { name: 'Mostrar widget de atualização' })
+    expect(showButton.className).toContain('btn-no-liquid')
+
+    fireEvent.click(showButton)
     await screen.findByText('Atualização Desktop')
 
     fireEvent.click(screen.getByRole('button', { name: 'Verificar agora' }))

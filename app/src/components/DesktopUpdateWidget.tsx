@@ -205,7 +205,7 @@ export function DesktopUpdateWidget() {
         type="button"
         onClick={handleShowWidget}
         aria-label="Mostrar widget de atualização"
-        className="fixed bottom-4 right-4 z-[80] inline-flex items-center gap-2 rounded-full border border-silver-300 bg-white/95 px-3 py-2 text-xs font-semibold text-silver-700 shadow-lg backdrop-blur transition hover:bg-white"
+        className="btn-no-liquid fixed bottom-4 right-4 z-[80] inline-flex items-center gap-2 rounded-full border border-silver-300 bg-white/95 px-3 py-2 text-xs font-semibold text-silver-700 shadow-lg backdrop-blur transition hover:bg-white"
       >
         <CloudDownload className="h-4 w-4 text-navy" />
         <span>Atualizações</span>
@@ -235,7 +235,7 @@ export function DesktopUpdateWidget() {
             type="button"
             onClick={handleHideWidget}
             aria-label="Ocultar widget de atualização"
-            className="rounded-full border border-silver-300 p-1 text-silver-500 transition hover:bg-silver-100 hover:text-silver-700"
+            className="btn-no-liquid rounded-full border border-silver-300 p-1 text-silver-500 transition hover:bg-silver-100 hover:text-silver-700"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -283,7 +283,7 @@ export function DesktopUpdateWidget() {
           type="button"
           onClick={handleCheckNow}
           disabled={!canCheck}
-          className="inline-flex items-center gap-1 rounded-md border border-silver-300 px-3 py-1.5 text-xs font-medium text-silver-700 transition hover:bg-silver-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="btn-no-liquid inline-flex items-center gap-1 rounded-md border border-silver-300 px-3 py-1.5 text-xs font-medium text-silver-700 transition hover:bg-silver-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${actionInFlight === 'check' ? 'animate-spin' : ''}`} />
           Verificar agora
@@ -294,7 +294,7 @@ export function DesktopUpdateWidget() {
             type="button"
             onClick={handleInstallNow}
             disabled={!canInstall}
-            className="rounded-md bg-navy px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-no-liquid rounded-md bg-navy px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Instalar e reiniciar
           </button>
