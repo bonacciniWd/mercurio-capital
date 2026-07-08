@@ -8,7 +8,8 @@ Diagramas em Mermaid (renderizam direto no GitHub/VS Code).
 flowchart TB
   subgraph Public["🌐 Público"]
     P0[/"/ Landing"/]
-    P1[/login/]
+    P1[/p/login/]
+    P1a["/login (alias)"]
     P2[/registro/]
     P3[/recuperar-senha/]
     P4[/protocolo/]
@@ -53,6 +54,7 @@ flowchart TB
     A11[/admin/auditoria/]
   end
 
+  P1a --> P1
   P1 --> C0
   P1 --> PA0
   P1 --> A0

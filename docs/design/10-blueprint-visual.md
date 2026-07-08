@@ -145,18 +145,25 @@ flowchart TB
 flowchart TB
   classDef pub fill:#fef3c7,stroke:#d97706,color:#000
   R0["/"]:::pub
-  R1["/login"]:::pub
-  R2["/registro"]:::pub
-  R2b["/registro/sucesso"]:::pub
+  R1["/p/login"]:::pub
+  R1a["/login (alias)"]:::pub
+  R1b["/admin/login"]:::pub
+  R1c["/c/login"]:::pub
+  R2["/p/registro"]:::pub
+  R2a["/registro (alias)"]:::pub
   R3["/recuperar-senha"]:::pub
-  R3b["/recuperar-senha/confirmar"]:::pub
+  R3b["/redefinir-senha"]:::pub
   R4["/protocolo"]:::pub
   R4b["/protocolo/:numero"]:::pub
   R5["/magic/:token"]:::pub
   R6["/2fa"]:::pub
 
   R0 --> R1 --> R6
-  R0 --> R2 --> R2b
+  R1a --> R1
+  R0 --> R1b --> R6
+  R0 --> R1c --> R6
+  R0 --> R2
+  R2a --> R2
   R1 --> R3 --> R3b
   R0 --> R4 --> R4b
   R5 -.consume.-> R6

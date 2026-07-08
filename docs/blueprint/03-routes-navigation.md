@@ -16,11 +16,14 @@
 | Rota | Componente | Descrição |
 |---|---|---|
 | `/` | `LandingPage` | Página institucional. |
-| `/login` | `LoginPage` | E-mail+senha, link "esqueci senha", botão magic-link. |
-| `/registro` | `RegisterPage` | Cadastro de parceiro (status pending). |
-| `/registro/sucesso` | `RegisterSuccess` | Aviso de aprovação pendente. |
+| `/login` | `Navigate(/p/login)` | Alias legado: redireciona para a entrada parceira. |
+| `/p/login` | `LoginPage` | Entrada principal web/desktop para `partner` e `team_member`. |
+| `/admin/login` | `LoginPage` | Entrada exclusiva do módulo administrativo. |
+| `/c/login` | `LoginPage` | Entrada exclusiva do portal do cliente. |
+| `/p/registro` | `RegisterPage` | Cadastro de parceiro (status pending). |
+| `/registro` | `Navigate(/p/registro)` | Alias legado para manter compatibilidade de links antigos. |
 | `/recuperar-senha` | `ForgotPassword` | Solicita reset. |
-| `/recuperar-senha/confirmar` | `ResetPassword` | Token via e-mail. |
+| `/redefinir-senha` | `ResetPassword` | Conclusão do reset via token validado. |
 | `/protocolo` | `ProtocoloLookup` | Form de consulta por protocolo + CAPTCHA. |
 | `/protocolo/:numero` | `ProtocoloPublic` | Status público + slot de upload, se solicitado. |
 | `/magic/:token` | `MagicLinkConsumer` | Consome magic link (cliente, parceiro, membro). |

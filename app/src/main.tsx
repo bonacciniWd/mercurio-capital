@@ -7,17 +7,11 @@ import { router } from './router'
 import { AuthProvider } from '@/auth/AuthContext'
 import { queryClient } from '@/lib/queryClient'
 import { initObservability, Sentry } from '@/lib/observability'
+import { applyDesktopInitialPath } from '@/lib/desktopInitialPath'
 import { DesktopUpdateWidget } from '@/components/DesktopUpdateWidget'
 import './index.css'
 
-const initialDesktopPath = new URLSearchParams(window.location.search).get('initialPath')
-if (
-  window.location.protocol === 'file:' &&
-  initialDesktopPath &&
-  window.location.pathname.endsWith('/index.html')
-) {
-  window.history.replaceState(null, '', initialDesktopPath)
-}
+applyDesktopInitialPath()
 
 initObservability()
 

@@ -544,3 +544,27 @@ xcrun notarytool store-credentials "mc-preflight" \
 
 - Plano de assinatura Windows (EV certificate + reputação SmartScreen + política de rotação) permanece no backlog operacional.
 - Não tratar assinatura Windows como critério entregue até checklist dedicado existir e ser executado em CI.
+
+### 16.7 Registro operacional — Desktop 0.0.4
+
+**Escopo técnico esperado**:
+- Bootstrap desktop em `/p/login` no app empacotado.
+- `/login` mantido apenas como alias com redirect para `/p/login`.
+- Widget de atualização com hide/show, reabertura manual persistente e autoexibição em estado crítico (`downloaded`, `installing`, `error`).
+- Versão de artefatos alinhada à tag semver (`v0.0.4`) antes do pack.
+
+**Go/No-Go 0.0.4**:
+- [ ] `build-desktop` verde nas três plataformas (mac, windows, linux).
+- [ ] Jobs de assinatura/notarização macOS verdes sem bypass.
+- [ ] `publish-release` executado somente após `build-desktop` verde.
+- [ ] Artefatos publicados com nome `0.0.4` (`.dmg`, `.exe`, `.AppImage`, `.deb`, `stable*.yml`, `sha256sums.txt`).
+
+**Evidências obrigatórias (anexar no registro da release)**:
+- URL da run GitHub Actions `Desktop Release` para a tag `v0.0.4`.
+- Trechos de log dos passos `Validate mac signing secrets`, `Build desktop artifacts (mac signed + notarized)` e `Verify mac signature and notarization` (sem segredos).
+- Lista dos assets finais publicados e checksums.
+
+**Rollback específico 0.0.4**:
+1. Se falhar antes do publish: manter no-go, corrigir e reexecutar com nova tag semver.
+2. Se publicar artefato inconsistente: remover assets afetados da release e republicar somente após run verde.
+3. Registrar ocorrência e mitigação aplicada no changelog operacional da sprint.

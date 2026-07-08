@@ -39,6 +39,7 @@ Smoke tests transacionais: Fase 3, 8, 10, 12, 13, 14 — todos verdes contra `bh
 - Conflito de escopo resolvido no handoff mais recente da Fase 10: criação de proposta ativada no mobile para `admin`, `partner` e `team_member`.
 - Release iOS `0.0.2` operacional via EAS com build concluída e envio para TestFlight realizado via Apple Transporter (acompanhamento no App Store Connect).
 - Governança de release desktop macOS consolidada com gate hard-fail para assinatura/notarização.
+- Hotfix desktop 0.0.4 consolidado: bootstrap inicial em `/p/login`, alias `/login` mantido por redirect e widget de atualização com hide/show + reabertura automática em estados críticos.
 
 ---
 
@@ -91,7 +92,7 @@ Pendências para conclusão da Fase 11:
 
 ### 2.7 Governança de release desktop/mobile
 
-- Desktop macOS: release com gate hard-fail de assinatura/notarização (app + DMG) como pré-condição de publicação.
+- Desktop macOS: release com gate hard-fail de assinatura/notarização (app + DMG) como pré-condição de publicação, incluindo alinhamento de versão por tag semver para evitar descompasso de nomes de artefato.
 - Mobile iOS: release `0.0.2` operacional via EAS, com publicação em TestFlight dependente do processamento final na Apple.
 - Assinatura Windows: **pendência futura** de governança (EV/SmartScreen), ainda não entregue.
 
