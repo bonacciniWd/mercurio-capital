@@ -12,6 +12,7 @@
     "package.json"
   ],
   "mac": {
+    "icon": "desktop/buildResources/icon.icns",
     "target": [
       {
         "target": "dmg",
@@ -31,6 +32,7 @@
     "category": "public.app-category.finance"
   },
   "win": {
+    "icon": "desktop/buildResources/icon.ico",
     "target": [
       {
         "target": "nsis",
@@ -41,6 +43,7 @@
     ]
   },
   "linux": {
+    "icon": "desktop/buildResources/icon.png",
     "target": [
       {
         "target": "AppImage",

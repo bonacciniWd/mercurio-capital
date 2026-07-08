@@ -7,6 +7,7 @@ const {
 
 const UPDATE_CHANNEL = 'stable';
 const DEV_SERVER_URL = process.env.ELECTRON_START_URL;
+const DESKTOP_INITIAL_PATH = '/p/login';
 
 function createMainWindow() {
   const win = new BrowserWindow({
@@ -47,13 +48,17 @@ function createMainWindow() {
   });
 
   if (!app.isPackaged && DEV_SERVER_URL) {
-    win.loadURL(DEV_SERVER_URL);
+    win.loadURL(new URL(DESKTOP_INITIAL_PATH, `${DEV_SERVER_URL}/`).toString());
     win.webContents.openDevTools({ mode: 'detach' });
     return;
   }
 
   const indexHtml = path.join(__dirname, '..', '..', 'dist', 'index.html');
-  win.loadFile(indexHtml);
+  win.loadFile(indexHtml, {
+    query: {
+      initialPath: DESKTOP_INITIAL_PATH,
+    },
+  });
 }
 
 app.whenReady().then(() => {

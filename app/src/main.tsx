@@ -10,6 +10,15 @@ import { initObservability, Sentry } from '@/lib/observability'
 import { DesktopUpdateWidget } from '@/components/DesktopUpdateWidget'
 import './index.css'
 
+const initialDesktopPath = new URLSearchParams(window.location.search).get('initialPath')
+if (
+  window.location.protocol === 'file:' &&
+  initialDesktopPath &&
+  window.location.pathname.endsWith('/index.html')
+) {
+  window.history.replaceState(null, '', initialDesktopPath)
+}
+
 initObservability()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
