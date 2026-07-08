@@ -162,12 +162,44 @@ jobs:
         working-directory: app
         shell: bash
         env:
+          APPLE_SIGNING_CERT_BASE64: ${{ secrets.APPLE_SIGNING_CERT_BASE64 }}
+          APPLE_SIGNING_CERT_PASSWORD: ${{ secrets.APPLE_SIGNING_CERT_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
           shopt -s nullglob
+
+          cert_file="$(mktemp "${RUNNER_TEMP}/apple-signing-verify-XXXXXX.p12")"
+          temp_keychain="${RUNNER_TEMP}/apple-signing-verify-$(uuidgen).keychain-db"
+          temp_keychain_password="$(uuidgen)"
+          trap 'security delete-keychain "$temp_keychain" >/dev/null 2>&1 || true; rm -f "$cert_file"' EXIT
+
+          # macOS runner can expose BSD base64; support both GNU and BSD flags.
+          if ! printf '%s' "$APPLE_SIGNING_CERT_BASE64" | base64 --decode > "$cert_file" 2>/dev/null; then
+            if ! printf '%s' "$APPLE_SIGNING_CERT_BASE64" | base64 -D > "$cert_file" 2>/dev/null; then
+              echo "APPLE_SIGNING_CERT_BASE64 is not valid base64"
+              exit 1
+            fi
+          fi
+
+          security create-keychain -p "$temp_keychain_password" "$temp_keychain" >/dev/null
+          security unlock-keychain -p "$temp_keychain_password" "$temp_keychain" >/dev/null
+          security set-keychain-settings -lut 21600 "$temp_keychain" >/dev/null
+
+          if ! security import "$cert_file" -k "$temp_keychain" -P "$APPLE_SIGNING_CERT_PASSWORD" -f pkcs12 -A >/dev/null 2>&1; then
+            echo "APPLE_SIGNING_CERT_PASSWORD cannot open APPLE_SIGNING_CERT_BASE64 (.p12)"
+            exit 1
+          fi
+
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$temp_keychain_password" "$temp_keychain" >/dev/null 2>&1 || true
+
+          dmg_signing_identity="$(security find-identity -v -p codesigning "$temp_keychain" | awk -F '"' '/Developer ID Application/ {print $2; exit}')"
+          if [ -z "$dmg_signing_identity" ]; then
+            echo "Developer ID Application identity not found in temporary keychain for DMG signing"
+            exit 1
+          fi
 
           app_bundles=()
           while IFS= read -r -d '' app_bundle; do
@@ -198,6 +230,8 @@ jobs:
 
           for dmg in "${dmg_files[@]}"; do
             echo "Verifying signature and notarization for $dmg"
+            codesign --force --sign "$dmg_signing_identity" --timestamp --keychain "$temp_keychain" "$dmg"
+            codesign --verify --verbose=2 "$dmg"
             xcrun notarytool submit "$dmg" \
               --apple-id "$APPLE_ID" \
               --password "$APPLE_APP_SPECIFIC_PASSWORD" \

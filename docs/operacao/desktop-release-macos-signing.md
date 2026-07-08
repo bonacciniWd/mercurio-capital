@@ -13,6 +13,9 @@ Se qualquer credencial ou validacao critica de assinatura/notarizacao falhar (ap
 - `spctl --assess --type execute --verbose=4 <app>.app`
 - `xcrun stapler validate <app>.app`
 - Validacoes obrigatorias de DMG em ordem deterministica (hard-fail).
+- `codesign --force --sign "<Developer ID Application>" --timestamp <arquivo>.dmg`
+- `codesign --verify --verbose=2 <arquivo>.dmg`
+- `xcrun notarytool submit <arquivo>.dmg --wait`
 - `xcrun stapler staple <arquivo>.dmg`
 - `xcrun stapler validate <arquivo>.dmg`
 - `spctl --assess --type open --context context:primary-signature --verbose=4 <arquivo>.dmg`
@@ -119,10 +122,26 @@ codesign --verify --deep --strict --verbose=2 "app/desktop/artifacts/mac/Mercuri
 spctl --assess --type execute --verbose=4 "app/desktop/artifacts/mac/Mercurio Capital.app"
 xcrun stapler validate "app/desktop/artifacts/mac/Mercurio Capital.app"
 
+DMG_SIGN_ID="$(security find-identity -v -p codesigning | awk -F '"' '/Developer ID Application/ {print $2; exit}')"
+
+codesign --force --sign "$DMG_SIGN_ID" --timestamp "app/desktop/artifacts/Mercurio Capital-<versao>-arm64.dmg"
+codesign --verify --verbose=2 "app/desktop/artifacts/Mercurio Capital-<versao>-arm64.dmg"
+xcrun notarytool submit "app/desktop/artifacts/Mercurio Capital-<versao>-arm64.dmg" \
+  --apple-id "$APPLE_ID" \
+  --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+  --team-id "$APPLE_TEAM_ID" \
+  --wait
 xcrun stapler staple "app/desktop/artifacts/Mercurio Capital-<versao>-arm64.dmg"
 xcrun stapler validate "app/desktop/artifacts/Mercurio Capital-<versao>-arm64.dmg"
 spctl --assess --type open --context context:primary-signature --verbose=4 "app/desktop/artifacts/Mercurio Capital-<versao>-arm64.dmg"
 
+codesign --force --sign "$DMG_SIGN_ID" --timestamp "app/desktop/artifacts/Mercurio Capital-<versao>.dmg"
+codesign --verify --verbose=2 "app/desktop/artifacts/Mercurio Capital-<versao>.dmg"
+xcrun notarytool submit "app/desktop/artifacts/Mercurio Capital-<versao>.dmg" \
+  --apple-id "$APPLE_ID" \
+  --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+  --team-id "$APPLE_TEAM_ID" \
+  --wait
 xcrun stapler staple "app/desktop/artifacts/Mercurio Capital-<versao>.dmg"
 xcrun stapler validate "app/desktop/artifacts/Mercurio Capital-<versao>.dmg"
 spctl --assess --type open --context context:primary-signature --verbose=4 "app/desktop/artifacts/Mercurio Capital-<versao>.dmg"
@@ -183,7 +202,7 @@ unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD
 - [ ] `APPLE_TEAM_ID` corresponde ao Team oficial de publicacao.
 - [ ] Workflow mac passa em assinatura e notarizacao.
 - [ ] App bundles passam em `codesign`, `spctl execute` e `stapler validate`.
-- [ ] DMGs passam em `stapler staple`, `stapler validate` e `spctl open` sem bypass.
+- [ ] DMGs passam em `codesign`, `notarytool submit --wait`, `stapler staple`, `stapler validate` e `spctl open` sem bypass.
 - [ ] Falha de credencial ou validacao critica no macOS bloqueia publicacao.
 - [ ] Nenhuma credencial aparece em logs ou no repositorio.
 
