@@ -1,5 +1,9 @@
 const path = require('node:path');
 const { app, BrowserWindow, shell } = require('electron');
+const {
+  setupDesktopUpdater,
+  sendUpdateStateToWindow,
+} = require('./updater.cjs');
 
 const UPDATE_CHANNEL = 'stable';
 const DEV_SERVER_URL = process.env.ELECTRON_START_URL;
@@ -23,6 +27,10 @@ function createMainWindow() {
 
   win.once('ready-to-show', () => {
     win.show();
+  });
+
+  win.webContents.on('did-finish-load', () => {
+    sendUpdateStateToWindow(win);
   });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -51,6 +59,11 @@ function createMainWindow() {
 app.whenReady().then(() => {
   app.setAppUserModelId('br.com.mercuriocapital.desktop');
   process.env.ELECTRON_UPDATE_CHANNEL = UPDATE_CHANNEL;
+
+  setupDesktopUpdater({
+    channel: UPDATE_CHANNEL,
+    getWindows: () => BrowserWindow.getAllWindows(),
+  });
 
   createMainWindow();
 

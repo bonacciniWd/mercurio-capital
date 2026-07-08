@@ -2,7 +2,7 @@
   "expo": {
     "name": "Mercurio Capital",
     "slug": "mercurio-capital",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "mercurio",
@@ -15,14 +15,21 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mercuriocapital.app"
+      "bundleIdentifier": "com.mercuriocapital.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F0F0F"
       },
-      "package": "com.mercuriocapital.app"
+      "package": "com.mercuriocapital.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro"
@@ -35,10 +42,24 @@
           "cameraPermission": "O Mercurio Capital precisa da câmera para capturar seus documentos."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "16.0"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9cc0b449-b952-417f-a1a0-0b2f6855027c"
+      }
     }
   }
 }

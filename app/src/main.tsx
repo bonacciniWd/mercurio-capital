@@ -7,6 +7,7 @@ import { router } from './router'
 import { AuthProvider } from '@/auth/AuthContext'
 import { queryClient } from '@/lib/queryClient'
 import { initObservability, Sentry } from '@/lib/observability'
+import { DesktopUpdateWidget } from '@/components/DesktopUpdateWidget'
 import './index.css'
 
 initObservability()
@@ -17,6 +18,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <RouterProvider router={router} />
+          <DesktopUpdateWidget />
         </AuthProvider>
         {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
       </QueryClientProvider>

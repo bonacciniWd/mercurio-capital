@@ -60,8 +60,11 @@
   },
   "publish": [
     {
-      "provider": "generic",
-      "url": "https://updates.example.com/mercurio-capital",
+      "provider": "github",
+      "owner": "bonacciniWd",
+      "repo": "mercurio-capital",
+      "private": false,
+      "releaseType": "release",
       "channel": "stable"
     }
   ],

@@ -79,7 +79,7 @@ opera em **modo dev** (registra a mensagem mas não envia).
    A Meta revisa esse nome (regras de marca). Ele aparece para o cliente.
 4. Preencha o **perfil comercial** (logo, descrição, site, endereço).
 
-Anote dois identificadores que aparecem nesta tela:
+Anote dois identificadores que aparecem nesta tela: 
 - **Phone Number ID** (ID do número de telefone) → vira `WHATSAPP_PHONE_NUMBER_ID` (exemplo fictício: `123456789012345`).
 - **WhatsApp Business Account ID** (ID da WABA) → vira `WHATSAPP_BUSINESS_ACCOUNT_ID` (exemplo fictício: `109876543210987`).
 

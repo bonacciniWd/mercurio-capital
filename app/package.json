@@ -47,7 +47,8 @@
     "react-router-dom": "^6.26.2",
     "recharts": "^2.13.3",
     "tailwind-merge": "^2.5.4",
-    "tesseract.js": "^7.0.0"
+    "tesseract.js": "^7.0.0",
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "@tanstack/react-query-devtools": "^5.59.20",

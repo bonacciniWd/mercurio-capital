@@ -1,10 +1,10 @@
 # Mercurio Capital — Mobile
 
-App nativo (iOS + Android) construído com **Expo SDK 52** + **Expo Router** + **NativeWind v4**.
+App nativo (iOS + Android) construído com **Expo SDK 54** + **Expo Router** + **NativeWind v4**.
 
 ## Stack
 
-- **Expo** SDK 52 (managed workflow)
+- **Expo** SDK 54 (managed workflow)
 - **Expo Router 4** (navegação file-based, igual Next.js)
 - **NativeWind 4** (Tailwind classes em RN)
 - **TypeScript** strict
@@ -42,6 +42,29 @@ No CI/CD (GitHub Actions/EAS Build), espelhe a mesma variavel:
 - `EXPO_PUBLIC_APP_URL=https://mercuriocapitalsa.com.br`
 
 Sem esse espelhamento, builds de pipeline podem gerar links com fallback local diferente do ambiente alvo.
+
+### Build iOS 0.0.2 para TestFlight (fluxo operacional)
+
+Fluxo usado para release iOS com EAS:
+
+```bash
+cd mobile
+npm install
+npm run typecheck
+npx expo config --type public
+npx eas build -p ios --profile production
+# submit pode ser feito via EAS Submit ou Apple Transporter
+```
+
+Submissao realizada no ciclo `0.0.2`: **Apple Transporter**.
+
+Observacoes:
+
+- O profile `production` fica em `mobile/eas.json` para build (`distribution: store`, `autoIncrement: true`).
+- O envio para TestFlight pode ser feito por `npx eas submit -p ios --profile production --latest` ou por Apple Transporter.
+- O app usa `expo-build-properties` com `ios.deploymentTarget: "16.0"` para compatibilidade com pods nativos no EAS Build.
+- O bundle identifier iOS permanece `com.mercuriocapital.app`.
+- Se login/credencial Apple, EAS ou Transporter falhar, o processo para e a publicacao nao deve ser considerada concluida.
 
 ## Estrutura
 
@@ -95,7 +118,7 @@ mobile/
 ## Próximos passos
 
 1. Adicionar imagens reais em `assets/` (icon.png 1024×1024, splash.png, adaptive-icon.png)
-2. Configurar EAS Build (`eas.json`) para builds iOS/Android
+2. Executar release iOS no TestFlight com build EAS e envio por EAS Submit ou Apple Transporter
 3. Conectar com API Supabase (Sprint M2 do roadmap)
 4. Implementar `expo-camera` real na tela `camera.tsx`
 5. Integrar push notifications (Expo Notifications + FCM/APNs)
