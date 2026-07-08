@@ -187,15 +187,17 @@ jobs:
           security create-keychain -p "$temp_keychain_password" "$temp_keychain" >/dev/null
           security unlock-keychain -p "$temp_keychain_password" "$temp_keychain" >/dev/null
           security set-keychain-settings -lut 21600 "$temp_keychain" >/dev/null
+          security list-keychains -d user -s "$temp_keychain" >/dev/null
+          security default-keychain -d user -s "$temp_keychain" >/dev/null
 
           if ! security import "$cert_file" -k "$temp_keychain" -P "$APPLE_SIGNING_CERT_PASSWORD" -f pkcs12 -A >/dev/null 2>&1; then
             echo "APPLE_SIGNING_CERT_PASSWORD cannot open APPLE_SIGNING_CERT_BASE64 (.p12)"
             exit 1
           fi
 
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$temp_keychain_password" "$temp_keychain" >/dev/null 2>&1 || true
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$temp_keychain_password" "$temp_keychain" >/dev/null
 
-          dmg_signing_identity="$(security find-identity -v -p codesigning "$temp_keychain" | awk -F '"' '/Developer ID Application/ {print $2; exit}')"
+          dmg_signing_identity="$(security find-identity -v -p codesigning "$temp_keychain" | awk '/Developer ID Application/ {print $2; exit}')"
           if [ -z "$dmg_signing_identity" ]; then
             echo "Developer ID Application identity not found in temporary keychain for DMG signing"
             exit 1
