@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Building2, Bell, Shield, Globe, Users, Database, Save, Plus, Trash2, TrendingUp } from 'lucide-react'
+import { Building2, Bell, Shield, Globe, Users, Save, TrendingUp, CheckCircle2, XCircle, Upload, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/Badge'
 import { TwoFactorManager } from '@/components/TwoFactorManager'
 import { supabase } from '@/lib/supabase'
@@ -10,7 +10,6 @@ const TABS = [
   { id: 'seguranca', icon: Shield, label: 'Segurança' },
   { id: 'notificacoes', icon: Bell, label: 'Notificações' },
   { id: 'dominio', icon: Globe, label: 'Domínio & marca' },
-  { id: 'backup', icon: Database, label: 'Backup' },
   { id: 'metas', icon: TrendingUp, label: 'Metas' },
 ]
 
@@ -26,11 +25,15 @@ export function AdminConfiguracoes() {
       <div className="grid gap-5 lg:grid-cols-[240px_1fr]">
         <aside className="card h-fit p-2">
           {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition ${
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`btn-no-liquid flex w-full items-center justify-start gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition ${
                 tab === t.id ? 'bg-gold/10 text-gold-700' : 'text-silver-700 hover:bg-silver-50'
-              }`}>
-              <t.icon className="h-4 w-4" />{t.label}
+              }`}
+            >
+              <t.icon className="h-4 w-4" />
+              {t.label}
             </button>
           ))}
         </aside>
@@ -41,7 +44,6 @@ export function AdminConfiguracoes() {
           {tab === 'seguranca' && <SegurancaTab />}
           {tab === 'notificacoes' && <NotificacoesTab />}
           {tab === 'dominio' && <DominioTab />}
-          {tab === 'backup' && <BackupTab />}
           {tab === 'metas' && <MetasTab />}
         </div>
       </div>
@@ -109,34 +111,121 @@ function EmpresaTab() {
   )
 }
 
+type AdminUserRow = {
+  id: string
+  nome_completo: string
+  email: string
+  ativo: boolean
+  ultimo_login_at: string | null
+  created_at: string
+}
+
+function formatRelative(iso: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  const diff = Date.now() - d.getTime()
+  if (diff < 0) return d.toLocaleString('pt-BR')
+  const min = Math.floor(diff / 60_000)
+  if (min < 1) return 'agora'
+  if (min < 60) return `há ${min} min`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `há ${h}h`
+  const dias = Math.floor(h / 24)
+  if (dias === 1) return 'ontem'
+  if (dias < 30) return `há ${dias} dias`
+  return d.toLocaleDateString('pt-BR')
+}
+
 function UsuariosTab() {
-  const users = [
-    { nome: 'Admin Master', email: 'admin@mercurio.com', role: 'Super Admin', last: 'agora' },
-    { nome: 'Mariana Costa', email: 'mariana@mercurio.com', role: 'Admin', last: 'há 1h' },
-    { nome: 'Roberto S.', email: 'roberto@mercurio.com', role: 'Analista', last: 'há 2 dias' },
-    { nome: 'Juliana M.', email: 'juliana@mercurio.com', role: 'Operação', last: 'ontem' },
-  ]
+  const [users, setUsers] = useState<AdminUserRow[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  async function load() {
+    setError(null)
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('id, nome_completo, email, ativo, ultimo_login_at, created_at')
+      .eq('role', 'admin')
+      .order('created_at', { ascending: true })
+    if (error) {
+      setError(error.message)
+      setUsers([])
+    } else {
+      setUsers((data ?? []) as AdminUserRow[])
+    }
+  }
+
+  useEffect(() => { void load() }, [])
+
+  async function toggleAtivo(u: AdminUserRow) {
+    setBusyId(u.id)
+    const { error } = await supabase
+      .from('usuarios')
+      .update({ ativo: !u.ativo })
+      .eq('id', u.id)
+    setBusyId(null)
+    if (error) { setError(error.message); return }
+    setUsers(list => (list ?? []).map(x => x.id === u.id ? { ...x, ativo: !x.ativo } : x))
+  }
+
   return (
     <>
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-5">
         <h2 className="font-semibold text-navy">Usuários internos</h2>
-        <button className="btn-gold"><Plus className="h-4 w-4" /> Adicionar usuário</button>
+        <p className="text-xs text-silver-500">
+          Administradores da plataforma (role <code className="font-mono">admin</code>). O cadastro é feito diretamente no banco via SQL.
+        </p>
       </div>
-      <table className="w-full text-sm">
-        <thead className="bg-silver-50 text-left text-xs uppercase text-silver-500">
-          <tr><th className="px-4 py-3">Nome</th><th className="px-4 py-3">Permissão</th><th className="px-4 py-3">Último acesso</th><th className="px-4 py-3"></th></tr>
-        </thead>
-        <tbody>
-          {users.map(u => (
-            <tr key={u.email} className="border-t border-silver-100">
-              <td className="px-4 py-3"><p className="font-medium">{u.nome}</p><p className="text-xs text-silver-500">{u.email}</p></td>
-              <td className="px-4 py-3"><Badge variant={u.role === 'Super Admin' ? 'navy' : 'gray'}>{u.role}</Badge></td>
-              <td className="px-4 py-3 text-silver-600">{u.last}</td>
-              <td className="px-4 py-3"><button className="rounded-md p-1.5 hover:bg-danger/10"><Trash2 className="h-4 w-4 text-danger" /></button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+
+      {error && (
+        <div className="mb-4 rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger">{error}</div>
+      )}
+
+      {users === null ? (
+        <div className="py-10 text-center text-sm text-silver-500">Carregando…</div>
+      ) : users.length === 0 ? (
+        <div className="py-10 text-center text-sm text-silver-500">Nenhum administrador encontrado.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-silver-50 text-left text-xs uppercase text-silver-500">
+              <tr>
+                <th className="px-4 py-3">Nome</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Último acesso</th>
+                <th className="px-4 py-3 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id} className="border-t border-silver-100">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-silver-900">{u.nome_completo}</p>
+                    <p className="text-xs text-silver-500">{u.email}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant={u.ativo ? 'green' : 'gray'}>{u.ativo ? 'Ativo' : 'Inativo'}</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-silver-600">{formatRelative(u.ultimo_login_at)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => void toggleAtivo(u)}
+                      disabled={busyId === u.id}
+                      className="btn-no-liquid inline-flex items-center gap-1 rounded-md border border-silver-300 bg-white px-2.5 py-1 text-xs font-medium text-silver-700 hover:bg-silver-50 disabled:opacity-50"
+                      title={u.ativo ? 'Desativar acesso' : 'Reativar acesso'}
+                    >
+                      {u.ativo
+                        ? <><XCircle className="h-3.5 w-3.5 text-danger" /> Desativar</>
+                        : <><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Reativar</>}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </>
   )
 }
@@ -293,84 +382,300 @@ function SegurancaTab() {
   )
 }
 
+type Canal = 'email' | 'whatsapp' | 'push'
+type NotifPrefs = Record<string, Record<Canal, boolean>>
+
+const NOTIF_EVENTS: { key: string; label: string; defaults: Record<Canal, boolean> }[] = [
+  { key: 'parceiro_novo',        label: 'Novo parceiro cadastrado',    defaults: { email: true,  whatsapp: false, push: true  } },
+  { key: 'wallet_saldo_baixo',   label: 'Saldo de carteira < R$ 50',   defaults: { email: true,  whatsapp: false, push: true  } },
+  { key: 'proposta_parada_7d',   label: 'Proposta parada > 7 dias',    defaults: { email: true,  whatsapp: false, push: true  } },
+  { key: 'integracao_erro',      label: 'Erro em integração externa',  defaults: { email: true,  whatsapp: false, push: true  } },
+  { key: 'webhook_falha',        label: 'Falha de webhook',            defaults: { email: true,  whatsapp: false, push: true  } },
+  { key: 'auditoria_critica',    label: 'Nova auditoria crítica',      defaults: { email: true,  whatsapp: false, push: true  } },
+]
+
+function defaultPrefs(): NotifPrefs {
+  const out: NotifPrefs = {}
+  for (const e of NOTIF_EVENTS) out[e.key] = { ...e.defaults }
+  return out
+}
+
 function NotificacoesTab() {
-  const events = [
-    'Novo parceiro cadastrado', 'Saldo de carteira < R$ 50', 'Proposta parada > 7 dias',
-    'Erro em integração externa', 'Falha de webhook', 'Nova auditoria crítica',
-  ]
+  const [prefs, setPrefs] = useState<NotifPrefs | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  useEffect(() => {
+    supabase
+      .from('configuracoes_sistema')
+      .select('valor')
+      .eq('chave', 'notificacoes_admin')
+      .maybeSingle()
+      .then(({ data }) => {
+        const base = defaultPrefs()
+        const stored = (data?.valor ?? null) as NotifPrefs | null
+        if (stored) {
+          for (const k of Object.keys(base)) {
+            if (stored[k]) base[k] = { ...base[k], ...stored[k] }
+          }
+        }
+        setPrefs(base)
+      })
+  }, [])
+
+  function toggle(evKey: string, canal: Canal) {
+    setPrefs(p => p && ({ ...p, [evKey]: { ...p[evKey], [canal]: !p[evKey][canal] } }))
+    setMsg(null)
+  }
+
+  async function handleSave() {
+    if (!prefs) return
+    setSaving(true)
+    const { error } = await supabase
+      .from('configuracoes_sistema')
+      .upsert({ chave: 'notificacoes_admin', valor: prefs }, { onConflict: 'chave' })
+    setSaving(false)
+    if (error) setMsg({ ok: false, text: error.message })
+    else {
+      setMsg({ ok: true, text: 'Preferências salvas.' })
+      setTimeout(() => setMsg(null), 3000)
+    }
+  }
+
+  if (!prefs) return <div className="py-10 text-center text-sm text-silver-500">Carregando…</div>
+
   return (
     <>
-      <h2 className="mb-5 font-semibold text-navy">Preferências de notificação</h2>
-      <table className="w-full text-sm">
-        <thead className="text-left text-xs uppercase text-silver-500">
-          <tr><th className="py-2">Evento</th><th className="py-2 text-center">E-mail</th><th className="py-2 text-center">WhatsApp</th><th className="py-2 text-center">Push</th></tr>
-        </thead>
-        <tbody>
-          {events.map(e => (
-            <tr key={e} className="border-t border-silver-100">
-              <td className="py-3 text-silver-800">{e}</td>
-              <td className="py-3 text-center"><input type="checkbox" defaultChecked className="h-4 w-4 accent-gold" /></td>
-              <td className="py-3 text-center"><input type="checkbox" className="h-4 w-4 accent-gold" /></td>
-              <td className="py-3 text-center"><input type="checkbox" defaultChecked className="h-4 w-4 accent-gold" /></td>
+      <h2 className="mb-1 font-semibold text-navy">Preferências de notificação</h2>
+      <p className="mb-5 text-sm text-silver-500">Aplicadas às notificações administrativas da plataforma.</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-left text-xs uppercase text-silver-500">
+            <tr>
+              <th className="py-2">Evento</th>
+              <th className="py-2 text-center">E-mail</th>
+              <th className="py-2 text-center">WhatsApp</th>
+              <th className="py-2 text-center">Push</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {NOTIF_EVENTS.map(ev => (
+              <tr key={ev.key} className="border-t border-silver-100">
+                <td className="py-3 text-silver-800">{ev.label}</td>
+                {(['email', 'whatsapp', 'push'] as Canal[]).map(c => (
+                  <td key={c} className="py-3 text-center">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-gold"
+                      checked={prefs[ev.key][c]}
+                      onChange={() => toggle(ev.key, c)}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {msg && <p className={`mt-4 text-sm font-medium ${msg.ok ? 'text-success' : 'text-danger'}`}>{msg.text}</p>}
+      <div className="mt-6 flex justify-end">
+        <button className="btn-gold" onClick={handleSave} disabled={saving}>
+          <Save className="h-4 w-4" /> {saving ? 'Salvando…' : 'Salvar preferências'}
+        </button>
+      </div>
     </>
   )
 }
 
+type DominioMarca = {
+  dominio: string
+  status_cname: string
+  cor_primaria: string
+  cor_destaque: string
+  logo_url: string
+  logo_path: string
+}
+
+const DOMINIO_DEFAULT: DominioMarca = {
+  dominio: 'mercuriocapitalsa.com.br',
+  status_cname: 'status.mercuriocapitalsa.com.br',
+  cor_primaria: '#0A2B4E',
+  cor_destaque: '#D4AF37',
+  logo_url: '',
+  logo_path: '',
+}
+
+const LOGO_BUCKET = 'milestone-images'
+const LOGO_PREFIX = 'platform-logo'
+const LOGO_MAX_BYTES = 2 * 1024 * 1024
+const LOGO_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']
+
 function DominioTab() {
+  const [form, setForm] = useState<DominioMarca | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  useEffect(() => {
+    supabase
+      .from('configuracoes_sistema')
+      .select('valor')
+      .eq('chave', 'dominio_marca')
+      .maybeSingle()
+      .then(({ data }) => {
+        const v = (data?.valor ?? null) as Partial<DominioMarca> | null
+        setForm({ ...DOMINIO_DEFAULT, ...(v ?? {}) })
+      })
+  }, [])
+
+  function set<K extends keyof DominioMarca>(k: K, val: DominioMarca[K]) {
+    setForm(f => f && ({ ...f, [k]: val }))
+    setMsg(null)
+  }
+
+  async function persist(next: DominioMarca) {
+    const { error } = await supabase
+      .from('configuracoes_sistema')
+      .upsert({ chave: 'dominio_marca', valor: next }, { onConflict: 'chave' })
+    return error
+  }
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permite reenviar mesmo arquivo
+    if (!file || !form) return
+    if (!LOGO_MIMES.includes(file.type)) {
+      setMsg({ ok: false, text: 'Formato inválido. Use PNG, JPEG, WEBP ou SVG.' })
+      return
+    }
+    if (file.size > LOGO_MAX_BYTES) {
+      setMsg({ ok: false, text: 'Arquivo maior que 2 MB.' })
+      return
+    }
+    setUploading(true)
+    setMsg(null)
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
+    const path = `${LOGO_PREFIX}/logo-${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage
+      .from(LOGO_BUCKET)
+      .upload(path, file, { upsert: true, contentType: file.type, cacheControl: '3600' })
+    if (upErr) {
+      setUploading(false)
+      setMsg({ ok: false, text: upErr.message })
+      return
+    }
+    // Remove logo anterior, se houver
+    if (form.logo_path && form.logo_path !== path) {
+      await supabase.storage.from(LOGO_BUCKET).remove([form.logo_path])
+    }
+    const { data: pub } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path)
+    const next: DominioMarca = { ...form, logo_url: pub.publicUrl, logo_path: path }
+    const err = await persist(next)
+    setUploading(false)
+    if (err) setMsg({ ok: false, text: err.message })
+    else {
+      setForm(next)
+      setMsg({ ok: true, text: 'Logo atualizado.' })
+      setTimeout(() => setMsg(null), 3000)
+    }
+  }
+
+  async function handleLogoRemove() {
+    if (!form || !form.logo_path) return
+    setUploading(true)
+    await supabase.storage.from(LOGO_BUCKET).remove([form.logo_path])
+    const next: DominioMarca = { ...form, logo_url: '', logo_path: '' }
+    const err = await persist(next)
+    setUploading(false)
+    if (err) setMsg({ ok: false, text: err.message })
+    else {
+      setForm(next)
+      setMsg({ ok: true, text: 'Logo removido.' })
+      setTimeout(() => setMsg(null), 3000)
+    }
+  }
+
+  async function handleSave() {
+    if (!form) return
+    setSaving(true)
+    const err = await persist(form)
+    setSaving(false)
+    if (err) setMsg({ ok: false, text: err.message })
+    else {
+      setMsg({ ok: true, text: 'Configurações de marca salvas.' })
+      setTimeout(() => setMsg(null), 3000)
+    }
+  }
+
+  if (!form) return <div className="py-10 text-center text-sm text-silver-500">Carregando…</div>
+
   return (
     <>
       <h2 className="mb-5 font-semibold text-navy">Domínio e identidade visual</h2>
       <div className="grid gap-4 md:grid-cols-2">
-        <div><label className="label">Domínio principal</label><input className="input" defaultValue="mercuriocapitalsa.com.br" /></div>
-        <div><label className="label">URL de status (CNAME)</label><input className="input" defaultValue="status.mercuriocapitalsa.com.br" /></div>
+        <div>
+          <label className="label">Domínio principal</label>
+          <input className="input" value={form.dominio} onChange={e => set('dominio', e.target.value)} />
+        </div>
+        <div>
+          <label className="label">URL de status (CNAME)</label>
+          <input className="input" value={form.status_cname} onChange={e => set('status_cname', e.target.value)} />
+        </div>
+
         <div className="md:col-span-2">
           <label className="label">Logo (light)</label>
-          <div className="rounded-lg border-2 border-dashed border-silver-300 p-8 text-center text-sm text-silver-500">Arraste o arquivo SVG/PNG ou clique para enviar</div>
+          <div className="flex flex-col gap-3 rounded-lg border-2 border-dashed border-silver-300 p-5 sm:flex-row sm:items-center">
+            <div className="flex h-20 w-32 shrink-0 items-center justify-center rounded-md border border-silver-200 bg-silver-50">
+              {form.logo_url
+                ? <img src={form.logo_url} alt="Logo atual" className="max-h-full max-w-full object-contain" />
+                : <span className="text-xs text-silver-400">sem logo</span>}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-silver-700">Envie a logo da plataforma</p>
+              <p className="text-xs text-silver-500">PNG, JPEG, WEBP ou SVG · máx. 2 MB</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <label className="btn-no-liquid inline-flex cursor-pointer items-center gap-2 rounded-lg border border-silver-300 bg-white px-3 py-2 text-sm font-medium text-silver-700 hover:bg-silver-50">
+                  <Upload className="h-4 w-4" />
+                  {uploading ? 'Enviando…' : (form.logo_url ? 'Substituir' : 'Selecionar arquivo')}
+                  <input
+                    type="file"
+                    accept={LOGO_MIMES.join(',')}
+                    className="hidden"
+                    onChange={handleLogoUpload}
+                    disabled={uploading}
+                  />
+                </label>
+                {form.logo_url && (
+                  <button
+                    type="button"
+                    onClick={() => void handleLogoRemove()}
+                    disabled={uploading}
+                    className="btn-no-liquid inline-flex items-center gap-2 rounded-lg border border-danger/30 bg-white px-3 py-2 text-sm font-medium text-danger hover:bg-danger/5 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-4 w-4" /> Remover
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-        <div><label className="label">Cor primária</label><input className="input" type="color" defaultValue="#0A2B4E" /></div>
-        <div><label className="label">Cor de destaque</label><input className="input" type="color" defaultValue="#D4AF37" /></div>
-      </div>
-      <div className="mt-6 flex justify-end"><button className="btn-gold"><Save className="h-4 w-4" /> Salvar</button></div>
-    </>
-  )
-}
 
-function BackupTab() {
-  return (
-    <>
-      <h2 className="mb-5 font-semibold text-navy">Backup e retenção</h2>
-      <div className="space-y-4">
-        <div className="rounded-lg bg-success/5 border border-success/30 p-4 text-sm">
-          <p className="font-semibold text-success">Último backup: hoje, 03:00</p>
-          <p className="text-silver-700">Tamanho: 2.4 GB · Duração: 4 min · Status: OK</p>
+        <div>
+          <label className="label">Cor primária</label>
+          <input className="input h-11 p-1" type="color" value={form.cor_primaria} onChange={e => set('cor_primaria', e.target.value)} />
         </div>
-        <Toggle label="Backup diário automático" desc="03:00 (UTC-3)" defaultChecked />
-        <Toggle label="Backup incremental a cada 6h" desc="Reduz janela de perda em caso de falha" defaultChecked />
-        <div><label className="label">Retenção (dias)</label><input className="input w-40" type="number" defaultValue={90} /></div>
-        <div><label className="label">Local de armazenamento</label><select className="input"><option>S3 (us-east-1)</option><option>S3 (sa-east-1)</option></select></div>
+        <div>
+          <label className="label">Cor de destaque</label>
+          <input className="input h-11 p-1" type="color" value={form.cor_destaque} onChange={e => set('cor_destaque', e.target.value)} />
+        </div>
       </div>
-      <div className="mt-6 flex justify-between">
-        <button className="btn-outline">Restaurar de backup</button>
-        <button className="btn-gold"><Save className="h-4 w-4" /> Salvar</button>
+      {msg && <p className={`mt-4 text-sm font-medium ${msg.ok ? 'text-success' : 'text-danger'}`}>{msg.text}</p>}
+      <div className="mt-6 flex justify-end">
+        <button className="btn-gold" onClick={handleSave} disabled={saving}>
+          <Save className="h-4 w-4" /> {saving ? 'Salvando…' : 'Salvar'}
+        </button>
       </div>
     </>
-  )
-}
-
-function Toggle({ label, desc, defaultChecked }: { label: string; desc: string; defaultChecked?: boolean }) {
-  return (
-    <label className="flex cursor-pointer items-center justify-between rounded-lg border border-silver-200 p-4">
-      <div>
-        <p className="text-sm font-semibold text-silver-900">{label}</p>
-        <p className="text-xs text-silver-500">{desc}</p>
-      </div>
-      <input type="checkbox" defaultChecked={defaultChecked} className="peer sr-only" />
-      <div className="peer h-6 w-11 rounded-full bg-silver-300 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white peer-checked:bg-success peer-checked:after:translate-x-5 relative" />
-    </label>
   )
 }
 
