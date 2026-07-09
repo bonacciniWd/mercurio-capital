@@ -58,7 +58,7 @@ export function AdminLayout() {
           <img src={logoSquare} alt="Mercurio Capital" className="h-full w-auto" />
         </div>
         {/* Navegação */}
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
+        <nav className="scrollbar-dark flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
           {ITEMS.map((it) => (
             <NavLink
               key={it.to}

@@ -155,3 +155,67 @@
     @apply block text-sm font-medium text-silver-700 mb-1.5;
   }
 }
+
+/* =============================================
+   Scrollbars — estilo elegante e discreto
+   ============================================= */
+@layer utilities {
+  /* Scrollbar padrão (light) — fina, cinza translúcido, aparece só no hover */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  *:hover,
+  *:focus-within {
+    scrollbar-color: rgba(15, 23, 42, 0.25) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+    transition: background-color 0.2s ease;
+  }
+  *:hover::-webkit-scrollbar-thumb,
+  *:focus-within::-webkit-scrollbar-thumb {
+    background-color: rgba(15, 23, 42, 0.28);
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(15, 23, 42, 0.5);
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Scrollbar em superfícies escuras (ex: sidebar admin) */
+  .scrollbar-dark {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+  }
+  .scrollbar-dark::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.14);
+  }
+  .scrollbar-dark:hover::-webkit-scrollbar-thumb,
+  .scrollbar-dark:focus-within::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.28);
+  }
+  .scrollbar-dark::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.45);
+  }
+
+  /* Utilitário para esconder totalmente a scrollbar mantendo a rolagem */
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}

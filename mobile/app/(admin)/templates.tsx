@@ -17,6 +17,7 @@ type Canal = 'in_app' | 'email' | 'whatsapp' | 'push'
 interface Template {
   id: string; codigo: string; canal: Canal; nome: string
   assunto: string | null; corpo: string; variaveis: string[]; ativo: boolean
+  wa_template_nome: string | null; wa_idioma: string | null
 }
 
 const CANAL_ICON: Record<Canal, any> = {
@@ -27,7 +28,7 @@ const CANAL_LBL: Record<Canal, string> = {
 }
 
 function emptyDraft(): Partial<Template> {
-  return { codigo: '', canal: 'in_app', nome: '', assunto: '', corpo: '', variaveis: [], ativo: true }
+  return { codigo: '', canal: 'in_app', nome: '', assunto: '', corpo: '', variaveis: [], ativo: true, wa_template_nome: null, wa_idioma: 'pt_BR' }
 }
 
 export default function Templates() {
@@ -53,6 +54,8 @@ export default function Templates() {
         p_codigo: t.codigo, p_canal: t.canal, p_nome: t.nome, p_corpo: t.corpo,
         p_id: t.id ?? null, p_assunto: t.assunto ?? null,
         p_variaveis: t.variaveis ?? [], p_ativo: t.ativo ?? true,
+        p_wa_template_nome: t.canal === 'whatsapp' ? (t.wa_template_nome?.trim() || null) : null,
+        p_wa_idioma: t.canal === 'whatsapp' ? (t.wa_idioma?.trim() || 'pt_BR') : 'pt_BR',
       })
       if (error) throw error
     },
@@ -196,6 +199,23 @@ export default function Templates() {
                   <TextInput value={editing.assunto ?? ''} onChangeText={v => setEditing(s => s ? { ...s, assunto: v } : s)}
                     placeholder="Use {{variaveis}} aqui" placeholderTextColor="#525252" style={s.input} />
                 </Field>
+              )}
+
+              {editing?.canal === 'whatsapp' && (
+                <>
+                  <Field label="Nome do template WhatsApp (Cloud API)">
+                    <TextInput value={editing.wa_template_nome ?? ''}
+                      onChangeText={v => setEditing(s => s ? { ...s, wa_template_nome: v } : s)}
+                      placeholder="ex.: convite_parceiro_v1" placeholderTextColor="#525252"
+                      style={[s.input, { fontFamily: 'monospace' }]} autoCapitalize="none" />
+                  </Field>
+                  <Field label="Idioma do template">
+                    <TextInput value={editing.wa_idioma ?? 'pt_BR'}
+                      onChangeText={v => setEditing(s => s ? { ...s, wa_idioma: v } : s)}
+                      placeholder="pt_BR" placeholderTextColor="#525252"
+                      style={s.input} autoCapitalize="none" />
+                  </Field>
+                </>
               )}
 
               <Field label="Corpo">
