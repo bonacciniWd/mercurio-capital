@@ -1,153 +1,138 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { toPng } from 'html-to-image'
+import { Download, MessageCircle, FilePlus2, Loader2 } from 'lucide-react'
+import {
+  SimuladorCredito,
+  calcularSimulacao,
+  type SimuladorCreditoValues,
+} from '@/components/SimuladorCredito'
+import { saveSimulacaoDraft, type SimulacaoDraft } from '@/lib/simulacaoDraft'
 import { brl } from '@/lib/utils'
-import { supabase } from '@/lib/supabase'
-import { Plus, Search, Loader2, ArrowRightCircle, FileText } from 'lucide-react'
 
-const PRODUTO_LABEL: Record<string, string> = {
+const PRODUTO_LABEL: Record<SimulacaoDraft['produto'], string> = {
   home_equity: 'Home Equity',
-  credito_construcao: 'Construção',
-  financiamento_imobiliario: 'Financiamento',
+  credito_construcao: 'Crédito Construção',
+  financiamento_imobiliario: 'Financiamento Imobiliário',
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  simulacao: 'Rascunho',
-  pre_analise: 'Pré-análise',
-  analise_credito: 'Análise crédito',
+const initialValues: SimulacaoDraft = {
+  produto: 'home_equity',
+  pessoa_tipo: 'PF',
+  valor_solicitado: 350_000,
+  valor_garantia: 850_000,
+  taxa_juros_mensal: 1.29,
+  prazo_meses: 120,
+  carencia_meses: 0,
+  correcao: 'pos_fixado',
+  amortizacao: 'price',
 }
-
-interface SimRow {
-  id: string
-  protocolo: string
-  produto: string
-  status: string
-  valor_solicitado: number
-  prazo_meses: number
-  created_at: string
-  cliente: { nome_completo: string; cpf: string | null } | null
-}
-
-// Status que ainda são "simulação" (não convertidas em proposta avançada)
-const STATUS_SIMULACAO = ['simulacao', 'pre_analise', 'analise_credito']
 
 export function PartnerSimulacoes() {
-  const [busca, setBusca] = useState('')
-  const [produtoFiltro, setProdutoFiltro] = useState('')
+  const navigate = useNavigate()
+  const resultRef = useRef<HTMLDivElement>(null)
+  const [values, setValues] = useState<SimulacaoDraft>(initialValues)
+  const [exporting, setExporting] = useState(false)
+  const result = useMemo(() => calcularSimulacao(values), [values])
+  const dataSimulacao = new Date().toLocaleDateString('pt-BR')
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['partner-simulacoes'],
-    queryFn: async (): Promise<SimRow[]> => {
-      const { data, error } = await supabase
-        .from('propostas')
-        .select('id, protocolo, produto, status, valor_solicitado, prazo_meses, created_at, cliente:clientes(nome_completo, cpf)')
-        .in('status', STATUS_SIMULACAO)
-        .order('created_at', { ascending: false })
-        .limit(200)
-      if (error) throw error
-      return (data || []) as unknown as SimRow[]
-    },
-  })
+  const patchFinancial = (patch: Partial<SimuladorCreditoValues>) => {
+    setValues(current => ({ ...current, ...patch }))
+  }
 
-  const rows = (data || []).filter(p => {
-    if (produtoFiltro && p.produto !== produtoFiltro) return false
-    if (busca) {
-      const q = busca.toLowerCase()
-      const nome = p.cliente?.nome_completo?.toLowerCase() ?? ''
-      const cpf = p.cliente?.cpf ?? ''
-      const prot = (p.protocolo ?? '').toLowerCase()
-      if (!nome.includes(q) && !cpf.includes(busca) && !prot.includes(q)) return false
+  async function exportImage() {
+    if (!resultRef.current) return
+    setExporting(true)
+    try {
+      const dataUrl = await toPng(resultRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+      })
+      const link = document.createElement('a')
+      link.download = `simulacao-mercurio-${new Date().toISOString().slice(0, 10)}.png`
+      link.href = dataUrl
+      link.click()
+    } finally {
+      setExporting(false)
     }
-    return true
-  })
+  }
+
+  function shareWhatsApp() {
+    const { calculo, ltv } = result
+    const text = [
+      'Simulação Mercurio Capital',
+      `Produto: ${PRODUTO_LABEL[values.produto]} (${values.pessoa_tipo})`,
+      `Crédito: ${brl(values.valor_solicitado * 100)}`,
+      `Garantia: ${brl(values.valor_garantia * 100)}`,
+      `LTV: ${(ltv * 100).toFixed(1)}%`,
+      `Prazo: ${values.prazo_meses} meses`,
+      `Taxa: ${values.taxa_juros_mensal.toFixed(2).replace('.', ',')}% a.m.`,
+      `1ª parcela: ${brl(calculo.primeiraParcela * 100)}`,
+      `Última parcela: ${brl(calculo.ultimaParcela * 100)}`,
+      `Renda mínima: ${brl(calculo.rendaMinima * 100)}/mês`,
+    ].join('\n')
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
+  }
+
+  function convertToProposal() {
+    saveSimulacaoDraft(values)
+    navigate('/p/propostas/nova')
+  }
 
   return (
     <>
-      <div className="mb-6 flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-navy">Simulações</h1>
-          <p className="text-sm text-silver-600">Propostas em rascunho e pré-análise.</p>
-        </div>
-        <Link to="/p/propostas/nova" className="btn-gold inline-flex items-center gap-1">
-          <Plus className="h-4 w-4" /> Nova proposta
-        </Link>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-navy">Simulador</h1>
+        <p className="text-sm text-silver-600">Monte uma condição comercial e converta em proposta.</p>
       </div>
 
-      <div className="card mb-4 flex flex-wrap gap-3 p-4">
-        <div className="relative min-w-[220px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-silver-400" />
-          <input
-            className="input pl-9"
-            placeholder="Buscar por cliente, CPF ou protocolo"
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-          />
-        </div>
-        <select
-          className="input w-auto"
-          value={produtoFiltro}
-          onChange={e => setProdutoFiltro(e.target.value)}
-        >
-          <option value="">Todos os produtos</option>
-          <option value="home_equity">Home Equity</option>
-          <option value="credito_construcao">Construção</option>
-          <option value="financiamento_imobiliario">Financiamento</option>
-        </select>
-      </div>
-
-      <div className="card overflow-x-auto">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-silver-400" />
+      <div className="card p-5">
+        <div className="mb-5 grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="label">Produto</label>
+            <select className="input" value={values.produto} onChange={event => setValues(current => ({ ...current, produto: event.target.value as SimulacaoDraft['produto'] }))}>
+              {Object.entries(PRODUTO_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
           </div>
-        ) : error ? (
-          <p className="py-10 text-center text-sm text-danger">Erro ao carregar simulações.</p>
-        ) : rows.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-16 text-silver-400">
-            <FileText className="h-10 w-10" />
-            <p className="text-sm">Nenhuma simulação encontrada.</p>
-            <Link to="/p/propostas/nova" className="btn-gold mt-2 inline-flex items-center gap-1 text-sm">
-              <Plus className="h-4 w-4" /> Criar primeira proposta
-            </Link>
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-silver-50 text-left text-xs uppercase text-silver-500">
-              <tr>
-                {['Protocolo', 'Cliente', 'Produto', 'Crédito', 'Prazo', 'Status', 'Data', 'Ações'].map(h => (
-                  <th key={h} className="whitespace-nowrap px-4 py-3">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(s => (
-                <tr key={s.id} className="border-t border-silver-100 hover:bg-silver-50">
-                  <td className="px-4 py-3 font-mono text-xs text-silver-500">{s.protocolo}</td>
-                  <td className="px-4 py-3 font-medium text-navy">{s.cliente?.nome_completo ?? '—'}</td>
-                  <td className="px-4 py-3 text-silver-700">{PRODUTO_LABEL[s.produto] ?? s.produto}</td>
-                  <td className="px-4 py-3 font-medium">{brl(s.valor_solicitado * 100)}</td>
-                  <td className="px-4 py-3 text-silver-600">{s.prazo_meses}m</td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex rounded-full bg-silver-100 px-2.5 py-0.5 text-xs font-medium text-silver-600">
-                      {STATUS_LABEL[s.status] ?? s.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-silver-500">
-                    {new Date(s.created_at).toLocaleDateString('pt-BR')}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link
-                      to={`/p/propostas/${s.id}`}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-gold hover:underline"
-                    >
-                      <ArrowRightCircle className="h-3.5 w-3.5" /> Abrir
-                    </Link>
-                  </td>
-                </tr>
+          <div>
+            <label className="label">Tipo de pessoa</label>
+            <div className="inline-flex rounded-md border border-silver-200 p-1">
+              {(['PF', 'PJ'] as const).map(tipo => (
+                <button key={tipo} type="button" onClick={() => setValues(current => ({ ...current, pessoa_tipo: tipo }))} className={`rounded btn-no-liquid px-5 py-2 text-sm font-medium ${values.pessoa_tipo === tipo ? 'bg-red-600 text-white' : 'text-silver-600 hover:bg-silver-50'}`}>{tipo}</button>
               ))}
-            </tbody>
-          </table>
-        )}
+            </div>
+          </div>
+        </div>
+
+        <SimuladorCredito
+          values={values}
+          onChange={patchFinancial}
+          result={result}
+          resultRef={resultRef}
+          resultClassName="shadow-sm"
+          resultHeader={(
+            <div className="mb-5 border-b border-silver-200 pb-4">
+              <p className="text-sm font-bold text-navy">MERCURIO CAPITAL</p>
+              <p className="mt-1 text-lg font-semibold text-silver-900">{PRODUTO_LABEL[values.produto]}</p>
+              <p className="text-xs text-silver-500">{values.pessoa_tipo} · Simulação comercial</p>
+            </div>
+          )}
+          resultFooter={<p className="mt-5 border-t border-silver-200 pt-3 text-[11px] text-silver-500">Simulação em {dataSimulacao}. Condições sujeitas à análise e aprovação.</p>}
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <button type="button" className="btn-outline" onClick={() => void exportImage()} disabled={exporting}>
+          {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          {exporting ? 'Exportando…' : 'Exportar imagem'}
+        </button>
+        <button type="button" className="btn-outline" onClick={shareWhatsApp}>
+          <MessageCircle className="h-4 w-4" /> Compartilhar no WhatsApp
+        </button>
+        <button type="button" className="btn-gold" onClick={convertToProposal}>
+          <FilePlus2 className="h-4 w-4" /> Converter em proposta
+        </button>
       </div>
     </>
   )

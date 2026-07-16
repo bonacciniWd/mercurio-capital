@@ -41,7 +41,9 @@ create type amortizacao_tipo as enum ('price','sac');
 create type proposta_status as enum (
   'simulacao','pre_analise','analise_credito','analise_imovel','analise_juridica',
   'comite','proposta_cliente','resolucao_pendencias','emissao_contrato',
-  'aguardando_assinatura','em_registro','contrato_registrado','recurso_liberado','cancelado'
+  'aguardando_assinatura','em_registro','contrato_registrado','recurso_liberado','cancelado',
+  'diligencia_juridica','protocolo_cartorio','exigencias_cartorio','custas_cartorio',
+  'registro_af','pagamento_comissao','completo'
 );
 create type estado_civil as enum ('solteiro','casado','divorciado','viuvo','uniao_estavel');
 create type documento_tipo as enum (
@@ -206,7 +208,7 @@ Pré-cadastro antes de virar proposta.
 | `amortizacao` | amortizacao_tipo default `price` |
 | `prazo_meses` | int check (between 12 and 240) |
 | `carencia_meses` | int default 0 check (between 0 and 3) |
-| `taxa_juros_mensal` | numeric(6,4) | default 1.39 (sobre IPCA) |
+| `taxa_juros_mensal` | numeric(6,4) | default 1.29 (sobre IPCA) |
 | `convertida_em_proposta_id` | uuid FK |
 | `created_at` / `updated_at` | timestamptz |
 
@@ -635,7 +637,9 @@ Chave/valor versionado para parâmetros como taxa padrão, prazo padrão, links 
 
 ## 12. Seeds iniciais
 
-- `configuracoes_sistema`: taxa default `1.39`, indexador `IPCA`, prazo padrão `120`.
+- `configuracoes_sistema`: taxa default `1.29`, indexador `IPCA`, prazo padrão `120`.
+
+Nota: o simulador rápido web não cria linha em `simulacoes`; usa estado local e `sessionStorage` somente durante a conversão para o wizard. A tabela permanece disponível para fluxos persistidos/legados.
 - `cursos`: "Guia do Parceiro" (gratuito).
 - `fluxos_evolution`: fluxo `cliente_status_changed`, `parceiro_proposta_atribuida`, `magic_link_cliente`.
 - `precos_consulta`: tabela inicial com preços por `tipo_consulta` (ver §13).

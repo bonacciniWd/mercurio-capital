@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Building2, Bell, Shield, Globe, Users, Save, TrendingUp, CheckCircle2, XCircle, Upload, Trash2 } from 'lucide-react'
+import { Building2, Bell, Shield, Globe, Users, Save, TrendingUp, CheckCircle2, XCircle, Upload, Trash2, MailCheck, Loader2, Copy, Check, AlertTriangle } from 'lucide-react'
 import { Badge } from '@/components/Badge'
 import { TwoFactorManager } from '@/components/TwoFactorManager'
 import { supabase } from '@/lib/supabase'
@@ -9,6 +9,7 @@ const TABS = [
   { id: 'usuarios', icon: Users, label: 'Usuários internos' },
   { id: 'seguranca', icon: Shield, label: 'Segurança' },
   { id: 'notificacoes', icon: Bell, label: 'Notificações' },
+  { id: 'teste-email', icon: MailCheck, label: 'Teste de e-mail' },
   { id: 'dominio', icon: Globe, label: 'Domínio & marca' },
   { id: 'metas', icon: TrendingUp, label: 'Metas' },
 ]
@@ -43,10 +44,206 @@ export function AdminConfiguracoes() {
           {tab === 'usuarios' && <UsuariosTab />}
           {tab === 'seguranca' && <SegurancaTab />}
           {tab === 'notificacoes' && <NotificacoesTab />}
+          {tab === 'teste-email' && <EmailTesteTab />}
           {tab === 'dominio' && <DominioTab />}
           {tab === 'metas' && <MetasTab />}
         </div>
       </div>
+    </>
+  )
+}
+
+type EquipeTesteEmail = {
+  equipe_id: string
+  partner_id: string
+  nome: string
+  parceiro_nome: string
+}
+
+type ConviteTesteResponse = {
+  convite_token?: string
+  email_status?: string
+  email_erro?: string
+  expires_in_min?: number
+}
+
+function EmailTesteTab() {
+  const [equipes, setEquipes] = useState<EquipeTesteEmail[]>([])
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [equipeId, setEquipeId] = useState('')
+  const [nome, setNome] = useState('Teste Operacional')
+  const [email, setEmail] = useState('')
+  const [result, setResult] = useState<{
+    ok: boolean
+    text: string
+    link?: string
+    emailStatus?: string
+  } | null>(null)
+
+  useEffect(() => {
+    async function loadEquipes() {
+      setLoading(true)
+      const [equipesRes, parceirosRes] = await Promise.all([
+        supabase
+          .from('v_admin_partner_equipes')
+          .select('equipe_id, partner_id, nome')
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('v_admin_partners')
+          .select('partner_id, nome')
+          .eq('status', 'approved'),
+      ])
+
+      if (equipesRes.error || parceirosRes.error) {
+        setResult({
+          ok: false,
+          text: equipesRes.error?.message ?? parceirosRes.error?.message ?? 'Falha ao carregar equipes.',
+        })
+        setLoading(false)
+        return
+      }
+
+      const nomes = new Map(
+        ((parceirosRes.data ?? []) as { partner_id: string; nome: string }[])
+          .map(parceiro => [parceiro.partner_id, parceiro.nome]),
+      )
+      const rows = ((equipesRes.data ?? []) as Omit<EquipeTesteEmail, 'parceiro_nome'>[])
+        .filter(equipe => nomes.has(equipe.partner_id))
+        .map(equipe => ({
+          ...equipe,
+          parceiro_nome: nomes.get(equipe.partner_id) ?? 'Parceiro',
+        }))
+
+      setEquipes(rows)
+      setEquipeId(current => current || rows[0]?.equipe_id || '')
+      setLoading(false)
+    }
+
+    void loadEquipes()
+  }, [])
+
+  async function handleSend() {
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!equipeId || !normalizedEmail || !normalizedEmail.includes('@')) {
+      setResult({ ok: false, text: 'Selecione uma equipe e informe um e-mail válido.' })
+      return
+    }
+
+    setSending(true)
+    setResult(null)
+    const { data, error } = await supabase.rpc('partner_invite_membro', {
+      p_equipe_id: equipeId,
+      p_email: normalizedEmail,
+      p_nome: nome.trim() || 'Teste Operacional',
+      p_papel_equipe: 'membro',
+      p_permissoes: {},
+    })
+    setSending(false)
+
+    if (error) {
+      setResult({ ok: false, text: error.message })
+      return
+    }
+
+    const payload = (data ?? {}) as ConviteTesteResponse
+    const link = payload.convite_token
+      ? `${window.location.origin}/convite/${payload.convite_token}`
+      : undefined
+    const enfileirado = payload.email_status === 'enfileirado'
+    setResult({
+      ok: enfileirado,
+      text: enfileirado
+        ? 'Convite criado e e-mail enfileirado. O dispatcher processará o item no próximo ciclo.'
+        : `Convite criado, mas o e-mail não foi enfileirado${payload.email_erro ? `: ${payload.email_erro}` : '.'}`,
+      link,
+      emailStatus: payload.email_status,
+    })
+  }
+
+  return (
+    <>
+      <div className="mb-5">
+        <h2 className="font-semibold text-navy">Teste controlado de convite por e-mail</h2>
+        <p className="mt-1 text-sm text-silver-500">
+          Cria um convite real de membro e o enfileira pelo fluxo oficial. Use somente um endereço de teste autorizado.
+        </p>
+      </div>
+
+      <div className="mb-5 flex items-start gap-2 rounded-md border border-gold/30 bg-gold/10 p-3 text-xs text-gold-700">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        Um novo teste invalida convites pendentes anteriores para o mesmo e-mail e equipe. O link expira em até 30 minutos.
+      </div>
+
+      {loading ? (
+        <div className="py-10 text-center text-sm text-silver-500">Carregando equipes…</div>
+      ) : equipes.length === 0 ? (
+        <div className="rounded-md border border-silver-200 p-4 text-sm text-silver-600">
+          Nenhuma equipe de parceiro aprovado está disponível para o teste.
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <label className="label">Equipe de destino</label>
+            <select className="input" value={equipeId} onChange={event => { setEquipeId(event.target.value); setResult(null) }}>
+              {equipes.map(equipe => (
+                <option key={equipe.equipe_id} value={equipe.equipe_id}>
+                  {equipe.parceiro_nome} · {equipe.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Nome do convidado</label>
+            <input className="input" value={nome} onChange={event => { setNome(event.target.value); setResult(null) }} />
+          </div>
+          <div>
+            <label className="label">E-mail de teste</label>
+            <input
+              className="input"
+              type="email"
+              placeholder="teste@dominio.com.br"
+              value={email}
+              onChange={event => { setEmail(event.target.value); setResult(null) }}
+            />
+          </div>
+        </div>
+      )}
+
+      {result && (
+        <div className={`mt-5 rounded-md border p-4 text-sm ${result.ok ? 'border-success/30 bg-success/5 text-success' : 'border-danger/30 bg-danger/5 text-danger'}`}>
+          <p className="font-medium">{result.text}</p>
+          {result.emailStatus && <p className="mt-1 text-xs">Status do enqueue: <code>{result.emailStatus}</code></p>}
+          {result.link && (
+            <div className="mt-3 flex items-center gap-2">
+              <input className="input flex-1 font-mono text-xs" readOnly value={result.link} />
+              <button
+                type="button"
+                className="btn-outline shrink-0"
+                title="Copiar link do convite"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(result.link ?? '')
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                }}
+              >
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? 'Copiado' : 'Copiar'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {equipes.length > 0 && (
+        <div className="mt-6 flex justify-end">
+          <button className="btn-gold" disabled={sending || !equipeId || !email.trim()} onClick={() => void handleSend()}>
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}
+            {sending ? 'Criando convite…' : 'Criar convite de teste'}
+          </button>
+        </div>
+      )}
     </>
   )
 }

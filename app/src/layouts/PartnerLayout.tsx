@@ -3,7 +3,7 @@ import { Logo } from '@/components/Logo'
 import { ElectricBannerCard } from '@/components/ElectricBannerCard'
 import {
   LayoutDashboard, Calculator, FileText, Users, Wallet, BarChart3, Coins,
-  GraduationCap, Settings, ChevronRight,
+  GraduationCap, Settings, ChevronRight, Columns3,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { NotificationBell } from '@/components/NotificationBell'
@@ -27,6 +27,7 @@ const ITEMS = [
   { to: '/p', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/p/simulacoes', icon: Calculator, label: 'Simulações' },
   { to: '/p/propostas', icon: FileText, label: 'Propostas' },
+  { to: '/p/kanban', icon: Columns3, label: 'Kanban' },
   { to: '/p/equipe', icon: Users, label: 'Equipe' },
   { to: '/p/carteira', icon: Wallet, label: 'Carteira' },
   { to: '/p/comissoes', icon: Coins, label: 'Comissões' },

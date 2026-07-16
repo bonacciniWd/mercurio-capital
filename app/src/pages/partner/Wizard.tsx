@@ -5,7 +5,9 @@ import { Building, Home as HomeIcon, Hammer, Check, Plus, Trash2, MapPin, Chevro
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
-import { parseRangeInteger } from '@/lib/range'
+import { MoneyInput } from '@/components/MoneyInput'
+import { SimuladorCredito, type SimuladorCreditoValues } from '@/components/SimuladorCredito'
+import { consumeSimulacaoDraft } from '@/lib/simulacaoDraft'
 
 const STEPS = ['Produto', 'Cliente', 'Localização', 'Valores', 'Proponentes', 'Imóveis', 'Revisão']
 const PRAZO_MIN_MESES = 12
@@ -75,7 +77,7 @@ const initialState: FormState = {
   valor_solicitado: 350_000,
   prazo_meses: 120,
   carencia_meses: 0,
-  taxa_juros_mensal: 1.39,
+  taxa_juros_mensal: 1.29,
   correcao: 'pos_fixado',
   amortizacao: 'price',
   proponentes: [{ nome: '', cpf_cnpj: '', principal: true, relacao: '', estado_civil: '' }],
@@ -108,7 +110,23 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
   const navigate = useNavigate()
   const isAdminMode = mode === 'admin'
   const [step, setStep] = useState(0)
-  const [form, setForm] = useState<FormState>(initialState)
+  const [form, setForm] = useState<FormState>(() => {
+    if (isAdminMode) return initialState
+    const draft = consumeSimulacaoDraft()
+    if (!draft) return initialState
+    return {
+      ...initialState,
+      produto: draft.produto,
+      pessoa_tipo: draft.pessoa_tipo,
+      valor_solicitado: draft.valor_solicitado,
+      prazo_meses: draft.prazo_meses,
+      carencia_meses: draft.carencia_meses,
+      taxa_juros_mensal: draft.taxa_juros_mensal,
+      correcao: draft.correcao,
+      amortizacao: draft.amortizacao,
+      imoveis: [{ ...initialState.imoveis[0], valor: draft.valor_garantia }],
+    }
+  })
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<SubmitResult | null>(null)
   const [adminPartnerId, setAdminPartnerId] = useState('')
@@ -295,7 +313,7 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
         {step === 0 && <Step1 form={form} patch={patch} />}
         {step === 1 && <Step2 form={form} patchCliente={patchCliente} />}
         {step === 2 && <Step3 form={form} setForm={setForm} />}
-        {step === 3 && <Step4 form={form} patch={patch} calc={calc} ltv={ltv} valorImoveisTotal={valorImoveisTotal} />}
+        {step === 3 && <Step4 form={form} patch={patch} valorImoveisTotal={valorImoveisTotal} />}
         {step === 4 && <Step5 form={form} setForm={setForm} />}
         {step === 5 && <Step6 form={form} setForm={setForm} />}
         {step === 6 && <Step7 form={form} calc={calc} ltv={ltv} />}
@@ -600,101 +618,26 @@ function Step3({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
 }
 
 function Step4({
-  form, patch, calc, ltv, valorImoveisTotal,
+  form, patch, valorImoveisTotal,
 }: {
   form: FormState
   patch: (p: Partial<FormState>) => void
-  calc: ReturnType<typeof calcularFinanciamento>
-  ltv: number
   valorImoveisTotal: number
 }) {
-  const updatePrazo = (rawValue: string) => {
-    patch({
-      prazo_meses: parseRangeInteger(rawValue, form.prazo_meses, PRAZO_MIN_MESES, PRAZO_MAX_MESES),
-    })
+  const values: SimuladorCreditoValues = {
+    valor_solicitado: form.valor_solicitado,
+    valor_garantia: valorImoveisTotal,
+    taxa_juros_mensal: form.taxa_juros_mensal,
+    prazo_meses: form.prazo_meses,
+    carencia_meses: form.carencia_meses,
+    correcao: form.correcao,
+    amortizacao: form.amortizacao,
   }
-
-  const updateCarencia = (rawValue: string) => {
-    patch({
-      carencia_meses: parseRangeInteger(rawValue, form.carencia_meses, CARENCIA_MIN_MESES, CARENCIA_MAX_MESES),
-    })
-  }
-
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <div>
-        <h2 className="text-lg font-semibold text-navy">Valores e prazo</h2>
-        <div className="mt-5 space-y-4">
-          <NumberField label="Crédito desejado (R$)" value={form.valor_solicitado} onChange={v => patch({ valor_solicitado: v })} />
-          <NumberField label="Valor da garantia total (R$)" value={valorImoveisTotal} disabled hint="Atualize na etapa Imóveis" />
-          <NumberField label="Taxa juros mensal (%)" value={form.taxa_juros_mensal} onChange={v => patch({ taxa_juros_mensal: v })} step={0.01} />
-          <div>
-            <label className="label">Correção</label>
-            <div className="inline-flex gap-2">
-              {(['pos_fixado', 'pre_fixado'] as const).map(c => (
-                <button key={c} type="button" onClick={() => patch({ correcao: c })}
-                  className={`btn-no-liquid rounded-md border px-4 py-1.5 text-sm font-medium transition ${form.correcao === c ? 'border-red-600 bg-red-600 text-white' : 'border-silver-300 bg-silver-100 text-silver-600'}`}>
-                  {c === 'pos_fixado' ? 'Pós (IPCA)' : 'Pré-fixado'}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="label">Sistema de amortização</label>
-            <div className="inline-flex gap-2">
-              {(['price', 'sac'] as const).map(a => (
-                <button key={a} type="button" onClick={() => patch({ amortizacao: a })}
-                  className={`btn-no-liquid rounded-md border px-4 py-1.5 text-sm font-medium transition ${form.amortizacao === a ? 'border-red-600 bg-red-600 text-white' : 'border-silver-300 bg-silver-100 text-silver-600'}`}>
-                  {a.toUpperCase()}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="label">Prazo: {form.prazo_meses} meses</label>
-            <input
-              type="range"
-              min={PRAZO_MIN_MESES}
-              max={PRAZO_MAX_MESES}
-              step={1}
-              value={form.prazo_meses}
-              onChange={e => updatePrazo(e.currentTarget.value)}
-              onInput={e => updatePrazo(e.currentTarget.value)}
-              className="w-full accent-red-600"
-            />
-          </div>
-          <div>
-            <label className="label">Carência: {form.carencia_meses} meses</label>
-            <input
-              type="range"
-              min={CARENCIA_MIN_MESES}
-              max={CARENCIA_MAX_MESES}
-              step={1}
-              value={form.carencia_meses}
-              onChange={e => updateCarencia(e.currentTarget.value)}
-              onInput={e => updateCarencia(e.currentTarget.value)}
-              className="w-full accent-red-600"
-            />
-          </div>
-        </div>
-      </div>
-      <div className="rounded-lg border-2 border-red-600/40 bg-red-600/5 p-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-red-600">Simulação em tempo real</p>
-        <h3 className="mt-1 text-base font-semibold text-navy">Resultado</h3>
-        <dl className="mt-4 space-y-3 text-sm">
-          <Row k="LTV" v={
-            <span className={`badge ${ltv > 0.6 ? 'bg-danger/15 text-danger' : 'bg-success/15 text-success'}`}>
-              {(ltv * 100).toFixed(1)}%
-            </span>
-          } />
-          <Row k="1ª parcela" v={<b>{brl(calc.primeiraParcela * 100)}</b>} />
-          <Row k="Última parcela" v={<b>{brl(calc.ultimaParcela * 100)}</b>} />
-          <Row k="Total a pagar" v={<b>{brl(calc.totalPago * 100)}</b>} />
-          <Row k="Total de juros" v={brl(calc.totalJuros * 100)} />
-          <Row k="Renda mínima" v={<b>{brl(calc.rendaMinima * 100)}/mês</b>} />
-        </dl>
-      </div>
-    </div>
+    <>
+      <h2 className="mb-5 text-lg font-semibold text-navy">Valores e prazo</h2>
+      <SimuladorCredito values={values} garantiaEditavel={false} garantiaHint="Atualize na etapa Imóveis" onChange={next => patch(next as Partial<FormState>)} />
+    </>
   )
 }
 
@@ -969,32 +912,7 @@ function MoneyField({
   disabled?: boolean
   hint?: string
 }) {
-  const display = value > 0
-    ? new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
-    : ''
-  const handleChange = (raw: string) => {
-    const digits = raw.replace(/\D/g, '')
-    if (!digits) { onChange?.(0); return }
-    onChange?.(Number(digits) / 100)
-  }
-  return (
-    <div>
-      <label className="label">{label}</label>
-      <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-silver-500">R$</span>
-        <input
-          className="input pl-9"
-          type="text"
-          inputMode="numeric"
-          value={display}
-          disabled={disabled}
-          placeholder="0,00"
-          onChange={e => handleChange(e.target.value)}
-        />
-      </div>
-      {hint && <p className="mt-1 text-xs text-silver-500">{hint}</p>}
-    </div>
-  )
+  return <MoneyInput label={label} value={value} onChange={onChange} disabled={disabled} hint={hint} />
 }
 
 function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {

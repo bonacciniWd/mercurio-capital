@@ -4,7 +4,7 @@
  * Convenções:
  * - Valores monetários em reais (number, NÃO centavos) para facilitar cálculos.
  *   Conversão para centavos só ao persistir.
- * - Taxa de juros em decimal mensal (ex.: 0.0139 = 1,39% a.m.).
+ * - Taxa de juros em decimal mensal (ex.: 0.0129 = 1,29% a.m.).
  * - Carência: meses iniciais em que NÃO há amortização (só juros somam ao saldo).
  */
 

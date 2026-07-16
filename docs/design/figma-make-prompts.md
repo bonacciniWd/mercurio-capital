@@ -176,7 +176,7 @@ Right column (live simulation card, updates on input change):
   Card title "Simulação em tempo real"
   LTV: 41% (green if ≤ 60%, yellow if ≤ 70%, red if > 70%)
   Parcela estimada: R$ 4.230,00
-  Taxa efetiva: IPCA + 1,39% a.m.
+  Taxa efetiva: IPCA + 1,29% a.m.
   Total a pagar: R$ 507.600,00
   Relação renda necessária: R$ 14.100,00 / mês
   Small bar chart showing amortization curve Price vs SAC comparison.
@@ -212,7 +212,7 @@ Each added property shows as a summary card with edit/remove actions.
 ```
 Screen: Proposal wizard step 7 — Final review.
 Full summary in accordion sections, each expandable:
-  ▼ Produto: Home Equity · PF · R$ 350.000 · 120 meses · Price · IPCA+1,39%
+  ▼ Produto: Home Equity · PF · R$ 350.000 · 120 meses · Price · IPCA+1,29%
   ▼ Cliente: João Silva · CPF ***.***.***-12 · (11) 9xxxx-xxxx
   ▼ Localização: Rua das Flores, 123 · São Paulo/SP · 01310-100
   ▼ Valores: LTV 41% · Parcela R$ 4.230 · Renda mínima R$ 14.100
@@ -240,7 +240,7 @@ Layout: Sidebar + main content. Top of main: proposal title "Proposta #2024-0042
 Tab bar: Resumo | Proponentes | Imóveis | Documentos | Histórico | Kanban.
 Active tab: Resumo.
 Resumo tab content: 2-column grid of info cards.
-Left column: "Dados do Produto" card (Home Equity, PF, R$ 350.000 solicitado, 120 meses, Price, IPCA+1.39%), "Dados do Cliente" card (name, CPF partially hidden, email, phone).
+Left column: "Dados do Produto" card (Home Equity, PF, R$ 350.000 solicitado, 120 meses, Price, IPCA+1.29%), "Dados do Cliente" card (name, CPF partially hidden, email, phone).
 Right column: "Imóvel Garantia" card (address, R$ 850.000 valor, residential), "Simulação Financeira" card with small table (parcela R$ 4.230, LTV 41%, relação renda 28%).
 Bottom: action buttons "Solicitar Documentos" + "Avançar Status" (gold).
 ```

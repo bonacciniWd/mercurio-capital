@@ -40,7 +40,7 @@ const PRODUTO_LABEL: Record<string, string> = {
   financiamento_imobiliario: 'Financiamento Imobiliário',
 }
 
-const STATUS_FINAIS = new Set(['contrato_registrado', 'recurso_liberado', 'cancelado'])
+const STATUS_FINAIS = new Set(['contrato_registrado', 'completo', 'cancelado'])
 const STATUS_AGUARDANDO_CLIENTE = new Set(['proposta_cliente', 'resolucao_pendencias', 'aguardando_assinatura'])
 
 interface PropostaRow {

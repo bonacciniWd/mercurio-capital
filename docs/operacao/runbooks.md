@@ -122,6 +122,27 @@ select id, destinatario, status, ultimo_erro, metadata->>'evento' as evento, cre
 - Re-disparar dispatcher (cron / `supabase functions invoke email-dispatcher`).
 - Se convite de equipe voltar com `email_status='falha_enqueue'`, orientar fallback manual com o link de convite gerado na tela de Equipe (web/mobile).
 
+**Teste controlado pelo admin**:
+1. Acessar `/admin/configuracoes` e abrir **Teste de e-mail**.
+2. Selecionar uma equipe de parceiro aprovado e informar um endereço de teste autorizado.
+3. Clicar em **Criar convite de teste** e confirmar `email_status = enfileirado`.
+4. O teste usa `partner_invite_membro`: cria um convite real, invalida convite pendente anterior para o mesmo e-mail/equipe e mantém o link manual como fallback.
+5. Confirmar o item em `email_outbox`, executar o dispatcher e validar a mudança para `enviado`.
+
+**Agendamento recorrente recomendado (produção)**:
+```bash
+# Exemplo com cron externo (a cada 1 min)
+* * * * * curl -fsS -X POST \
+  'https://bhagksfvszeogtjvjtpx.supabase.co/functions/v1/email-dispatcher?limit=20' \
+  >/dev/null
+```
+
+Sem agendamento, os registros de `email_outbox` ficam em `pendente`.
+
+**Evidência operacional (2026-07-15)**:
+- `supabase secrets list --project-ref bhagksfvszeogtjvjtpx` retornou `RESEND_API_KEY` e `RESEND_FROM`.
+- `POST /functions/v1/email-dispatcher?limit=20` retornou `{"ok":true,"picked":0,"sent":0,"errors":0}`.
+
 ---
 
 ## 6. Incidente: parceiro reporta erro de saldo

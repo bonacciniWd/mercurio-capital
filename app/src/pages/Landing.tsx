@@ -193,7 +193,7 @@ export function Landing() {
                 <div className="mt-4 grid grid-cols-3 gap-3 text-center">
                   <div><p className="text-[10px] uppercase text-white/40">LTV</p><p className="text-sm font-bold">41%</p></div>
                   <div><p className="text-[10px] uppercase text-white/40">Prazo</p><p className="text-sm font-bold">120m</p></div>
-                  <div><p className="text-[10px] uppercase text-white/40">Taxa</p><p className="text-sm font-bold">1,39%</p></div>
+                  <div><p className="text-[10px] uppercase text-white/40">Taxa</p><p className="text-sm font-bold">1,29%</p></div>
                 </div>
               </motion.div>
 

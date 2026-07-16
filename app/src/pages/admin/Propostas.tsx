@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { KPICard } from '@/components/KPICard'
 import { calcularLTV } from '@/lib/credito'
+import { PROPOSTA_STATUS_LABEL } from '@/lib/propostaStatus'
 
 const PRODUTO_LABEL: Record<string, string> = {
   home_equity: 'Home Equity',
@@ -13,24 +14,7 @@ const PRODUTO_LABEL: Record<string, string> = {
   financiamento_imobiliario: 'Financiamento',
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  simulacao: 'Rascunho',
-  pre_analise: 'Pré-análise',
-  analise_credito: 'Análise de Crédito',
-  analise_imovel: 'Análise de Imóvel',
-  analise_juridica: 'Análise Jurídica',
-  comite: 'Comitê',
-  proposta_cliente: 'Proposta ao Cliente',
-  resolucao_pendencias: 'Resolução pendências',
-  emissao_contrato: 'Emissão de Contrato',
-  aguardando_assinatura: 'Aguardando Assinatura',
-  em_registro: 'Em Registro',
-  contrato_registrado: 'Contrato Registrado',
-  recurso_liberado: 'Recurso Liberado',
-  cancelado: 'Cancelada',
-}
-
-const STATUS_FINAIS = new Set(['contrato_registrado', 'recurso_liberado', 'cancelado'])
+const STATUS_FINAIS = new Set(['contrato_registrado', 'completo', 'cancelado'])
 
 type RpcRow = {
   id: string
@@ -171,7 +155,7 @@ export function AdminPropostas() {
         </div>
         <select className="input w-auto" value={statusF} onChange={(e) => setStatusF(e.target.value)}>
           <option value="all">Status: todos</option>
-          {Object.entries(STATUS_LABEL).map(([k, v]) => (
+          {Object.entries(PROPOSTA_STATUS_LABEL).map(([k, v]) => (
             <option key={k} value={k}>{v}</option>
           ))}
         </select>
@@ -227,7 +211,7 @@ export function AdminPropostas() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="rounded-full bg-silver-100 px-2 py-0.5 text-xs text-silver-700">
-                        {STATUS_LABEL[p.status] || p.status}
+                        {PROPOSTA_STATUS_LABEL[p.status] || p.status}
                       </span>
                     </td>
                     <td className={`px-4 py-3 text-right ${dias > 7 ? 'font-semibold text-danger' : 'text-silver-600'}`}>{dias}d</td>

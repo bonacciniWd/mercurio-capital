@@ -198,6 +198,7 @@ flowchart TB
   P2["/p/simulacoes"]:::par
   P2b["/p/simulacoes/nova"]:::par
   P3["/p/propostas"]:::par
+  PK["/p/kanban"]:::par
   P3b["/p/propostas/nova"]:::par
   P3c["/p/propostas/:id"]:::par
   P3d["tabs: proponentes, imoveis,<br/>documentos, historico, kanban"]:::par
@@ -530,10 +531,13 @@ sequenceDiagram
   EF->>SIG: cria envelope
   CL->>SIG: assina
   SIG-->>EF: webhook signed
-  EF->>DB: status=em_registro -> contrato_registrado
-  AD->>DB: status=recurso_liberado
+  EF->>DB: status=protocolo_cartorio
+  AD->>DB: exigencias_cartorio -> custas_cartorio -> registro_af
+  AD->>DB: recurso_liberado -> pagamento_comissao -> completo
   EF->>EVO: parabeniza ambos
 ```
+
+O fluxo anterior terminava em `contrato_registrado`/`recurso_liberado`. Os valores antigos permanecem no enum e são mapeados no Kanban; `completo` é o novo terminal positivo.
 
 ---
 
@@ -614,7 +618,7 @@ flowchart LR
 
   T1 --> R1[Tag PF/PJ]
   T1 --> R2[Cliente, valor solicitado, valor imoveis]
-  T1 --> R3[Prazo, juros 1.39%+IPCA, carencia]
+  T1 --> R3[Prazo, juros 1.29%+IPCA, carencia]
   T1 --> R4[Tabela Price calculada]
   T1 --> R5[Produto: Home Equity / Construcao / Financiamento]
   T1 --> R6[Dados vendedor se Financiamento]

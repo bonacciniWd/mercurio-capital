@@ -81,7 +81,7 @@ const INITIAL_FORM: WizardForm = {
   imovel_valor: 850000,
   prazo_meses: 120,
   carencia_meses: 0,
-  taxa_juros_mensal: 1.39,
+  taxa_juros_mensal: 1.29,
   correcao: 'pos_fixado',
   amortizacao: 'price',
 }

@@ -40,6 +40,7 @@
 - [x] Geração de protocolo + magic link cliente.
 - [x] Portal cliente: `/c`, `/c/propostas/:id`, magic-link preview público `/c/proposta/:token`.
 - [x] Calculadora Price/SAC (lib + 8 testes unitários).
+- [x] `/p/simulacoes` convertido em simulador comercial rápido: PNG, compartilhamento manual via WhatsApp e draft para pré-preencher o wizard (taxa padrão 1,29%).
 - [x] Upload de documentos pelo cliente (bucket `proposta-docs` + RLS + componente reutilizável; entregue no início da Fase 3).
 
 **Saída**: parceiro cria proposta, cliente recebe magic link, vê status, faz upload.

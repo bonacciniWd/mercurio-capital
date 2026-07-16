@@ -47,9 +47,10 @@
 |---|---|---|
 | `/p` | `PartnerHome` | partner, team_member |
 | `/p/dashboard` | `PartnerDashboard` | partner, team_member (escopo equipe) |
-| `/p/simulacoes` | `SimulacoesList` | partner, team_member |
-| `/p/simulacoes/nova` | `SimulacaoForm` | partner, team_member |
+| `/p/simulacoes` | `SimuladorCredito` rápido; exporta PNG, compartilha texto via `wa.me` e pré-preenche o wizard | partner, team_member |
+| `/p/simulacoes/nova` | legado documental; nova simulação ocorre em `/p/simulacoes` | partner, team_member |
 | `/p/propostas` | `PropostasList` | partner, team_member |
+| `/p/kanban` | `PartnerKanban` (escopo por partner/equipe; transições validadas no backend) | partner, team_member |
 | `/p/propostas/nova` | `PropostaWizard` | partner, team_member |
 | `/p/propostas/:id` | `PropostaDetail` | partner, team_member |
 | `/p/propostas/:id/proponentes` | `ProponentesTab` | partner, team_member |
@@ -111,7 +112,7 @@
 | `/admin/campanhas` | `CampanhasList` |
 | `/admin/campanhas/nova` | `CampanhaForm` |
 | `/admin/integracoes` | `IntegracoesConfig` (Bacen, Serasa, Jusbrasil, RI Digital, Evolution) |
-| `/admin/configuracoes` | `AdminSettings` |
+| `/admin/configuracoes` | `AdminSettings` (inclui teste controlado de convite por e-mail) |
 | `/admin/configuracoes/permissoes` | `PermissoesPapeis` |
 | `/admin/configuracoes/feature-flags` | `FeatureFlagsAdmin` |
 | `/admin/auditoria` | `AuditLogViewer` |

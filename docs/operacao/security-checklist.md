@@ -60,6 +60,8 @@ Checklist baseado em OWASP Top 10 (2021). Cada item deve ser executado antes de 
 
 - [x] Magic link via Supabase Auth.
 - [x] 2FA TOTP enrollment (`/p/two-factor`, admin obrigatório).
+- [x] Fonte de verdade do 2FA persistido: `auth.mfa_factors` (Supabase MFA nativo).
+- [x] Validação operacional de sessão com 2FA concluído: `public.app_has_verified_2fa()` via claim `aal2` (fallback legado em `public.sessoes_2fa`).
 - [x] Sessão refresh automatizado.
 - [ ] Rate-limit em endpoints de login/recover (Edge Function ou Cloudflare).
 - [ ] Política de senha mínima no Supabase Auth dashboard (≥ 10 chars + complexidade).

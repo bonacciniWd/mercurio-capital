@@ -349,11 +349,11 @@ export function AdminAprovacoes() {
                       key={d.id}
                       type="button"
                       onClick={() => openDoc(d.storage_path)}
-                      className="flex w-full items-center gap-3 rounded-lg border border-silver-200 p-3 text-left text-xs hover:border-gold hover:bg-gold/5"
+                      className="btn-no-liquid flex w-full items-center gap-3 rounded-none border border-silver-200 p-3 text-left text-xs hover:border-red-600 hover:bg-gold/5"
                     >
-                      <FileText className="h-5 w-5 text-silver-400" />
+                      <FileText className="h-5 w-5 text-red-400" />
                       <div className="flex-1">
-                        <p className="font-medium text-red-600">{d.tipo}</p>
+                        <p className="font-bold text-black">{d.tipo}</p>
                         <p className="text-silver-500">
                           {d.mime_type ?? '—'} · {d.tamanho_bytes ? Math.round(d.tamanho_bytes / 1024) + ' KB' : ''}
                         </p>

@@ -65,6 +65,8 @@ flowchart TB
   A3 --> A4
 ```
 
+`/p/simulacoes` é uma ferramenta local: parâmetros → cálculo Price/SAC → card exportável/`wa.me` → draft de sessão → `/p/propostas/nova`. Nenhum envio transacional ou linha de banco é criado antes da conclusão do wizard.
+
 ## 2. Jornada do parceiro (registro → originação)
 
 ```mermaid
@@ -107,28 +109,33 @@ sequenceDiagram
 stateDiagram-v2
   [*] --> Simulacao
   Simulacao --> PreAnalise: converter
-  PreAnalise --> AnaliseCredito
+  PreAnalise --> AnaliseJuridica
+  AnaliseJuridica --> AnaliseCredito
   AnaliseCredito --> AnaliseImovel
-  AnaliseImovel --> AnaliseJuridica
-  AnaliseJuridica --> Comite
+  AnaliseImovel --> Comite
   Comite --> PropostaCliente
-  PropostaCliente --> ResolucaoPendencias: pendências
-  ResolucaoPendencias --> EmissaoContrato
-  PropostaCliente --> EmissaoContrato: aprovada direto
+  PropostaCliente --> DiligenciaJuridica
+  DiligenciaJuridica --> EmissaoContrato
   EmissaoContrato --> AguardandoAssinatura
-  AguardandoAssinatura --> EmRegistro: assinado
-  EmRegistro --> ContratoRegistrado
-  ContratoRegistrado --> RecursoLiberado
-  RecursoLiberado --> [*]
+  AguardandoAssinatura --> ProtocoloCartorio: assinado
+  ProtocoloCartorio --> ExigenciasCartorio
+  ExigenciasCartorio --> CustasCartorio
+  CustasCartorio --> RegistroAF
+  RegistroAF --> RecursoLiberado
+  RecursoLiberado --> PagamentoComissao
+  PagamentoComissao --> Completo
+  Completo --> [*]
   PreAnalise --> Cancelado
   AnaliseCredito --> Cancelado
   AnaliseImovel --> Cancelado
   AnaliseJuridica --> Cancelado
   Comite --> Cancelado
   PropostaCliente --> Cancelado
-  ResolucaoPendencias --> Cancelado
+  DiligenciaJuridica --> Cancelado
   Cancelado --> [*]
 ```
+
+Contradição resolvida: o fluxo antigo terminava em `contrato_registrado`/`recurso_liberado`. Esses valores permanecem legados; o alvo inclui cartório, comissão e terminal positivo `completo`.
 
 ## 4. ER simplificado (núcleo)
 

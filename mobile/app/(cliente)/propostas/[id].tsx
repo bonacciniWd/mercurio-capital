@@ -256,7 +256,7 @@ export default function ClientePropostaDetalhe() {
   }
 
   const valor = Number(p.valor_solicitado)
-  const taxaMensal = Number(p.taxa_juros_mensal ?? 1.39) / 100
+  const taxaMensal = Number(p.taxa_juros_mensal ?? 1.29) / 100
   const sim = calcularFinanciamento({
     valor, prazoMeses: p.prazo_meses, taxaMensal,
     amortizacao: (p.amortizacao as 'price' | 'sac') || 'price',

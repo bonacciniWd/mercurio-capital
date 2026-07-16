@@ -55,27 +55,29 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 
 ## M3 — Simulação & Proposta
 
-**Objetivo**: criar simulação, converter em proposta, gerenciar proponentes, imóveis, documentos, pendências.
+**Objetivo**: simular crédito rapidamente, converter a condição aceita em proposta e gerenciar proponentes, imóveis, documentos e pendências.
 
 ### Telas / Tabs
-- `/p/simulacoes`, `/p/simulacoes/nova`.
+- `/p/simulacoes`: simulador comercial rápido com resultado em tempo real, exportação PNG e compartilhamento manual via `wa.me`.
 - `/p/propostas`, `/p/propostas/nova` (Wizard 7 passos — ver §05 mapa visual).
+- `/p/kanban` (pipeline scoped por partner/equipe; leitura para team member e movimentos sujeitos ao backend).
 - `/admin/propostas/nova` (Wizard em modo admin, com seleção obrigatória de parceiro aprovado).
 - Mobile (Expo): `mobile/app/propostas/nova.tsx` (wizard compartilhado) e `mobile/app/(admin)/propostas-nova.tsx` (entrada admin).
 - `/p/propostas/:id` com tabs: **Resumo · Proponentes · Imóveis · Documentos · Histórico · Kanban**.
 - Modal "Calculadora Price" com tabela completa de parcelas.
 
 ### Regras
-- Simulação não dispara magic link. Proposta criada **gera protocolo único** e magic link para o cliente.
+- Simulação rápida não persiste nem dispara magic link. Ao converter, um draft em `sessionStorage` pré-preenche produto, pessoa e valores no wizard; somente a proposta concluída gera protocolo e magic link.
 - Em modo admin, a criação exige `partner_id` explícito e parceiro em status `approved`.
 - Web e mobile usam o mesmo contrato de payload e as mesmas validações de backend para criação de proposta.
 - Proponente principal: 1 obrigatório. Se `estado_civil='casado'` → 2º proponente obrigatório (cônjuge).
 - Imóvel: ≥ 1 obrigatório; toggle "usar endereço do proponente principal"; busca CEP via ViaCEP/Edge.
 - Validação BRL, CPF/CNPJ, telefone com DDI.
 - Cálculo Price (mensal): $PMT = PV \cdot \dfrac{i(1+i)^n}{(1+i)^n - 1}$.
-- Range prazo: **12–240** meses (na simulação principal) e **36–240** na aba "Propostas → Simular" (condicional), com incremento unitário (1 em 1) no wizard.
+- Range de prazo: **12–240** meses, com incremento unitário.
 - Carência: 0–3 meses, com incremento unitário (1 em 1) e atualização imediata da simulação.
-- Taxa default: `1,39% + IPCA` (configurável em `configuracoes_sistema`).
+- Taxa default: `1,29% + IPCA` (configurável em `configuracoes_sistema`).
+- O compartilhamento WhatsApp desta ferramenta é manual por texto/link; não usa Edge Function nem outbox transacional.
 
 ### Documentos
 - Categorias: PF, PJ, Imóvel.
@@ -87,6 +89,7 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - [ ] Cálculo Price unitariamente testado.
 - [ ] Triggers de status + auditoria.
 - [ ] Kanban arrasta cartão respeitando matriz de transições.
+- [ ] Fluxo operacional termina em `completo`, após cartório, recurso e pagamento de comissão; status antigos são preservados e mapeados visualmente.
 
 ---
 

@@ -10,7 +10,7 @@ _Atualizado em 01/06/2026_
 | **Vimeo Pro** | ✅ Upload oficial via painel admin/universidade — requer `VIMEO_ACCESS_TOKEN` e whitelist em `VIMEO_EMBED_DOMAINS` |
 | **Stripe** | ✅ Cliente providenciando — aguardando `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e Price IDs do LMS |
 | **Clicksign** | ✅ Cliente providenciando — aguardando `CLICKSIGN_API_TOKEN` e `CLICKSIGN_WEBHOOK_SECRET` |
-| **Resend** | ✅ Cliente providenciando — aguardando `RESEND_API_KEY` |
+| **Resend** | ✅ Ativo em produção (Edge Secrets `RESEND_API_KEY` + `RESEND_FROM` configurados) |
 | **Bacen SCR** | ✅ Integração real implementada (edge configurável) — requer `BACEN_SCR_API_URL` + credenciais do provedor homologado |
 | **Jusbrasil** | ✅ Cliente providenciando |
 | **Escavador** | ✅ Cliente providenciando |
@@ -127,7 +127,8 @@ supabase secrets set
   VIMEO_EMBED_DOMAINS='["www.mercuriocapitalsa.com.br","mercuriocapitalsa.com.br","mercurio-digital-alpha.vercel.app"]' \
   --project-ref bhagksfvszeogtjvjtpx
 
-# Resend
+# Resend (já ativo no projeto bhagksfvszeogtjvjtpx)
+# Comando mantido para rotação/ajuste de segredo:
 supabase secrets set \
   RESEND_API_KEY=re_xxx \
   RESEND_FROM='Mercurio Capital <no-reply@mercuriocapital.com>' \
@@ -163,6 +164,16 @@ supabase secrets set \
 ```
 
 Após cada `secrets set` a edge function já usa o provedor real — sem redeploy.
+
+Validação operacional mínima (e-mail transacional):
+```bash
+# nomes dos segredos (sem exibir valores)
+supabase secrets list --project-ref bhagksfvszeogtjvjtpx
+
+# disparo manual do worker
+curl -i -X POST \
+  'https://bhagksfvszeogtjvjtpx.supabase.co/functions/v1/email-dispatcher?limit=20'
+```
 
 ---
 

@@ -62,6 +62,8 @@ Legenda: ✅ pleno · ⚠️ parcial/condicional · ✏️ campos restritos · �
 
 Nota de implementação (branch atual): a criação de proposta via UI está ativa no web em `/p/propostas/nova` (partner e team_member) e `/admin/propostas/nova` (admin), e no mobile pelos fluxos `mobile/app/propostas/nova.tsx` (wizard compartilhado) e `mobile/app/(admin)/propostas-nova.tsx` (entrada admin). Em ambos os canais, criação admin exige parceiro aprovado.
 
+O simulador comercial web em `/p/simulacoes` calcula e exporta localmente. “Converter em proposta” grava apenas um draft de sessão e não contorna as validações/RPCs do wizard.
+
 ## 3. Regras de negócio críticas
 
 1. **Aprovação manual do parceiro**: novo `partner` entra com `status='pending'` e só ganha permissões plenas após `admin` aprovar (`status='approved'`). Documentação obrigatória antes da aprovação (ver §06).
@@ -70,7 +72,7 @@ Nota de implementação (branch atual): a criação de proposta via UI está ati
 4. **Consulta pública por protocolo**: rate limit por IP (ex: 10/min), CAPTCHA obrigatório, expõe apenas dados não sensíveis (status, etapa, data) — nunca CPF, valor, documentos.
 5. **Documentos sensíveis**: armazenados em buckets **privados**; acesso somente via `signedUrl` gerada por Edge Function que valida JWT e ownership.
 6. **2FA obrigatório** para `admin` e `partner` (TOTP).
-7. **Status sensíveis** (Análise Jurídica, Comitê, Contrato Registrado, Recurso Liberado) só podem ser alterados por `admin`.
+7. **Status sensíveis** (análises, cartório, liberação, comissão e conclusão) só podem ser alterados por `admin`. Partner mantém apenas `proposta_cliente → diligencia_juridica`, `emissao_contrato → aguardando_assinatura` e cancelamento com motivo; team member não recebe nova permissão.
 
 ## 4. Implementação no Postgres (RLS)
 
@@ -124,26 +126,28 @@ create policy "client_own" on propostas
 ## 5. Matriz de permissões por status (transições)
 
 ```
-[Simulação] → Pré-análise → Análise de Crédito → Análise de Imóvel
-            → Análise Jurídica → Comitê → Proposta ao Cliente
-            → Resolução de Pendências → Emissão de Contrato
-            → Aguardando Assinatura → Em Registro → Contrato Registrado
-            → Recurso Liberado
+[Simulação] → Pré-análise → Análise Jurídica → Análise Crédito → Análise Imóvel
+            → Comitê → Proposta ao Cliente → Diligência Jurídica
+            → Emissão de Contrato → Aguardando Assinatura
+            → Protocolo Cartório → Exigências Cartório → Custas Cartório
+            → Registro de AF → Recurso Liberado → Pagamento de Comissão → Completo
                                                     ↘ Cancelado (a qualquer momento)
 ```
 
 | De → Para | Quem pode |
 |---|---|
 | Simulação → Pré-análise | partner, team_member, admin |
-| Pré-análise → Análise de Crédito | admin |
-| Análise de Crédito → Análise de Imóvel | admin |
-| Análise de Imóvel → Análise Jurídica | admin |
-| Análise Jurídica → Comitê | admin |
+| Pré-análise → Análise Jurídica | admin |
+| Análise Jurídica → Análise Crédito | admin |
+| Análise Crédito → Análise Imóvel | admin |
+| Análise Imóvel → Comitê | admin |
 | Comitê → Proposta ao Cliente | admin |
-| Proposta ao Cliente → Resolução de Pendências | admin, partner |
-| Resolução de Pendências → Emissão de Contrato | admin |
-| Emissão de Contrato → Aguardando Assinatura | admin |
-| Aguardando Assinatura → Em Registro | admin (webhook assinatura) |
-| Em Registro → Contrato Registrado | admin |
-| Contrato Registrado → Recurso Liberado | admin |
+| Proposta ao Cliente → Diligência Jurídica | admin, partner |
+| Diligência Jurídica → Emissão de Contrato | admin |
+| Emissão de Contrato → Aguardando Assinatura | admin, partner |
+| Aguardando Assinatura → Protocolo Cartório | admin (ou contexto server-side confiável) |
+| Protocolo Cartório → Exigências Cartório → Custas Cartório → Registro de AF | admin |
+| Registro de AF → Recurso Liberado → Pagamento de Comissão → Completo | admin |
 | Qualquer → Cancelado | admin, partner (com motivo) |
+
+Os valores legados não são removidos do enum. No Kanban: `resolucao_pendencias` aparece em Diligência Jurídica, `em_registro` em Protocolo Cartório e `contrato_registrado` em Registro de AF.

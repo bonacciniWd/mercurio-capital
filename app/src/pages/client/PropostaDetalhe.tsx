@@ -97,7 +97,7 @@ export function ClientPropostaDetalhe() {
     )
   }
 
-  const taxa = Number(proposta.taxa_juros_mensal ?? 1.39) / 100
+  const taxa = Number(proposta.taxa_juros_mensal ?? 1.29) / 100
   const sim = calcularFinanciamento({
     valor: Number(proposta.valor_solicitado),
     prazoMeses: proposta.prazo_meses,
