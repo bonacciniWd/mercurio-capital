@@ -120,8 +120,10 @@ export function RedefinirSenha() {
         </div>
       </div>
 
-      <div className="relative col-span-3 hidden bg-navy lg:block">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(212,175,55,0.25),transparent_60%)]" />
+      <div className="relative col-span-3 hidden lg:block">
+        <img src="/renewal-password.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+         <div className="absolute inset-0 bg-black/40" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,0,55,0.25),transparent_60%)]" />
       </div>
     </div>
   )

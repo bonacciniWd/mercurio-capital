@@ -290,26 +290,28 @@ export function Registro() {
         </div>
       </div>
 
-      <div className="relative col-span-3 hidden bg-navy lg:block">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(212,175,55,0.25),transparent_60%)]" />
+      <div className="relative col-span-3 hidden lg:block">
+        <img src="/partner-register.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-black/70" />
+        
         <div className="relative flex h-full flex-col justify-end p-16 text-white">
           <h2 className="max-w-xl text-4xl font-bold leading-tight">
-            Comece a operar com a <span className="text-gold">Mercurio Capital</span>.
+            Comece a operar com a <span className="text-red-600">Mercurio Capital</span>.
           </h2>
           <p className="mt-4 max-w-lg text-white/80">
             Cadastre sua empresa, envie a documentação e ganhe acesso à esteira completa de crédito imobiliário.
           </p>
           <div className="mt-12 flex gap-6 text-sm">
             <div>
-              <p className="text-3xl font-bold text-gold">3 passos</p>
+              <p className="text-3xl font-bold text-red-600">3 passos</p>
               <p className="text-white/60">para começar</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-gold">24h</p>
+              <p className="text-3xl font-bold text-red-600">24h</p>
               <p className="text-white/60">para análise</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-gold">0%</p>
+              <p className="text-3xl font-bold text-red-600">0%</p>
               <p className="text-white/60">de taxa de adesão</p>
             </div>
           </div>

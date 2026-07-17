@@ -29,6 +29,14 @@
 | `equipe.membro.convidado` | Membro | Magic link de aceite |
 | `campanha.disparada` | Lista | Personalizada |
 
+### E-mail transacional (Resend)
+
+- `proposta.criada`: `admin_create_proposta` e `partner_create_proposta` enfileiram `proposta_cliente_magic_link_v1` em `email_outbox` quando o cliente possui e-mail.
+- `proposta.status.changed`: o histórico de status enfileira `proposta_status_changed_v1`, com idempotência por item de `proposta_status_historico`.
+- `equipe.membro.convidado`: `partner_invite_membro` enfileira `convite_equipe_v1`.
+- O enqueue é best-effort e não bloqueia criação/transição. O worker `email-dispatcher` envia via Resend e marca `enviado` ou `erro` com detalhe.
+- O workflow `.github/workflows/email-dispatcher-cron.yml` invoca o worker a cada 5 minutos; também há `workflow_dispatch` e chamada HTTP manual.
+
 ## 2. Magic Link — fluxo seguro
 
 ```mermaid
@@ -57,6 +65,7 @@ sequenceDiagram
 - TTL ≤ 30 min, single-use (`used_at`).
 - Limite 5 emissões por destinatário/24h.
 - Após consumo: revogação imediata; auditoria gravada.
+- Links públicos usam `https://mercuriocapitalsa.com.br`; `SITE_URL`/`APP_URL` podem sobrescrever por ambiente, mas o fallback de produção nunca é localhost.
 
 ## 3. Consulta pública por protocolo (sem auth)
 

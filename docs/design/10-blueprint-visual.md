@@ -204,6 +204,7 @@ flowchart TB
   P3d["tabs: proponentes, imoveis,<br/>documentos, historico, kanban"]:::par
   P4["/p/equipe"]:::par
   P4b["/p/equipe/convidar"]:::par
+  P4c["/p/equipe (aba mapa React Flow scoped)"]:::par
   P5["/p/relatorios"]:::par
   P6["/p/universidade"]:::par
   P6b["/p/universidade/curso/:slug"]:::par
@@ -219,6 +220,7 @@ flowchart TB
   P0 --> P3 --> P3b
   P3 --> P3c --> P3d
   P0 --> P4 --> P4b
+  P4 --> P4c
   P0 --> P5
   P0 --> P6 --> P6b
   P6 --> P6c
@@ -867,7 +869,7 @@ flowchart TB
 
 ---
 
-## 18. React Flow — rede de originacao (admin)
+## 18. React Flow — rede de originacao (admin global)
 
 ```mermaid
 flowchart LR
@@ -890,6 +892,18 @@ flowchart LR
   L3 --> PR3[(Proposta 103 - Pre-analise)]
   L4 --> PR4[(Proposta 201 - Recurso Liberado)]
 ```
+
+## 18.1 React Flow — rede do parceiro (scoped em /p/equipe)
+
+```mermaid
+flowchart LR
+  P[Partner logado] --> E1[Equipe Alpha]
+  P --> E2[Equipe Beta]
+  E1 --> M1[(contagem membros)]
+  E2 --> M2[(contagem membros)]
+```
+
+Escopo: o grafo do parceiro é carregado via RPC backend (`partner_rede_graph()`) sem `partner_id` no request, garantindo isolamento entre parceiros.
 
 ---
 

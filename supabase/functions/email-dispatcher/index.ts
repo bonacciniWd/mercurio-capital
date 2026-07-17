@@ -8,14 +8,14 @@
 // Deploy:
 //   supabase functions deploy email-dispatcher --project-ref bhagksfvszeogtjvjtpx --no-verify-jwt
 // Secrets:
-//   supabase secrets set RESEND_API_KEY=re_xxx RESEND_FROM='Mercurio <no-reply@mercuriocapital.com>' --project-ref bhagksfvszeogtjvjtpx
+//   supabase secrets set RESEND_API_KEY=re_xxx RESEND_FROM='Mercurio Capital <no-reply@mercuriocapitalsa.com.br>' --project-ref bhagksfvszeogtjvjtpx
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 
 const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
-const RESEND_FROM    = Deno.env.get('RESEND_FROM') ?? 'Mercurio Capital <no-reply@mercuriocapital.com>'
+const RESEND_FROM    = Deno.env.get('RESEND_FROM') ?? 'Mercurio Capital <no-reply@mercuriocapitalsa.com.br>'
 
 const service = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
 

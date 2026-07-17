@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Mail, Copy, Check, Trash2, Loader2, Users, AlertTriangle } from 'lucide-react'
+import { Plus, Mail, Copy, Check, Trash2, Loader2, Users, AlertTriangle, Network } from 'lucide-react'
+import { useAuth } from '@/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { RedeFlowCanvas, type RedeGraph } from '@/components/rede/RedeFlow'
+import { publicAppUrl } from '@/lib/publicUrl'
 
 interface Equipe {
   id: string
@@ -60,10 +63,12 @@ function getEquipeErrorMessage(err: unknown): string {
 }
 
 export function PartnerEquipe() {
+  const { session } = useAuth()
   const qc = useQueryClient()
   const [creatingEquipe, setCreatingEquipe] = useState(false)
   const [novaEquipeNome, setNovaEquipeNome] = useState('')
   const [novaEquipeIsolada, setNovaEquipeIsolada] = useState(false)
+  const [viewMode, setViewMode] = useState<'lista' | 'mapa'>('lista')
   const [selectedEquipe, setSelectedEquipe] = useState<string | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -107,6 +112,16 @@ export function PartnerEquipe() {
     },
   })
 
+  const mapaQuery = useQuery({
+    queryKey: ['p-rede-graph'],
+    enabled: viewMode === 'mapa' && session?.role === 'partner',
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('partner_rede_graph')
+      if (error) throw error
+      return (data ?? { nodes: [], edges: [] }) as RedeGraph
+    },
+  })
+
   const criarEquipe = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.rpc('partner_create_equipe', {
@@ -138,7 +153,7 @@ export function PartnerEquipe() {
       const payload = (data ?? {}) as InviteResponse
       const token = payload.convite_token
       return {
-        url: `${window.location.origin}/convite/${token}`,
+        url: publicAppUrl(`/convite/${token}`),
         emailStatus: payload.email_status ?? null,
         emailError: payload.email_erro ?? null,
       }
@@ -168,6 +183,7 @@ export function PartnerEquipe() {
   const equipes = equipesQuery.data ?? []
   const membros = membrosQuery.data ?? []
   const convites = convitesQuery.data ?? []
+  const canViewMapa = session?.role === 'partner'
 
   return (
     <>
@@ -192,6 +208,23 @@ export function PartnerEquipe() {
             <Plus className="h-4 w-4" /> Convidar membro
           </button>
         </div>
+      </div>
+
+      <div className="mb-6 inline-flex overflow-hidden rounded-md gap-2 border-silver-200 bg-white shadow-sm">
+        <button
+          className={`px-3 py-2 text-sm font-medium ${viewMode === 'lista' ? 'bg-navy text-white' : 'text-silver-700 hover:bg-silver-50'}`}
+          onClick={() => setViewMode('lista')}
+        >
+          Lista
+        </button>
+        <button
+          className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium ${viewMode === 'mapa' ? 'bg-navy text-white' : 'text-silver-700 hover:bg-silver-50 disabled:cursor-not-allowed disabled:text-silver-400 disabled:hover:bg-white'}`}
+          onClick={() => setViewMode('mapa')}
+          disabled={!canViewMapa}
+          title={canViewMapa ? 'Visualizar mapa da equipe' : 'Somente partner pode visualizar o mapa'}
+        >
+          <Network className="h-4 w-4" /> Mapa
+        </button>
       </div>
 
       {creatingEquipe && (
@@ -298,76 +331,112 @@ export function PartnerEquipe() {
         </div>
       )}
 
-      <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {equipes.length === 0 ? (
-          <p className="text-sm text-silver-500">Nenhuma equipe cadastrada ainda.</p>
-        ) : equipes.map(eq => {
-          const membrosEq = membros.filter(m => m.equipe_id === eq.id)
-          return (
-            <div key={eq.id} className="card p-5">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-semibold text-navy">{eq.nome}</h3>
-                  <p className="text-xs text-silver-500">{membrosEq.length} membro(s)</p>
-                </div>
-                {eq.isolamento_estrito && <span className="badge bg-gold/15 text-gold-700">Isolada</span>}
-              </div>
-              <ul className="mt-4 space-y-2">
-                {membrosEq.length === 0 ? (
-                  <li className="text-xs text-silver-400">Sem membros.</li>
-                ) : membrosEq.map(m => (
-                  <li key={m.id} className="flex items-center justify-between rounded-md bg-silver-50 p-2 text-sm">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-silver-900">{m.nome_completo}</p>
-                      <p className="truncate text-xs text-silver-500">{m.email}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="badge bg-navy/10 text-navy text-[10px]">
-                        {m.papel_equipe === 'admin_equipe' ? 'Admin' : 'Membro'}
-                      </span>
-                      <button
-                        className="rounded p-1 text-silver-500 hover:bg-white hover:text-danger"
-                        title="Remover"
-                        onClick={() => {
-                          if (confirm(`Remover ${m.nome_completo} da equipe?`)) {
-                            removerMembro.mutate({ equipe_id: eq.id, usuario_id: m.usuario_id })
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )
-        })}
-      </div>
+      {viewMode === 'mapa' ? (
+        <div className="card overflow-hidden p-0">
+          <div className="flex flex-wrap items-center gap-4 border-b border-silver-100 px-4 py-2 text-xs">
+            <span className="inline-flex items-center gap-1.5">
+              <Users className="h-3 w-3 text-success" /> Parceiro
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Users className="h-3 w-3 text-gold-700" /> Equipe
+            </span>
+            {mapaQuery.data && (
+              <span className="ml-auto text-silver-500">
+                {mapaQuery.data.nodes.length} nós · {mapaQuery.data.edges.length} conexões
+              </span>
+            )}
+          </div>
 
-      <div className="card p-5">
-        <h2 className="mb-3 font-semibold text-navy">Convites pendentes</h2>
-        {convites.length === 0 ? (
-          <p className="text-sm text-silver-500">Nenhum convite pendente.</p>
-        ) : (
-          <ul className="space-y-2">
-            {convites.map(c => {
-              const eq = equipes.find(e => e.id === c.equipe_id)
+          {!canViewMapa ? (
+            <div className="flex h-[520px] items-center justify-center px-6 text-sm text-silver-500">
+              A visualização de mapa é exclusiva para o parceiro titular da conta.
+            </div>
+          ) : mapaQuery.isLoading ? (
+            <div className="flex h-[520px] items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-silver-500" />
+            </div>
+          ) : mapaQuery.error ? (
+            <div className="flex h-[520px] items-center justify-center px-6 text-sm text-danger">
+              Erro ao carregar o mapa: {(mapaQuery.error as Error).message}
+            </div>
+          ) : (
+            <RedeFlowCanvas graph={mapaQuery.data ?? { nodes: [], edges: [] }} height={520} />
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {equipes.length === 0 ? (
+              <p className="text-sm text-silver-500">Nenhuma equipe cadastrada ainda.</p>
+            ) : equipes.map(eq => {
+              const membrosEq = membros.filter(m => m.equipe_id === eq.id)
               return (
-                <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-silver-50 p-3 text-sm">
-                  <span className="inline-flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-silver-500" />
-                    <span className="font-medium text-silver-900">{c.email}</span>
-                    {c.nome && <span className="text-silver-500">· {c.nome}</span>}
-                  </span>
-                  <span className="text-xs text-silver-500">{eq?.nome ?? '—'}</span>
-                  <span className="text-xs text-silver-500">expira em {new Date(c.expires_at).toLocaleString('pt-BR')}</span>
-                </li>
+                <div key={eq.id} className="card p-5">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-semibold text-navy">{eq.nome}</h3>
+                      <p className="text-xs text-silver-500">{membrosEq.length} membro(s)</p>
+                    </div>
+                    {eq.isolamento_estrito && <span className="badge bg-gold/15 text-gold-700">Isolada</span>}
+                  </div>
+                  <ul className="mt-4 space-y-2">
+                    {membrosEq.length === 0 ? (
+                      <li className="text-xs text-silver-400">Sem membros.</li>
+                    ) : membrosEq.map(m => (
+                      <li key={m.id} className="flex items-center justify-between rounded-md bg-silver-50 p-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-silver-900">{m.nome_completo}</p>
+                          <p className="truncate text-xs text-silver-500">{m.email}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="badge bg-navy/10 text-navy text-[10px]">
+                            {m.papel_equipe === 'admin_equipe' ? 'Admin' : 'Membro'}
+                          </span>
+                          <button
+                            className="rounded p-1 text-silver-500 hover:bg-white hover:text-danger"
+                            title="Remover"
+                            onClick={() => {
+                              if (confirm(`Remover ${m.nome_completo} da equipe?`)) {
+                                removerMembro.mutate({ equipe_id: eq.id, usuario_id: m.usuario_id })
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )
             })}
-          </ul>
-        )}
-      </div>
+          </div>
+
+          <div className="card p-5">
+            <h2 className="mb-3 font-semibold text-navy">Convites pendentes</h2>
+            {convites.length === 0 ? (
+              <p className="text-sm text-silver-500">Nenhum convite pendente.</p>
+            ) : (
+              <ul className="space-y-2">
+                {convites.map(c => {
+                  const eq = equipes.find(e => e.id === c.equipe_id)
+                  return (
+                    <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-silver-50 p-3 text-sm">
+                      <span className="inline-flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-silver-500" />
+                        <span className="font-medium text-silver-900">{c.email}</span>
+                        {c.nome && <span className="text-silver-500">· {c.nome}</span>}
+                      </span>
+                      <span className="text-xs text-silver-500">{eq?.nome ?? '—'}</span>
+                      <span className="text-xs text-silver-500">expira em {new Date(c.expires_at).toLocaleString('pt-BR')}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
     </>
   )
 }

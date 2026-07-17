@@ -4,6 +4,7 @@ import { Logo } from '@/components/Logo'
 import { Loader2, CheckCircle2, AlertTriangle, LogIn } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth/AuthContext'
+import { publicAppUrl } from '@/lib/publicUrl'
 
 type InvitePeek = {
   email: string
@@ -81,7 +82,7 @@ export function ConviteMembro() {
     setError(null)
 
     try {
-      const redirectTo = `${window.location.origin}/convite/${token}`
+      const redirectTo = publicAppUrl(`/convite/${token}`)
       const displayName = invite.nome?.trim() || invite.email.split('@')[0]
 
       const { error: otpError } = await supabase.auth.signInWithOtp({

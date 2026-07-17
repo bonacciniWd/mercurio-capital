@@ -61,14 +61,15 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - `/p/simulacoes`: simulador comercial rápido com resultado em tempo real, exportação PNG e compartilhamento manual via `wa.me`.
 - `/p/propostas`, `/p/propostas/nova` (Wizard 7 passos — ver §05 mapa visual).
 - `/p/kanban` (pipeline scoped por partner/equipe; leitura para team member e movimentos sujeitos ao backend).
-- `/admin/propostas/nova` (Wizard em modo admin, com seleção obrigatória de parceiro aprovado).
+- `/admin/propostas/nova` (Wizard em modo admin, com seleção obrigatória de parceiro `approved` ou `pending`).
 - Mobile (Expo): `mobile/app/propostas/nova.tsx` (wizard compartilhado) e `mobile/app/(admin)/propostas-nova.tsx` (entrada admin).
 - `/p/propostas/:id` com tabs: **Resumo · Proponentes · Imóveis · Documentos · Histórico · Kanban**.
 - Modal "Calculadora Price" com tabela completa de parcelas.
 
 ### Regras
 - Simulação rápida não persiste nem dispara magic link. Ao converter, um draft em `sessionStorage` pré-preenche produto, pessoa e valores no wizard; somente a proposta concluída gera protocolo e magic link.
-- Em modo admin, a criação exige `partner_id` explícito e parceiro em status `approved`.
+- Em modo admin, a criação exige `partner_id` explícito e parceiro em status `approved` ou `pending`.
+- A flexibilização de status é exclusiva do admin: parceiro pendente segue bloqueado em `partner_create_proposta` e no acesso operacional `/p/*`.
 - Web e mobile usam o mesmo contrato de payload e as mesmas validações de backend para criação de proposta.
 - Proponente principal: 1 obrigatório. Se `estado_civil='casado'` → 2º proponente obrigatório (cônjuge).
 - Imóvel: ≥ 1 obrigatório; toggle "usar endereço do proponente principal"; busca CEP via ViaCEP/Edge.
@@ -78,6 +79,9 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - Carência: 0–3 meses, com incremento unitário (1 em 1) e atualização imediata da simulação.
 - Taxa default: `1,29% + IPCA` (configurável em `configuracoes_sistema`).
 - O compartilhamento WhatsApp desta ferramenta é manual por texto/link; não usa Edge Function nem outbox transacional.
+- O magic link compartilhável usa a base canônica `VITE_PUBLIC_APP_URL`, com fallback seguro `https://mercuriocapitalsa.com.br`; origem local do navegador não é usada em links externos.
+- Proposta criada com e-mail de cliente enfileira `proposta_cliente_magic_link_v1` em `email_outbox` (`evento=proposta_criada`).
+- Mudanças de status enfileiram `proposta_status_changed_v1` (`evento=proposta_status_changed`). Falhas de e-mail não bloqueiam a operação.
 
 ### Documentos
 - Categorias: PF, PJ, Imóvel.
@@ -85,7 +89,7 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - Solicitação de documento ao cliente cria `proposta_pendencia` e dispara WhatsApp.
 
 ### DoD
-- [ ] Criação de proposta gera protocolo único e magic link.
+- [x] Criação de proposta gera protocolo único, magic link canônico e e-mail transacional quando há destinatário.
 - [ ] Cálculo Price unitariamente testado.
 - [ ] Triggers de status + auditoria.
 - [ ] Kanban arrasta cartão respeitando matriz de transições.
@@ -109,12 +113,13 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 ## M5 — Equipe (Parceiro)
 
 ### Telas
-- `/p/equipe`, `/p/equipe/convidar`, `/p/equipe/:memberId`.
+- `/p/equipe` (Lista + Mapa React Flow scoped), `/p/equipe/convidar`, `/p/equipe/:memberId`.
 
 ### Regras
 - Convite via e-mail + WhatsApp (Evolution).
 - Papéis na equipe: `admin_equipe`, `membro`.
 - Permissões finas em `equipe_membros.permissoes` (jsonb).
+- Visualização de rede do parceiro via RPC backend `partner_rede_graph()` sem aceitar `partner_id` do client, preservando isolamento entre parceiros.
 
 ---
 

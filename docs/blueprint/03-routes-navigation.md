@@ -58,7 +58,7 @@
 | `/p/propostas/:id/documentos` | `DocumentosTab` | partner, team_member |
 | `/p/propostas/:id/historico` | `HistoricoTab` | partner, team_member |
 | `/p/propostas/:id/kanban` | `PropostaKanban` | partner, team_member |
-| `/p/equipe` | `EquipePage` | partner |
+| `/p/equipe` | `EquipePage` (abas Lista + Mapa React Flow scoped via `partner_rede_graph()`) | partner |
 | `/p/equipe/convidar` | `ConvidarMembro` | partner |
 | `/p/equipe/:memberId` | `MembroDetail` | partner |
 | `/p/relatorios` | `RelatoriosPartner` | partner |
@@ -87,7 +87,7 @@
 | `/admin/clientes` | `ClientesList` |
 | `/admin/clientes/:id` | `ClienteDetail` |
 | `/admin/propostas` | `PropostasAdminList` |
-| `/admin/propostas/nova` | `PropostaWizard` (modo admin, parceiro alvo obrigatório) |
+| `/admin/propostas/nova` | `PropostaWizard` (modo admin, parceiro alvo obrigatório em status `approved` ou `pending`) |
 | `/admin/propostas/:id` | `PropostaAdminDetail` |
 | `/admin/propostas/kanban` | `PropostasKanbanGlobal` |
 | `/admin/rede` | `ReactFlowRede` (network map) |
@@ -125,7 +125,7 @@
 | `mobile/app/propostas/nova.tsx` | Criação de proposta (wizard compartilhado) | partner, team_member, admin |
 | `mobile/app/(admin)/propostas-nova.tsx` | Entrada admin para criação de proposta | admin |
 
-Nota de implementação (branch atual): criação de proposta está ativa no web para `partner`/`team_member` em `/p/propostas/nova` e para `admin` em `/admin/propostas/nova`, com paridade funcional no mobile pelos arquivos acima.
+Nota de implementação (branch atual): criação de proposta está ativa no web para `partner`/`team_member` em `/p/propostas/nova` e para `admin` em `/admin/propostas/nova`, com paridade funcional no mobile pelos arquivos acima. A criação admin exige `partner_id` explícito e aceita parceiro `approved` ou `pending`; parceiro pendente continua bloqueado no fluxo operacional `/p/*`.
 
 ## 3. Sidebar dinâmica (estrutura)
 

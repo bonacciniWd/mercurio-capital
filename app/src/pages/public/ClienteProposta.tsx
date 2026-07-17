@@ -72,7 +72,7 @@ export function ClienteProposta() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-5">
-      <div className="hidden flex-col justify-between bg-navy p-12 text-white lg:col-span-3 lg:flex">
+      <div className="hidden flex-col justify-between bg-black p-12 text-white lg:col-span-3 lg:flex">
         <Logo variant="light" />
         <div>
           <h2 className="text-4xl font-bold leading-tight">

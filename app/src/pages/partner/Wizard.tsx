@@ -8,6 +8,7 @@ import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
 import { MoneyInput } from '@/components/MoneyInput'
 import { SimuladorCredito, type SimuladorCreditoValues } from '@/components/SimuladorCredito'
 import { consumeSimulacaoDraft } from '@/lib/simulacaoDraft'
+import { publicAppUrl } from '@/lib/publicUrl'
 
 const STEPS = ['Produto', 'Cliente', 'Localização', 'Valores', 'Proponentes', 'Imóveis', 'Revisão']
 const PRAZO_MIN_MESES = 12
@@ -106,6 +107,11 @@ interface AdminPartnerOption {
   status: string
 }
 
+const ADMIN_PARTNER_STATUS_LABEL: Record<string, string> = {
+  approved: 'Aprovado',
+  pending: 'Pendente de confirmação/aprovação',
+}
+
 export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) {
   const navigate = useNavigate()
   const isAdminMode = mode === 'admin'
@@ -138,7 +144,8 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
       const { data, error } = await supabase
         .from('v_admin_partners')
         .select('partner_id, nome, email, status')
-        .eq('status', 'approved')
+        .in('status', ['approved', 'pending'])
+        .order('status', { ascending: true })
         .order('nome', { ascending: true })
 
       if (error) throw error
@@ -210,7 +217,7 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
       }
 
       if (isAdminMode) {
-        if (!adminPartnerId) throw new Error('Selecione um parceiro aprovado para criar a proposta.')
+        if (!adminPartnerId) throw new Error('Selecione um parceiro para criar a proposta (aprovado ou pendente).')
         const { data, error } = await supabase.rpc('admin_create_proposta', {
           p_partner_id: adminPartnerId,
           p_payload: payload,
@@ -273,12 +280,12 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
           <label className="label">Parceiro responsável pela proposta *</label>
           {adminPartnersQ.isLoading ? (
             <div className="inline-flex items-center gap-2 text-sm text-silver-600">
-              <Loader2 className="h-4 w-4 animate-spin" /> Carregando parceiros aprovados...
+              <Loader2 className="h-4 w-4 animate-spin" /> Carregando parceiros (aprovados e pendentes)...
             </div>
           ) : adminPartnersQ.error ? (
-            <p className="text-sm text-danger">Não foi possível carregar os parceiros aprovados.</p>
+            <p className="text-sm text-danger">Não foi possível carregar os parceiros elegíveis.</p>
           ) : adminPartners.length === 0 ? (
-            <p className="text-sm text-warning">Nenhum parceiro aprovado disponível para criação.</p>
+            <p className="text-sm text-warning">Nenhum parceiro aprovado ou pendente disponível para criação.</p>
           ) : (
             <select
               className="input"
@@ -288,11 +295,14 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
               <option value="">Selecione um parceiro</option>
               {adminPartners.map((partner) => (
                 <option key={partner.partner_id} value={partner.partner_id}>
-                  {(partner.nome || partner.email || partner.partner_id)}
+                  {(partner.nome || partner.email || partner.partner_id)} · {ADMIN_PARTNER_STATUS_LABEL[partner.status] ?? partner.status}
                 </option>
               ))}
             </select>
           )}
+          <p className="mt-2 text-xs text-silver-600">
+            Admin pode criar proposta para parceiro aprovado ou pendente. Parceiro pendente continua sem acesso operacional ao módulo /p.
+          </p>
         </div>
       )}
 
@@ -815,7 +825,7 @@ function Step7({ form, calc, ltv }: { form: FormState; calc: ReturnType<typeof c
 // ============================================================
 
 function SuccessPanel({ result, onNew, onDetalhe }: { result: SubmitResult; onNew: () => void; onDetalhe: () => void }) {
-  const url = `${window.location.origin}/c/proposta/${result.magic_token}`
+  const url = publicAppUrl(`/c/proposta/${result.magic_token}`)
   const [copied, setCopied] = useState(false)
   const copy = async () => {
     await navigator.clipboard.writeText(url)

@@ -13,7 +13,7 @@ const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')!
 const ANON_KEY      = Deno.env.get('SUPABASE_ANON_KEY')!
 const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const STRIPE_SECRET = Deno.env.get('STRIPE_SECRET_KEY') ?? ''
-const APP_URL       = Deno.env.get('APP_URL') ?? 'http://localhost:5173'
+const APP_URL       = (Deno.env.get('APP_URL') ?? Deno.env.get('SITE_URL') ?? 'https://mercuriocapitalsa.com.br').replace(/\/+$/, '')
 
 const PRICE_MONTHLY = Deno.env.get('STRIPE_PRICE_ID_LMS_MONTHLY') ?? ''
 const PRICE_ANNUAL  = Deno.env.get('STRIPE_PRICE_ID_LMS_ANNUAL')  ?? ''

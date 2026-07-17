@@ -3,6 +3,7 @@ import { Building2, Bell, Shield, Globe, Users, Save, TrendingUp, CheckCircle2, 
 import { Badge } from '@/components/Badge'
 import { TwoFactorManager } from '@/components/TwoFactorManager'
 import { supabase } from '@/lib/supabase'
+import { publicAppUrl } from '@/lib/publicUrl'
 
 const TABS = [
   { id: 'empresa', icon: Building2, label: 'Empresa' },
@@ -149,7 +150,7 @@ function EmailTesteTab() {
 
     const payload = (data ?? {}) as ConviteTesteResponse
     const link = payload.convite_token
-      ? `${window.location.origin}/convite/${payload.convite_token}`
+      ? publicAppUrl(`/convite/${payload.convite_token}`)
       : undefined
     const enfileirado = payload.email_status === 'enfileirado'
     setResult({

@@ -10,7 +10,7 @@ _Atualizado em 01/06/2026_
 | **Vimeo Pro** | ✅ Upload oficial via painel admin/universidade — requer `VIMEO_ACCESS_TOKEN` e whitelist em `VIMEO_EMBED_DOMAINS` |
 | **Stripe** | ✅ Cliente providenciando — aguardando `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e Price IDs do LMS |
 | **Clicksign** | ✅ Cliente providenciando — aguardando `CLICKSIGN_API_TOKEN` e `CLICKSIGN_WEBHOOK_SECRET` |
-| **Resend** | ✅ Ativo em produção (Edge Secrets `RESEND_API_KEY` + `RESEND_FROM` configurados) |
+| **Resend** | ✅ Ativo em produção (`email_outbox` + `email-dispatcher`; secrets `RESEND_API_KEY`/`RESEND_FROM`; cron GitHub a cada 5 min) |
 | **Bacen SCR** | ✅ Integração real implementada (edge configurável) — requer `BACEN_SCR_API_URL` + credenciais do provedor homologado |
 | **Jusbrasil** | ✅ Cliente providenciando |
 | **Escavador** | ✅ Cliente providenciando |
@@ -131,7 +131,9 @@ supabase secrets set
 # Comando mantido para rotação/ajuste de segredo:
 supabase secrets set \
   RESEND_API_KEY=re_xxx \
-  RESEND_FROM='Mercurio Capital <no-reply@mercuriocapital.com>' \
+  RESEND_FROM='Mercurio Capital <no-reply@mercuriocapitalsa.com.br>' \
+  SITE_URL=https://mercuriocapitalsa.com.br \
+  APP_URL=https://mercuriocapitalsa.com.br \
   --project-ref bhagksfvszeogtjvjtpx
 
 # Serasa
@@ -174,6 +176,8 @@ supabase secrets list --project-ref bhagksfvszeogtjvjtpx
 curl -i -X POST \
   'https://bhagksfvszeogtjvjtpx.supabase.co/functions/v1/email-dispatcher?limit=20'
 ```
+
+Eventos ativos na outbox: `convite_equipe`, `proposta_criada` e `proposta_status_changed`. O Resend não observa tabelas diretamente: sem item na outbox nada é enviado; sem dispatcher os itens permanecem `pendente`.
 
 ---
 

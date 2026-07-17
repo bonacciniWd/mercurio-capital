@@ -212,7 +212,7 @@ flowchart TB
   Cert --> PDF[(storage: certificados)]
 ```
 
-## 8. React Flow — Rede de Originação (admin)
+## 8. React Flow — Rede de Originação (admin global)
 
 ```mermaid
 flowchart LR
@@ -229,6 +229,18 @@ flowchart LR
   L2 --> Pr2[(Proposta 102)]
   L3 --> Pr3[(Proposta 201)]
 ```
+
+## 8.1 React Flow — Rede do parceiro (scoped em /p/equipe)
+
+```mermaid
+flowchart LR
+  P[Partner logado] --> E1[Equipe Alpha]
+  P --> E2[Equipe Beta]
+  E1 --> M1[(contagem membros)]
+  E2 --> M2[(contagem membros)]
+```
+
+Regra: o mapa em `/p/equipe` é alimentado por RPC backend (`partner_rede_graph()`) e não aceita `partner_id` vindo do client.
 
 ## 9. Push & WhatsApp (notificação de status)
 

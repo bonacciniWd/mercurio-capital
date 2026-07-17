@@ -60,7 +60,7 @@ public (visitante)
 
 Legenda: ✅ pleno · ⚠️ parcial/condicional · ✏️ campos restritos · 🔒 público com restrição · ❌ negado.
 
-Nota de implementação (branch atual): a criação de proposta via UI está ativa no web em `/p/propostas/nova` (partner e team_member) e `/admin/propostas/nova` (admin), e no mobile pelos fluxos `mobile/app/propostas/nova.tsx` (wizard compartilhado) e `mobile/app/(admin)/propostas-nova.tsx` (entrada admin). Em ambos os canais, criação admin exige parceiro aprovado.
+Nota de implementação (branch atual): a criação de proposta via UI está ativa no web em `/p/propostas/nova` (partner e team_member) e `/admin/propostas/nova` (admin), e no mobile pelos fluxos `mobile/app/propostas/nova.tsx` (wizard compartilhado) e `mobile/app/(admin)/propostas-nova.tsx` (entrada admin). Em ambos os canais, criação admin aceita parceiro `approved` e `pending`; parceiros pendentes continuam sem acesso operacional e sem permissão de criar proposta por conta própria.
 
 O simulador comercial web em `/p/simulacoes` calcula e exporta localmente. “Converter em proposta” grava apenas um draft de sessão e não contorna as validações/RPCs do wizard.
 
@@ -73,6 +73,7 @@ O simulador comercial web em `/p/simulacoes` calcula e exporta localmente. “Co
 5. **Documentos sensíveis**: armazenados em buckets **privados**; acesso somente via `signedUrl` gerada por Edge Function que valida JWT e ownership.
 6. **2FA obrigatório** para `admin` e `partner` (TOTP).
 7. **Status sensíveis** (análises, cartório, liberação, comissão e conclusão) só podem ser alterados por `admin`. Partner mantém apenas `proposta_cliente → diligencia_juridica`, `emissao_contrato → aguardando_assinatura` e cancelamento com motivo; team member não recebe nova permissão.
+8. **Mapa de rede do parceiro**: o grafo de `/p/equipe` deve ser obtido via RPC backend scoped (`partner_rede_graph()`), sem aceitar `partner_id` do cliente e sem exposição de equipes/membros de terceiros.
 
 ## 4. Implementação no Postgres (RLS)
 

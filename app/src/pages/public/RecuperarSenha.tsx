@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { MailCheck } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { supabase } from '@/lib/supabase'
+import { publicAppUrl } from '@/lib/publicUrl'
 
 export function RecuperarSenha() {
   const [email, setEmail] = useState('')
@@ -15,7 +16,7 @@ export function RecuperarSenha() {
     setError(null)
     setLoading(true)
     try {
-      const redirectTo = `${window.location.origin}/redefinir-senha`
+      const redirectTo = publicAppUrl('/redefinir-senha')
       const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo })
       if (err) throw new Error(err.message)
       setSent(true)
@@ -85,11 +86,13 @@ export function RecuperarSenha() {
         </div>
       </div>
 
-      <div className="relative col-span-3 hidden bg-navy lg:block">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(212,175,55,0.25),transparent_60%)]" />
+
+      <div className="relative col-span-3 hidden bg-black lg:block">
+        <img src="/renewal-password.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-black/50" />
         <div className="relative flex h-full flex-col justify-end p-16 text-white">
           <h2 className="max-w-xl text-4xl font-bold leading-tight">
-            Esqueceu a senha? <span className="text-gold">Sem stress.</span>
+            Esqueceu a senha? <span className="text-red-600">Sem stress.</span>
           </h2>
           <p className="mt-4 max-w-lg text-white/80">
             Vamos enviar um link seguro pro seu e-mail. O link é único, expira em 1h e só funciona uma vez.

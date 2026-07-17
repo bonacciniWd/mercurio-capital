@@ -110,12 +110,22 @@ select id, destinatario, status, ultimo_erro, metadata->>'evento' as evento, cre
  where metadata->>'evento' = 'convite_equipe'
  order by created_at desc
  limit 20;
+
+-- proposta criada e mudança de status
+select id, destinatario, assunto, status, tentativas, ultimo_erro,
+       metadata->>'evento' as evento, metadata->>'protocolo' as protocolo, created_at
+  from email_outbox
+ where metadata->>'evento' in ('proposta_criada', 'proposta_status_changed')
+ order by created_at desc
+ limit 30;
 ```
 
 **Causas comuns**:
 - `RESEND_API_KEY`/`RESEND_FROM` incorretos ou ausentes → revisar secrets da Edge Function `email-dispatcher`.
+- `SITE_URL`/`APP_URL` ausentes ou incorretos → revisar secrets; o fallback é `https://mercuriocapitalsa.com.br`.
 - Bounces alto → checar `email_bounces_inbox`, suspender envios.
 - Template de convite removido/inativo no admin (`convite_equipe_v1`) — a RPC possui fallback, mas revisar catálogo para manter padronização visual.
+- Templates de proposta removidos/inativos (`proposta_cliente_magic_link_v1`, `proposta_status_changed_v1`) → enqueue retorna falha/não cria item; reativar no catálogo.
 
 **Ação**:
 - Resetar itens travados: `update email_outbox set status='pendente' where status='processando' and agendado_para < now() - interval '10 min';`
@@ -129,19 +139,32 @@ select id, destinatario, status, ultimo_erro, metadata->>'evento' as evento, cre
 4. O teste usa `partner_invite_membro`: cria um convite real, invalida convite pendente anterior para o mesmo e-mail/equipe e mantém o link manual como fallback.
 5. Confirmar o item em `email_outbox`, executar o dispatcher e validar a mudança para `enviado`.
 
-**Agendamento recorrente recomendado (produção)**:
+**Agendamento recorrente em produção**:
+
+O workflow `.github/workflows/email-dispatcher-cron.yml` executa a cada 5 minutos e pode ser disparado manualmente no GitHub Actions. Para contingência:
 ```bash
-# Exemplo com cron externo (a cada 1 min)
-* * * * * curl -fsS -X POST \
+curl -fsS -X POST \
   'https://bhagksfvszeogtjvjtpx.supabase.co/functions/v1/email-dispatcher?limit=20' \
-  >/dev/null
+  | cat
 ```
 
-Sem agendamento, os registros de `email_outbox` ficam em `pendente`.
+Se o workflow estiver desabilitado ou atrasado, os registros permanecem em `pendente`; use a chamada manual e inspecione a Action.
 
 **Evidência operacional (2026-07-15)**:
 - `supabase secrets list --project-ref bhagksfvszeogtjvjtpx` retornou `RESEND_API_KEY` e `RESEND_FROM`.
 - `POST /functions/v1/email-dispatcher?limit=20` retornou `{"ok":true,"picked":0,"sent":0,"errors":0}`.
+
+### Incidente: link público contém localhost/127.0.0.1
+
+1. Confirmar que o frontend usa `publicAppUrl()` para links compartilháveis e que `VITE_PUBLIC_APP_URL=https://mercuriocapitalsa.com.br` no ambiente de build.
+2. Confirmar `SITE_URL` e `APP_URL` nos Edge Secrets (listar nomes, nunca valores sensíveis).
+3. Verificar a configuração do banco:
+  ```sql
+  select chave, valor from configuracoes_sistema
+   where chave in ('app_url', 'frontend_url', 'site_url');
+  ```
+4. Reemitir o magic link após a correção; links já emitidos e enviados não são reescritos.
+5. `localhost` e `127.0.0.1` só são permitidos em configuração local/testes (`supabase/config.toml`, Vite local e testes automatizados).
 
 ---
 
