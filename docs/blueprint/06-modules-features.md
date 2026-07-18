@@ -191,12 +191,17 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 ### Telas
 - `/admin/fluxos`, `/admin/fluxos/novo`, `/admin/fluxos/:id` (editor JSON visual).
 - `/admin/campanhas`, `/admin/campanhas/nova`.
+- `/admin/templates?canal=email`: catálogo por canal, editor HTML, preview sandbox e teste de enqueue.
+- `/admin/configuracoes` → **Templates de e-mail**: acesso rápido ao catálogo e teste operacional de convite.
 
 ### Regras
 - Fluxo modelado como JSON (gatilhos + passos + condicionais + templates).
 - Persistido em `fluxos_evolution.definicao_json`, versionado.
 - Execuções rastreadas em `fluxo_execucoes`.
 - Templates referenciam variáveis: `{{cliente.nome}}`, `{{proposta.protocolo}}`, `{{status}}`.
+- O editor compara placeholders do assunto/corpo com `templates_mensagem.variaveis` e avisa divergências antes de salvar.
+- Testes de e-mail chamam `admin_email_template_test_enqueue`; o browser nunca chama Resend diretamente.
+- `convite_equipe_v1`, `proposta_cliente_magic_link_v1` e `proposta_status_changed_v1` são críticos: podem ter conteúdo editado, mas código/canal/ativação e exclusão são protegidos no backend.
 
 ### Push Notifications
 - Web Push (FCM) + WhatsApp (Evolution) + e-mail.

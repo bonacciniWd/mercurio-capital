@@ -109,6 +109,13 @@ function vimeoHeaders(withJsonBody = false): HeadersInit {
   }
 }
 
+function safeLogSnippet(value: string, maxLength = 800): string {
+  return value
+    .replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [redacted]')
+    .replace(/"access_token"\s*:\s*"[^"]+"/gi, '"access_token":"[redacted]"')
+    .slice(0, maxLength)
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return jsonResponse({ error: 'method_not_allowed' }, 405)
@@ -163,9 +170,18 @@ Deno.serve(async (req) => {
 
   const createText = await createRes.text()
   if (!createRes.ok) {
+    console.error(JSON.stringify({
+      event: 'vimeo_create_fail',
+      status: createRes.status,
+      detail: safeLogSnippet(createText),
+      filename,
+      size,
+      content_type: contentType,
+    }))
+
     return jsonResponse({
       error: 'vimeo_create_fail',
-      detail: createText.slice(0, 800),
+      detail: safeLogSnippet(createText),
       status: createRes.status,
     }, 502)
   }
@@ -181,7 +197,22 @@ Deno.serve(async (req) => {
   const vimeoId = extractVimeoId(createJson.uri) ?? extractVimeoId(createJson.link)
 
   if (!uploadLink || !vimeoId) {
-    return jsonResponse({ error: 'vimeo_payload_invalido', detail: 'upload_link ou vimeo_id ausente' }, 502)
+    console.error(JSON.stringify({
+      event: 'vimeo_payload_invalido',
+      status: createRes.status,
+      detail: safeLogSnippet(createText),
+      filename,
+      size,
+      content_type: contentType,
+      has_upload_link: Boolean(uploadLink),
+      has_vimeo_id: Boolean(vimeoId),
+    }))
+
+    return jsonResponse({
+      error: 'vimeo_payload_invalido',
+      detail: 'upload_link ou vimeo_id ausente',
+      status: createRes.status,
+    }, 502)
   }
 
   const domainsRequested = parseEmbedDomains(VIMEO_EMBED_DOMAINS)

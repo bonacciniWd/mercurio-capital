@@ -50,6 +50,9 @@ interface VimeoUploadInitResponse {
   uri?: string
   upload_link?: string
   warnings?: string[]
+  error?: string
+  detail?: string
+  status?: number
 }
 
 const MAX_VIMEO_UPLOAD_BYTES = 5 * 1024 * 1024 * 1024
@@ -257,9 +260,10 @@ export function AdminUniversidade() {
           aula_id: editAula.id.startsWith('new-') ? null : editAula.id,
         },
       })
-      if (error) throw new Error(error.message)
+      if (error) throw await buildVimeoInitError(error, data)
 
       const payload = (data ?? {}) as VimeoUploadInitResponse
+      if (payload.error) throw await buildVimeoInitError(error, payload)
       const uploadLink = payload.upload_link
       const vimeoId = normalizeVimeoId(payload.vimeo_id ?? payload.uri ?? null)
       if (!uploadLink || !vimeoId) {
@@ -682,6 +686,36 @@ function formatBytes(bytes: number): string {
     idx += 1
   }
   return `${value.toFixed(value >= 100 || idx === 0 ? 0 : 1)} ${units[idx]}`
+}
+
+async function readFunctionError(error: unknown): Promise<VimeoUploadInitResponse | null> {
+  try {
+    const context = error && typeof error === 'object' && 'context' in error
+      ? (error as { context?: Response }).context
+      : null
+    if (context && typeof context.json === 'function') {
+      return await context.json() as VimeoUploadInitResponse
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+async function buildVimeoInitError(error: unknown, data: unknown): Promise<Error> {
+  const payload = ((data ?? await readFunctionError(error)) ?? {}) as VimeoUploadInitResponse
+  const status = payload.status ? `status ${payload.status}` : 'status desconhecido'
+  const detail = payload.detail || payload.error || (error instanceof Error ? error.message : String(error))
+
+  if (payload.error === 'vimeo_create_fail') {
+    return new Error(`Vimeo recusou criação do upload (${status}): ${detail}`)
+  }
+
+  if (payload.error === 'vimeo_payload_invalido') {
+    return new Error(`Vimeo respondeu sem upload_link ou vimeo_id (${status}): ${detail}`)
+  }
+
+  return new Error(detail || 'Falha ao iniciar upload no Vimeo.')
 }
 
 function normalizeVimeoId(raw: string | null | undefined): string | null {

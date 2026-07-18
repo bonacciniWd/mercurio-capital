@@ -111,8 +111,9 @@
 | `/admin/fluxos/:id` | `FluxoEditor` |
 | `/admin/campanhas` | `CampanhasList` |
 | `/admin/campanhas/nova` | `CampanhaForm` |
+| `/admin/templates` | `AdminTemplates` (filtro por canal, editor/preview e teste de envio; aceita `?canal=email`) |
 | `/admin/integracoes` | `IntegracoesConfig` (Bacen, Serasa, Jusbrasil, RI Digital, Evolution) |
-| `/admin/configuracoes` | `AdminSettings` (inclui teste controlado de convite por e-mail) |
+| `/admin/configuracoes` | `AdminSettings` (inclui área Templates de e-mail + teste operacional de convite) |
 | `/admin/configuracoes/permissoes` | `PermissoesPapeis` |
 | `/admin/configuracoes/feature-flags` | `FeatureFlagsAdmin` |
 | `/admin/auditoria` | `AuditLogViewer` |

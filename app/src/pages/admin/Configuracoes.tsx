@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { Building2, Bell, Shield, Globe, Users, Save, TrendingUp, CheckCircle2, XCircle, Upload, Trash2, MailCheck, Loader2, Copy, Check, AlertTriangle } from 'lucide-react'
 import { Badge } from '@/components/Badge'
 import { TwoFactorManager } from '@/components/TwoFactorManager'
@@ -10,7 +11,7 @@ const TABS = [
   { id: 'usuarios', icon: Users, label: 'Usuários internos' },
   { id: 'seguranca', icon: Shield, label: 'Segurança' },
   { id: 'notificacoes', icon: Bell, label: 'Notificações' },
-  { id: 'teste-email', icon: MailCheck, label: 'Teste de e-mail' },
+  { id: 'emails', icon: MailCheck, label: 'Templates de e-mail' },
   { id: 'dominio', icon: Globe, label: 'Domínio & marca' },
   { id: 'metas', icon: TrendingUp, label: 'Metas' },
 ]
@@ -45,7 +46,7 @@ export function AdminConfiguracoes() {
           {tab === 'usuarios' && <UsuariosTab />}
           {tab === 'seguranca' && <SegurancaTab />}
           {tab === 'notificacoes' && <NotificacoesTab />}
-          {tab === 'teste-email' && <EmailTesteTab />}
+          {tab === 'emails' && <EmailTemplatesTab />}
           {tab === 'dominio' && <DominioTab />}
           {tab === 'metas' && <MetasTab />}
         </div>
@@ -68,7 +69,7 @@ type ConviteTesteResponse = {
   expires_in_min?: number
 }
 
-function EmailTesteTab() {
+function EmailTemplatesTab() {
   const [equipes, setEquipes] = useState<EquipeTesteEmail[]>([])
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
@@ -166,10 +167,18 @@ function EmailTesteTab() {
   return (
     <>
       <div className="mb-5">
-        <h2 className="font-semibold text-navy">Teste controlado de convite por e-mail</h2>
+        <h2 className="font-semibold text-navy">Templates de e-mail</h2>
         <p className="mt-1 text-sm text-silver-500">
-          Cria um convite real de membro e o enfileira pelo fluxo oficial. Use somente um endereço de teste autorizado.
+          Os templates são salvos em <code>templates_mensagem</code>. Cada envio entra em <code>email_outbox</code> e o Resend só envia quando o <code>email-dispatcher</code> processa a fila.
         </p>
+        <Link to="/admin/templates?canal=email" className="btn-gold mt-4 inline-flex">
+          <MailCheck className="h-4 w-4" /> Gerenciar e testar templates
+        </Link>
+      </div>
+
+      <div className="mb-4 border-t border-silver-200 pt-5">
+        <h3 className="text-sm font-semibold text-navy">Teste operacional de convite</h3>
+        <p className="mt-1 text-xs text-silver-500">Cria um convite real pelo fluxo oficial. Use somente um endereço de teste autorizado.</p>
       </div>
 
       <div className="mb-5 flex items-start gap-2 rounded-md border border-gold/30 bg-gold/10 p-3 text-xs text-gold-700">

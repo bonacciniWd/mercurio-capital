@@ -35,7 +35,9 @@
 - `proposta.status.changed`: o histórico de status enfileira `proposta_status_changed_v1`, com idempotência por item de `proposta_status_historico`.
 - `equipe.membro.convidado`: `partner_invite_membro` enfileira `convite_equipe_v1`.
 - O enqueue é best-effort e não bloqueia criação/transição. O worker `email-dispatcher` envia via Resend e marca `enviado` ou `erro` com detalhe.
-- O workflow `.github/workflows/email-dispatcher-cron.yml` invoca o worker a cada 5 minutos; também há `workflow_dispatch` e chamada HTTP manual.
+- O job Supabase Cron `email-dispatcher-every-5-minutes` usa `pg_cron + pg_net` para invocar o worker a cada 5 minutos. A chamada HTTP manual permanece disponível para contingência.
+- O admin gerencia os registros existentes em `templates_mensagem` por `/admin/templates`, com filtro por canal e preview HTML em iframe sandbox (scripts bloqueados).
+- Testes controlados usam a RPC admin-only `admin_email_template_test_enqueue`, gravam `evento=template_teste` e `origem=admin_templates` na outbox e aguardam o dispatcher.
 
 ## 2. Magic Link — fluxo seguro
 

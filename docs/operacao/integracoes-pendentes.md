@@ -7,10 +7,10 @@ _Atualizado em 01/06/2026_
 
 | Serviço | Status |
 |---|---|
-| **Vimeo Pro** | ✅ Upload oficial via painel admin/universidade — requer `VIMEO_ACCESS_TOKEN` e whitelist em `VIMEO_EMBED_DOMAINS` |
+| **Vimeo Pro** | ✅ Upload oficial via painel admin/universidade — requer `VIMEO_ACCESS_TOKEN` com upload/criação e whitelist em `VIMEO_EMBED_DOMAINS` |
 | **Stripe** | ✅ Cliente providenciando — aguardando `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e Price IDs do LMS |
 | **Clicksign** | ✅ Cliente providenciando — aguardando `CLICKSIGN_API_TOKEN` e `CLICKSIGN_WEBHOOK_SECRET` |
-| **Resend** | ✅ Ativo em produção (`email_outbox` + `email-dispatcher`; secrets `RESEND_API_KEY`/`RESEND_FROM`; cron GitHub a cada 5 min) |
+| **Resend** | ✅ Ativo em produção (`email_outbox` + `email-dispatcher`; secrets `RESEND_API_KEY`/`RESEND_FROM`; Supabase Cron a cada 5 min) |
 | **Bacen SCR** | ✅ Integração real implementada (edge configurável) — requer `BACEN_SCR_API_URL` + credenciais do provedor homologado |
 | **Jusbrasil** | ✅ Cliente providenciando |
 | **Escavador** | ✅ Cliente providenciando |
@@ -122,10 +122,13 @@ supabase secrets set \
   --project-ref bhagksfvszeogtjvjtpx
 
 # Vimeo
-supabase secrets set 
+supabase secrets set \
   VIMEO_ACCESS_TOKEN=xxx \
   VIMEO_EMBED_DOMAINS='["www.mercuriocapitalsa.com.br","mercuriocapitalsa.com.br","mercurio-digital-alpha.vercel.app"]' \
   --project-ref bhagksfvszeogtjvjtpx
+
+# O health vimeo em /admin/integracoes cria um upload TUS de 1MB e remove o vídeo.
+# 401/403 indicam token sem escopo; erro de quota/plano deve ser tratado no painel Vimeo.
 
 # Resend (já ativo no projeto bhagksfvszeogtjvjtpx)
 # Comando mantido para rotação/ajuste de segredo:
@@ -178,6 +181,8 @@ curl -i -X POST \
 ```
 
 Eventos ativos na outbox: `convite_equipe`, `proposta_criada` e `proposta_status_changed`. O Resend não observa tabelas diretamente: sem item na outbox nada é enviado; sem dispatcher os itens permanecem `pendente`.
+
+O painel `/admin/templates?canal=email` gerencia o catálogo existente em `templates_mensagem`, oferece preview sandbox e enfileira testes com `evento=template_teste`. Templates transacionais críticos têm exclusão/inativação bloqueadas no backend.
 
 ---
 

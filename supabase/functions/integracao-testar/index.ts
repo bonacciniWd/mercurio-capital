@@ -35,6 +35,22 @@ async function withTimeout(fn: (signal: AbortSignal) => Promise<Response>): Prom
   }
 }
 
+function extractVimeoVideoId(payload: unknown): string | null {
+  const obj = payload as { uri?: string; link?: string } | null
+  const raw = obj?.uri ?? obj?.link ?? ''
+  const uriMatch = raw.match(/\/videos\/(\d+)/)
+  if (uriMatch) return uriMatch[1]
+  const urlMatch = raw.match(/vimeo\.com\/(?:video\/)?(\d+)/)
+  return urlMatch?.[1] ?? null
+}
+
+function safeProviderDetail(value: string, maxLength = 240): string {
+  return value
+    .replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [redacted]')
+    .replace(/"access_token"\s*:\s*"[^"]+"/gi, '"access_token":"[redacted]"')
+    .slice(0, maxLength)
+}
+
 // Retorna { ok, erro } — só é chamado quando todas as secrets existem.
 async function pingProvider(chave: string): Promise<{ ok: boolean; erro?: string }> {
   try {
@@ -91,15 +107,52 @@ async function pingProvider(chave: string): Promise<{ ok: boolean; erro?: string
       }
       case 'vimeo': {
         const token = Deno.env.get('VIMEO_ACCESS_TOKEN') ?? ''
-        const res = await withTimeout((signal) =>
-          fetch('https://api.vimeo.com/me', {
+        const createRes = await withTimeout((signal) =>
+          fetch('https://api.vimeo.com/me/videos', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/vnd.vimeo.*+json;version=3.4',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              upload: { approach: 'tus', size: '1048576' },
+              name: 'Mercurio healthcheck upload permission',
+              description: 'Criado automaticamente pelo health check; deve ser removido em seguida.',
+              privacy: { view: 'nobody' },
+            }),
+            signal,
+          }))
+        const text = await createRes.text()
+        if (!createRes.ok) {
+          return { ok: false, erro: `vimeo_upload_create ${createRes.status}: ${safeProviderDetail(text)}` }
+        }
+
+        let payload: unknown = null
+        try { payload = text ? JSON.parse(text) : null } catch { payload = null }
+        const videoId = extractVimeoVideoId(payload)
+        const uploadLink = (payload as { upload?: { upload_link?: string; link?: string } } | null)?.upload?.upload_link
+          ?? (payload as { upload?: { upload_link?: string; link?: string } } | null)?.upload?.link
+
+        if (!videoId || !uploadLink) {
+          return { ok: false, erro: `vimeo_upload_payload_invalido ${safeProviderDetail(text)}` }
+        }
+
+        const deleteRes = await withTimeout((signal) =>
+          fetch(`https://api.vimeo.com/videos/${videoId}`, {
+            method: 'DELETE',
             headers: {
               Authorization: `Bearer ${token}`,
               Accept: 'application/vnd.vimeo.*+json;version=3.4',
             },
             signal,
           }))
-        return res.ok ? { ok: true } : { ok: false, erro: `vimeo ${res.status}` }
+        if (!deleteRes.ok && deleteRes.status !== 204) {
+          const deleteText = await deleteRes.text()
+          return { ok: false, erro: `vimeo_upload_delete ${deleteRes.status}: ${safeProviderDetail(deleteText)}` }
+        }
+
+        return { ok: true }
       }
       case 'bacen': {
         // SCR é acessado via provedor homologado configurável. Verificamos a

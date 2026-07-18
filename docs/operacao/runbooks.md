@@ -118,6 +118,14 @@ select id, destinatario, assunto, status, tentativas, ultimo_erro,
  where metadata->>'evento' in ('proposta_criada', 'proposta_status_changed')
  order by created_at desc
  limit 30;
+
+-- testes enfileirados pelo painel de templates
+select id, destinatario, assunto, status, tentativas, ultimo_erro,
+       metadata->>'template' as template, created_at
+  from email_outbox
+ where metadata->>'evento' = 'template_teste'
+ order by created_at desc
+ limit 10;
 ```
 
 **Causas comuns**:
@@ -133,22 +141,39 @@ select id, destinatario, assunto, status, tentativas, ultimo_erro,
 - Se convite de equipe voltar com `email_status='falha_enqueue'`, orientar fallback manual com o link de convite gerado na tela de Equipe (web/mobile).
 
 **Teste controlado pelo admin**:
-1. Acessar `/admin/configuracoes` e abrir **Teste de e-mail**.
-2. Selecionar uma equipe de parceiro aprovado e informar um endereço de teste autorizado.
-3. Clicar em **Criar convite de teste** e confirmar `email_status = enfileirado`.
-4. O teste usa `partner_invite_membro`: cria um convite real, invalida convite pendente anterior para o mesmo e-mail/equipe e mantém o link manual como fallback.
-5. Confirmar o item em `email_outbox`, executar o dispatcher e validar a mudança para `enviado`.
+1. Acessar `/admin/configuracoes` → **Templates de e-mail** e abrir o catálogo, ou ir direto a `/admin/templates?canal=email`.
+2. Editar o template, carregar dados fake e conferir o preview sandbox.
+3. Na seção **Teste de envio**, escolher template, e-mail interno e variáveis JSON.
+4. Clicar em **Enfileirar teste** e confirmar `evento=template_teste` na `email_outbox`.
+5. Executar/aguardar o dispatcher e validar `status=enviado` ou `ultimo_erro` claro.
+6. O teste operacional de convite continua disponível em Configurações e cria convite real via `partner_invite_membro`.
+
+Templates críticos não podem ser removidos, inativados nem mudar de código/canal. O conteúdo e a lista de variáveis podem ser atualizados; divergências de placeholders aparecem como aviso no editor.
 
 **Agendamento recorrente em produção**:
 
-O workflow `.github/workflows/email-dispatcher-cron.yml` executa a cada 5 minutos e pode ser disparado manualmente no GitHub Actions. Para contingência:
+O job Supabase Cron `email-dispatcher-every-5-minutes` executa a cada 5 minutos via `pg_cron + pg_net`. O antigo workflow GitHub foi removido para evitar duplicidade.
+
+```sql
+select jobid, jobname, schedule, active
+  from cron.job
+ where jobname = 'email-dispatcher-every-5-minutes';
+
+select status, return_message, start_time, end_time
+  from cron.job_run_details
+ where jobid = (select jobid from cron.job where jobname = 'email-dispatcher-every-5-minutes')
+ order by start_time desc
+ limit 10;
+```
+
+Para contingência manual:
 ```bash
 curl -fsS -X POST \
   'https://bhagksfvszeogtjvjtpx.supabase.co/functions/v1/email-dispatcher?limit=20' \
   | cat
 ```
 
-Se o workflow estiver desabilitado ou atrasado, os registros permanecem em `pendente`; use a chamada manual e inspecione a Action.
+Se o job estiver inativo ou falhando, os registros permanecem em `pendente`; use a chamada manual e inspecione `cron.job_run_details` e `net._http_response`.
 
 **Evidência operacional (2026-07-15)**:
 - `supabase secrets list --project-ref bhagksfvszeogtjvjtpx` retornou `RESEND_API_KEY` e `RESEND_FROM`.
@@ -304,10 +329,14 @@ Esperado após correção:
 1. Verificar secrets da edge:
   - `VIMEO_ACCESS_TOKEN`
   - `VIMEO_EMBED_DOMAINS` (json array de dominios permitidos)
+  - `VIMEO_MAX_UPLOAD_BYTES` (opcional; default 5GB)
 2. Verificar logs das funções:
   - `vimeo-upload-init`
   - `integracao-testar` (chave `vimeo`)
-3. Rodar health de integração Vimeo no admin e checar status/erro.
+3. Rodar health de integração Vimeo no admin e checar status/erro. O health cria um vídeo TUS de 1MB e apaga em seguida; isso valida escopo real de upload, não apenas `/me`.
+4. Em `vimeo-upload-init`, procurar logs estruturados:
+   - `event=vimeo_create_fail` com `status`, `detail`, `filename`, `size`, `content_type`.
+   - `event=vimeo_payload_invalido` quando a resposta não contém `upload_link` ou `vimeo_id`.
 
 **SQL de apoio**:
 ```sql
@@ -323,15 +352,27 @@ select id, titulo, tipo, vimeo_id, updated_at
 ```
 
 **Causas prováveis**:
-- Token Vimeo ausente, expirado ou sem escopo para upload.
+- Token Vimeo ausente, expirado ou sem escopo para upload/criação (`upload`, `create`, `edit/delete` para health avançado).
+- Erro explícito do Vimeo: `Your access token does not have the "upload" scope` → token foi gerado sem escopo `upload` ou app ainda não tem upload access aprovado.
+- Plano/quota Vimeo sem permissão para upload ou limite de armazenamento atingido.
 - Dominios de embed nao aplicados corretamente (`VIMEO_EMBED_DOMAINS` invalido).
+- `VIMEO_MAX_UPLOAD_BYTES` abaixo do arquivo enviado.
 - Upload TUS interrompido por rede do cliente.
 
 **Ação imediata**:
 1. Validar token Vimeo e refazer `supabase secrets set`.
+   ```bash
+   supabase secrets set \
+     VIMEO_ACCESS_TOKEN=<NOVO_TOKEN_COM_UPLOAD> \
+     VIMEO_EMBED_DOMAINS='["www.mercuriocapitalsa.com.br","mercuriocapitalsa.com.br","mercurio-digital-alpha.vercel.app"]' \
+     --project-ref bhagksfvszeogtjvjtpx
+   ```
 2. Reexecutar teste de integração `vimeo` no painel admin.
-3. Repetir upload por arquivo menor para isolar falha de rede/tamanho.
-4. Confirmar que `vimeo_id` foi preenchido e salvar a aula novamente.
+3. Se o health retornar `vimeo_upload_create 401/403`, recriar o token com escopos de upload/criação. Se retornar quota/plano, ajustar plano ou liberar espaço no Vimeo.
+  - Pela documentação Vimeo, upload TUS via `POST /me/videos` requer upload access no app e token com escopos `upload` e `edit`.
+  - Para o health avançado remover o vídeo de teste, inclua também escopo de delete/remover vídeo quando disponível no painel.
+4. Repetir upload por arquivo menor para isolar falha de rede/tamanho.
+5. Confirmar que `vimeo_id` foi preenchido e salvar a aula novamente.
 
 **Validação de recuperação**:
 - Upload finaliza com progresso 100% no admin.
