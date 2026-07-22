@@ -23,6 +23,15 @@
 
 ---
 
+## Atualização operacional v0.0.9 (2026-07-18)
+
+- Vimeo Upload Access está em review no provedor Vimeo; uploads de vídeo podem falhar até a liberação.
+- Resend e templates de e-mail estão operacionais (catálogo admin com preview/teste de enqueue).
+- Dispatcher de e-mail e cron `email-dispatcher-every-5-minutes` estão ativos em produção.
+- Links públicos canônicos padronizados para https://mercuriocapitalsa.com.br (`SITE_URL`, `APP_URL` e `VITE_PUBLIC_APP_URL`).
+
+---
+
 ## 1. Deploy de migration
 
 **Gatilho**: nova migration em `supabase/migrations/`.
