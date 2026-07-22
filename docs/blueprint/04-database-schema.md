@@ -48,8 +48,12 @@ create type proposta_status as enum (
 create type estado_civil as enum ('solteiro','casado','divorciado','viuvo','uniao_estavel');
 create type documento_tipo as enum (
   'rg','cpf','cnh','contrato_social','comprovante_residencia','comprovante_renda',
-  'matricula_imovel','iptu','certidao_casamento','outros'
+  'matricula_imovel','iptu','certidao_casamento','outros',
+  -- adicionados na Fase de checklist de documentos (migration isolada `20260722000003_documento_tipo_expand.sql`)
+  'certidao_nascimento','irpf_declaracao','irpf_recibo','extrato_bancario',
+  'demonstrativo_contabil','ficha_cadastral_imovel','fotos_imovel','contrato_compra_venda'
 );
+create type fundo_status as enum ('aprovado','atencao','aguardando','rejeitado');
 create type pendencia_status as enum ('aberta','em_analise','resolvida','rejeitada');
 create type notificacao_canal as enum ('push','email','whatsapp','in_app');
 create type wallet_movimento_tipo as enum (
@@ -295,12 +299,13 @@ N:N entre `proponentes` e `imoveis`.
 | `imovel_id` | uuid FK | nullable |
 | `categoria` | text | `pessoa_fisica`, `pessoa_juridica`, `imovel` |
 | `tipo` | documento_tipo |
-| `storage_path` | text |
+| `storage_path` | text | nullable (placeholders do checklist têm `storage_path IS NULL`) |
 | `bucket` | text | `proposta-docs` (privado) |
 | `mime_type` | text |
 | `tamanho_bytes` | bigint |
 | `enviado_por` | uuid FK |
 | `origem` | text | `cliente`, `parceiro`, `protocolo_publico`, `ocr` |
+| `status` | text default `pendente` | `pendente`, `enviado`, `aprovado`, `rejeitado` — sincronizado por trigger com `storage_path`/`validado` |
 | `validado` | boolean default false |
 | `validado_por` | uuid FK |
 | `validado_em` | timestamptz |
@@ -333,6 +338,44 @@ N:N entre `proponentes` e `imoveis`.
 | `resolvida_em` | timestamptz |
 | `created_at` / `updated_at` | timestamptz |
 
+### `documento_requisitos`
+Catálogo de requisitos por categoria, base do checklist. RLS: `all` para admin; `select` para qualquer autenticado. Seed em `20260722000004_documentos_checklist.sql`.
+| Coluna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid PK | |
+| `categoria` | text | `pessoa_fisica`, `pessoa_juridica`, `imovel` |
+| `tipo` | documento_tipo | |
+| `obrigatorio` | boolean default false | |
+| `ordem` | int default 100 | |
+| `created_at` | timestamptz | |
+| — | unique | `(categoria, tipo)` |
+
+> A RPC `proposta_documentos_seed(p_proposta_id)` (`security definer`, idempotente, guard por ownership) materializa placeholders `status='pendente'` = requisitos de Imóvel (sempre) + PF **ou** PJ (pelo proponente principal). É chamada por trigger `after insert on proponentes` (`fn_seed_docs_on_proponente`) e pelas telas de documentos.
+
+### `fundos`
+Tags internas de fundo por proposta. RLS **admin-only** (`for all using app_is_admin()`); parceiro/cliente **sem acesso**. Escrita via RPC.
+| Coluna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid PK | |
+| `nome` | text | único entre ativos: `unique index lower(nome) where ativo` |
+| `cor_hex` | text | check `^#[0-9A-Fa-f]{6}$` |
+| `ativo` | boolean default true | |
+| `created_by` | uuid FK usuarios | |
+| `created_at` / `updated_at` | timestamptz | trigger `set_updated_at` |
+
+### `proposta_fundos`
+Atribuição fundo ↔ proposta com status por cores. RLS **admin-only**. `on delete cascade` em proposta e fundo.
+| Coluna | Tipo | Notas |
+|---|---|---|
+| `proposta_id` | uuid FK | PK composta |
+| `fundo_id` | uuid FK | PK composta |
+| `status_fundo` | fundo_status default `aguardando` | verde=`aprovado`, laranja=`atencao`, amarelo=`aguardando`, vermelho=`rejeitado` |
+| `observacao` | text | nullable |
+| `atribuido_por` | uuid FK usuarios | |
+| `created_at` / `updated_at` | timestamptz | trigger `set_updated_at` |
+
+> RPCs (todas `security definer`, guard `app_is_admin()`, auditadas): `admin_fundo_upsert(p_id, p_nome, p_cor)`, `admin_fundo_toggle_ativo(p_id, p_ativo)`, `admin_proposta_fundo_set(p_proposta_id, p_fundo_id, p_status, p_obs)`, `admin_proposta_fundo_remove(p_proposta_id, p_fundo_id)`.
+
 ## 5. Operações & Financeiro
 
 ### `contratos`
@@ -348,6 +391,19 @@ N:N entre `proponentes` e `imoveis`.
 | `assinado_em` | timestamptz |
 | `registrado_em` | timestamptz |
 | `created_at` / `updated_at` | timestamptz |
+
+### `proposta_contrato_modelos`
+Modelo de contrato por proposta enviado pelo admin (interno). **Distinto** do PDF gerado pelo fluxo Clicksign (`contratos`). Reusa o bucket privado `contratos` (path `{proposta_id}/modelos/{uuid}.ext`). Suporta N modelos.
+| Coluna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid PK | |
+| `proposta_id` | uuid FK | `on delete cascade` |
+| `storage_path` | text | bucket `contratos` |
+| `nome_arquivo` | text | |
+| `enviado_por` | uuid FK usuarios | |
+| `created_at` | timestamptz | |
+
+> RLS: `all` para admin; `select` para parceiro dono (`proposta.partner_id = app_partner_id()` ou `equipe_id = app_equipe_id()`) e cliente da proposta. RPCs `security definer`: `proposta_contrato_modelo_add(p_proposta_id, p_storage_path, p_nome_arquivo)` (guard `app_is_admin()`, valida path `{proposta_id}/…`, auditada) e `proposta_contrato_modelo_remove(p_id)` (admin, retorna `storage_path`). Download por `signedUrl` curta gerada no client sobre o bucket `contratos`.
 
 ### `assinaturas_contrato`
 | Coluna | Tipo |
