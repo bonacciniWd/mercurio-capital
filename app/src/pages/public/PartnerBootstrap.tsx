@@ -92,7 +92,7 @@ export function PartnerBootstrap() {
   return (
     <div className="mx-auto flex min-h-screen max-w-lg items-center px-6">
       <div className="card w-full p-8">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gold-600">Convite de parceiro</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-red-600">Convite de parceiro</p>
         <h1 className="mt-2 text-2xl font-bold text-navy">Ativar acesso</h1>
 
         {phase === 'loading' && (

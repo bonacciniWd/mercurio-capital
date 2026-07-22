@@ -76,7 +76,7 @@ export function PartnerComissoes() {
               {lista.map(c => (
                 <tr key={c.id} className="border-t border-silver-100 hover:bg-silver-50">
                   <td className="px-4 py-3 font-mono text-xs">
-                    <Link to={`/p/propostas/${c.proposta_id}`} className="text-gold-600 hover:underline">
+                    <Link to={`/p/propostas/${c.proposta_id}`} className="text-red-600 hover:underline">
                       {c.proposta?.protocolo ?? c.proposta_id.slice(0, 8)}
                     </Link>
                   </td>

@@ -22,7 +22,7 @@ export function TwoFactorSetupPage() {
   return (
     <div className="mx-auto flex min-h-screen max-w-3xl items-center px-6 py-12">
       <div className="card w-full p-8">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gold-600">Primeiro acesso seguro</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-red-600">Primeiro acesso seguro</p>
         <h1 className="mt-1 text-2xl font-bold text-navy">Configure a autenticação em duas etapas</h1>
         <p className="mt-2 text-sm text-silver-600">
           Sua conta exige 2FA. Ative agora para liberar o acesso ao painel.

@@ -134,7 +134,7 @@ export function Registro() {
           </div>
           <div className="card p-8">
             <div className="mb-6 flex items-center justify-between text-xs">
-              <span className="font-semibold uppercase tracking-wide text-gold-600">Cadastro de Parceiro</span>
+              <span className="font-semibold uppercase tracking-wide text-red-600">Cadastro de Parceiro</span>
               <span className="text-silver-500">Passo {step} de 3</span>
             </div>
 

@@ -74,7 +74,7 @@ export function SimuladorCredito({
         <MoneyInput label="Valor da garantia" value={values.valor_garantia} disabled={!garantiaEditavel} hint={garantiaHint} onChange={value => onChange({ valor_garantia: value })} />
         <div>
           <label className="label">Taxa de juros mensal (%)</label>
-          <input className="input" type="number" min={0} step={0.01} value={values.taxa_juros_mensal} onChange={event => onChange({ taxa_juros_mensal: Number(event.target.value) })} />
+          <input className="label" type="number" min={0} step={0.01} value={values.taxa_juros_mensal} disabled />
         </div>
         <Segmented label="Correção" value={values.correcao} options={[['pos_fixado', 'Pós (IPCA)'], ['pre_fixado', 'Pré-fixado']]} onChange={value => onChange({ correcao: value as SimuladorCreditoValues['correcao'] })} />
         <Segmented label="Amortização" value={values.amortizacao} options={[['price', 'PRICE'], ['sac', 'SAC']]} onChange={value => onChange({ amortizacao: value as SimuladorCreditoValues['amortizacao'] })} />
@@ -92,9 +92,6 @@ export function SimuladorCredito({
           <ResultRow label="Amortização" value={`${values.amortizacao.toUpperCase()} · ${values.correcao === 'pos_fixado' ? 'IPCA' : 'Pré-fixado'}`} />
           <ResultRow label="1ª parcela" value={brl(calculo.primeiraParcela * 100)} strong />
           <ResultRow label="Última parcela" value={brl(calculo.ultimaParcela * 100)} strong />
-          <ResultRow label="Total a pagar" value={brl(calculo.totalPago * 100)} />
-          <ResultRow label="Total de juros" value={brl(calculo.totalJuros * 100)} />
-          <ResultRow label="Renda mínima" value={`${brl(calculo.rendaMinima * 100)}/mês`} strong />
         </dl>
         {resultFooter}
       </div>

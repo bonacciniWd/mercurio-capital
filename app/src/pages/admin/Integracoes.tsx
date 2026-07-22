@@ -236,7 +236,7 @@ export function AdminIntegracoes() {
       </div>
 
       {listQuery.isLoading ? (
-        <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-gold-600" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-red-600" /></div>
       ) : visiveis.length === 0 ? (
         <div className="card flex flex-col items-center justify-center py-16 text-silver-500">
           <Settings2 className="mb-2 h-8 w-8" />
@@ -326,13 +326,13 @@ export function AdminIntegracoes() {
                       type="checkbox"
                       checked={i.ativo}
                       onChange={(e) => toggleMut.mutate({ chave: i.chave, ativo: e.target.checked })}
-                      className="h-4 w-4 rounded border-silver-300 text-gold-600 focus:ring-gold-500"
+                      className="h-4 w-4 rounded border-silver-300 text-red-600 focus:ring-gold-500"
                     />
                     {i.ativo ? 'Ativa' : 'Inativa'}
                   </label>
                   <div className="flex items-center gap-3 text-xs">
                     {i.chave === 'whatsapp' && (
-                      <Link to="/admin/integracoes/whatsapp" className="inline-flex items-center gap-1 font-medium text-gold-600 hover:underline">
+                      <Link to="/admin/integracoes/whatsapp" className="inline-flex items-center gap-1 font-medium text-red-600 hover:underline">
                         <SlidersHorizontal className="h-3.5 w-3.5" /> Configurar
                       </Link>
                     )}

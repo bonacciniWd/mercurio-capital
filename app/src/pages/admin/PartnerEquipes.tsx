@@ -240,7 +240,7 @@ export function AdminPartnerEquipes() {
               <div key={eq.equipe_id} className="card overflow-hidden">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-silver-100 bg-silver-50/40 px-5 py-3">
                   <div className="flex items-center gap-3">
-                    <Users className="h-5 w-5 text-gold-600" />
+                    <Users className="h-5 w-5 text-red-600" />
                     <div>
                       <h2 className="font-semibold text-navy">{eq.nome}</h2>
                       <p className="text-xs text-silver-500">

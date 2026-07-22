@@ -200,7 +200,7 @@ export function AdminWhatsAppConfig() {
       )}
 
       {intQuery.isLoading ? (
-        <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-gold-600" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-red-600" /></div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Coluna principal */}
@@ -361,7 +361,7 @@ export function AdminWhatsAppConfig() {
                 <li>Use “Testar conexão” e depois “Enviar mensagem de teste”.</li>
               </ol>
               {int?.docs_url && (
-                <a href={int.docs_url} target="_blank" rel="noreferrer" className="mt-3 inline-block text-xs font-medium text-gold-600 hover:underline">
+                <a href={int.docs_url} target="_blank" rel="noreferrer" className="mt-3 inline-block text-xs font-medium text-red-600 hover:underline">
                   Documentação WhatsApp Cloud API →
                 </a>
               )}

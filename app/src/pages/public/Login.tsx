@@ -123,7 +123,7 @@ export function Login({
             <Logo />
           </div>
           <div className="card p-8">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gold-600">{hero.eyebrow}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-red-600">{hero.eyebrow}</p>
             <h1 className="mt-2 text-2xl font-bold text-navy">{title}</h1>
             <p className="mt-2 text-sm text-silver-600">{description}</p>
 

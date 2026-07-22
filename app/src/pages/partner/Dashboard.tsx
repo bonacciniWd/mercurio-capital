@@ -186,7 +186,7 @@ export function PartnerDashboard() {
           <div className="card p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-semibold text-navy">Gargalos (propostas paradas há +7 dias)</h2>
-              <Link to="/p/propostas" className="text-xs font-medium text-gold-600 hover:underline">Ver todas →</Link>
+              <Link to="/p/propostas" className="text-xs font-medium text-red-600 hover:underline">Ver todas →</Link>
             </div>
             {(gargalosQuery.data ?? []).length === 0 ? (
               <p className="py-8 text-center text-sm text-silver-400">Sem gargalos. Tudo fluindo.</p>
