@@ -80,7 +80,7 @@ function TriggerNode({ data }: NodeProps) {
   const d = data as { evento: string }
   return (
     <div className="rounded-lg border-2 border-gold bg-white px-4 py-3 shadow-md min-w-[220px]">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase text-gold-600">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase text-red-600">
         <Zap className="h-3 w-3" /> Gatilho
       </div>
       <div className="mt-1 text-sm font-bold text-navy"><code>{d.evento}</code></div>
@@ -460,7 +460,7 @@ export function AdminFluxos() {
                       </button>
                     </div>
                   ))}
-                  <button className="text-sm font-medium text-gold-600"
+                  <button className="text-sm font-medium text-red-600"
                     onClick={() => { setRules([...rules, { field: '', op: '=', value: '' }]); setDirty(true) }}>
                     + Adicionar condição
                   </button>

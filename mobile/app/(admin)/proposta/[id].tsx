@@ -7,22 +7,67 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import * as DocumentPicker from 'expo-document-picker'
+import { File } from 'expo-file-system'
 import {
   ArrowLeft, CheckCircle2, XCircle, AlertTriangle, RefreshCcw,
   User, Building2, Banknote, FileText, History as HistoryIcon, ListChecks,
-  FileSignature, Send, Download, Award, Clock,
+  FileSignature, Send, Download, Award, Clock, Upload, Trash2, Tag,
 } from 'lucide-react-native'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
+import { isPropostaAprovada } from '@/lib/propostaStatus'
+import { FUNDO_STATUS, FUNDO_STATUS_COLOR, FUNDO_STATUS_LABEL, type FundoStatus } from '@/lib/fundoStatus'
+
+function base64ToBytes(b64: string): Uint8Array {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+  const lookup = new Uint8Array(256)
+  for (let i = 0; i < chars.length; i++) lookup[chars.charCodeAt(i)] = i
+  let bufferLength = b64.length * 0.75
+  if (b64[b64.length - 1] === '=') bufferLength--
+  if (b64[b64.length - 2] === '=') bufferLength--
+  const bytes = new Uint8Array(bufferLength)
+  let p = 0
+  for (let i = 0; i < b64.length; i += 4) {
+    const e1 = lookup[b64.charCodeAt(i)]
+    const e2 = lookup[b64.charCodeAt(i + 1)]
+    const e3 = lookup[b64.charCodeAt(i + 2)]
+    const e4 = lookup[b64.charCodeAt(i + 3)]
+    bytes[p++] = (e1 << 2) | (e2 >> 4)
+    if (b64[i + 2] !== '=') bytes[p++] = ((e2 & 15) << 4) | (e3 >> 2)
+    if (b64[i + 3] !== '=') bytes[p++] = ((e3 & 3) << 6) | e4
+  }
+  return bytes
+}
+
+async function readFileBytes(uri: string): Promise<Uint8Array> {
+  try {
+    const f = new File(uri)
+    if (typeof (f as any).bytes === 'function') return (await (f as any).bytes()) as Uint8Array
+    if (typeof (f as any).base64 === 'function') return base64ToBytes(await (f as any).base64())
+  } catch {
+    // fallback fetch+arrayBuffer
+  }
+  const res = await fetch(uri)
+  const buf = await res.arrayBuffer()
+  return new Uint8Array(buf)
+}
+
+interface FundoRow {
+  fundo_id: string
+  status_fundo: FundoStatus
+  fundos: { id: string; nome: string; cor_hex: string } | null
+}
+interface ModeloRow {
+  id: string
+  storage_path: string
+  nome_arquivo: string
+  created_at: string
+}
 
 const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Contrato', 'Histórico'] as const
 type Tab = typeof TABS[number]
-
-const PRE_CONTRATO = new Set([
-  'simulacao', 'pre_analise', 'analise_credito', 'analise_imovel',
-  'analise_juridica', 'comite', 'proposta_cliente', 'resolucao_pendencias',
-])
 
 const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Rascunho', pre_analise: 'Pré-análise', analise_credito: 'Análise Crédito',
@@ -46,7 +91,11 @@ const TIPO_LABEL: Record<string, string> = {
   rg: 'RG', cpf: 'CPF', cnh: 'CNH', contrato_social: 'Contrato Social',
   comprovante_residencia: 'Comprovante de Residência', comprovante_renda: 'Comprovante de Renda',
   matricula_imovel: 'Matrícula do Imóvel', iptu: 'IPTU',
-  certidao_casamento: 'Certidão de Casamento', outros: 'Outros',
+  certidao_casamento: 'Certidão de Casamento', certidao_nascimento: 'Certidão de Nascimento',
+  irpf_declaracao: 'IRPF — Declaração', irpf_recibo: 'IRPF — Recibo',
+  extrato_bancario: 'Extrato Bancário', demonstrativo_contabil: 'Demonstrativo Contábil',
+  ficha_cadastral_imovel: 'Ficha Cadastral do Imóvel', fotos_imovel: 'Fotos do Imóvel',
+  contrato_compra_venda: 'Contrato de Compra e Venda', outros: 'Outros',
 }
 
 interface Proposta {
@@ -180,6 +229,33 @@ export default function PropostaDetalhe() {
     },
   })
 
+  const modelosQ = useQuery({
+    queryKey: ['admin-proposta-mob-modelos', id],
+    enabled: !!id && tab === 'Contrato',
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('proposta_contrato_modelos')
+        .select('id, storage_path, nome_arquivo, created_at')
+        .eq('proposta_id', id!).order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as ModeloRow[]
+    },
+  })
+
+  const fundosQ = useQuery({
+    queryKey: ['admin-proposta-mob-fundos', id],
+    enabled: !!id && tab === 'Resumo',
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('proposta_fundos')
+        .select('fundo_id, status_fundo, fundos(id, nome, cor_hex)')
+        .eq('proposta_id', id!)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as unknown as FundoRow[]
+    },
+  })
+
   const statusMut = useMutation({
     mutationFn: async (vars: { status: string; motivo: string }) => {
       const { error } = await supabase.rpc('admin_set_proposta_status', {
@@ -204,6 +280,64 @@ export default function PropostaDetalhe() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-proposta-mob-docs', id] }),
   })
+
+  const fundoStatusMut = useMutation({
+    mutationFn: async (vars: { fundoId: string; status: FundoStatus }) => {
+      const { error } = await supabase.rpc('admin_proposta_fundo_set', {
+        p_proposta_id: id!, p_fundo_id: vars.fundoId, p_status: vars.status, p_obs: null,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-proposta-mob-fundos', id] }),
+    onError: (e: Error) => setErro(e.message),
+  })
+
+  const modeloUploadMut = useMutation({
+    mutationFn: async () => {
+      const r = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'], copyToCacheDirectory: true,
+      })
+      if (r.canceled || !r.assets?.[0]) return
+      const a = r.assets[0]
+      const ext = (a.name?.split('.').pop() ?? 'pdf').toLowerCase()
+      const path = `${id}/modelos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+      const bytes = await readFileBytes(a.uri)
+      const { error: upErr } = await supabase.storage
+        .from('contratos')
+        .upload(path, bytes, { contentType: a.mimeType ?? 'application/pdf', upsert: false })
+      if (upErr) throw new Error(upErr.message)
+      const { error: rpcErr } = await supabase.rpc('proposta_contrato_modelo_add', {
+        p_proposta_id: id!, p_storage_path: path, p_nome_arquivo: a.name ?? 'modelo',
+      })
+      if (rpcErr) {
+        await supabase.storage.from('contratos').remove([path])
+        throw new Error(rpcErr.message)
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-proposta-mob-modelos', id] }),
+    onError: (e: Error) => setErro(e.message),
+  })
+
+  const modeloRemoveMut = useMutation({
+    mutationFn: async (m: ModeloRow) => {
+      const { data, error } = await supabase.rpc('proposta_contrato_modelo_remove', { p_id: m.id })
+      if (error) throw error
+      const path = (data as string | null) ?? m.storage_path
+      await supabase.storage.from('contratos').remove([path])
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-proposta-mob-modelos', id] }),
+    onError: (e: Error) => setErro(e.message),
+  })
+
+  function onPickFundoStatus(fundoId: string) {
+    Alert.alert('Status do fundo', 'Selecione o novo status', [
+      ...FUNDO_STATUS.map((st) => ({
+        text: FUNDO_STATUS_LABEL[st],
+        onPress: () => fundoStatusMut.mutate({ fundoId, status: st }),
+      })),
+      { text: 'Cancelar', style: 'cancel' as const },
+    ])
+  }
 
   // ─── Contrato actions ─────────────────────────────────────────────────────
   function invalidateContrato() {
@@ -384,6 +518,29 @@ export default function PropostaDetalhe() {
               <Row k="Total a pagar" v={brl(calc.totalPago * 100)} />
               <Row k="Renda mínima" v={`${brl(calc.rendaMinima * 100)}/mês`} />
             </Card>
+
+            <Card title="Fundos" Icon={Tag}>
+              {fundosQ.isLoading ? <ActivityIndicator color="#DC2626" /> :
+               !fundosQ.data?.length ? <Empty text="Nenhum fundo atribuído." /> :
+               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                 {fundosQ.data.map((f) => (
+                   <Pressable
+                     key={f.fundo_id}
+                     onPress={() => onPickFundoStatus(f.fundo_id)}
+                     disabled={fundoStatusMut.isPending}
+                     style={{
+                       flexDirection: 'row', alignItems: 'center', gap: 6,
+                       borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6,
+                       backgroundColor: (f.fundos?.cor_hex ?? '#334155'),
+                     }}
+                   >
+                     <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: FUNDO_STATUS_COLOR[f.status_fundo], borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)' }} />
+                     <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{f.fundos?.nome ?? 'Fundo'}</Text>
+                     <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10 }}>· {FUNDO_STATUS_LABEL[f.status_fundo]}</Text>
+                   </Pressable>
+                 ))}
+               </View>}
+            </Card>
           </>
         )}
 
@@ -453,7 +610,7 @@ export default function PropostaDetalhe() {
         )}
 
         {tab === 'Contrato' && (() => {
-          const isPre = PRE_CONTRATO.has(p.status)
+          const isPre = !isPropostaAprovada(p.status)
           const c = contratoQ.data
           const ass = assinaturasQ.data ?? []
           const lib = liberacaoQ.data
@@ -465,7 +622,7 @@ export default function PropostaDetalhe() {
               <View style={s.card}>
                 <View style={{ padding: 24, alignItems: 'center' }}>
                   <FileSignature size={32} color="#525252" />
-                  <Text style={s.contratoEmpty}>Aguardando aprovação para emissão de contrato.</Text>
+                  <Text style={s.contratoEmpty}>Aguardando aprovação para liberar a aba de contrato.</Text>
                   <Text style={[s.contratoEmpty, { fontSize: 11, marginTop: 4 }]}>
                     Status atual: {STATUS_LABEL[p.status] ?? p.status}
                   </Text>
@@ -484,6 +641,43 @@ export default function PropostaDetalhe() {
                   </Pressable>
                 </View>
               )}
+
+              {/* Modelo de contrato (distinto do PDF Clicksign) */}
+              <Card title="Modelo de contrato" Icon={FileText}>
+                <Text style={[s.contratoEmpty, { textAlign: 'left', marginBottom: 10 }]}>
+                  Documento de referência interno — distinto do PDF gerado para assinatura.
+                </Text>
+                <Pressable
+                  onPress={() => modeloUploadMut.mutate()}
+                  disabled={modeloUploadMut.isPending}
+                  style={[s.secondaryBtn, { marginBottom: 10 }]}
+                >
+                  {modeloUploadMut.isPending
+                    ? <ActivityIndicator color="#e5e5e5" size="small" />
+                    : <><Upload size={14} color="#e5e5e5" /><Text style={s.secondaryBtnText}>Enviar modelo</Text></>}
+                </Pressable>
+                {modelosQ.isLoading ? (
+                  <ActivityIndicator color="#DC2626" />
+                ) : !modelosQ.data?.length ? (
+                  <Text style={s.contratoEmpty}>Nenhum modelo disponível.</Text>
+                ) : (
+                  modelosQ.data.map((m, i) => (
+                    <View key={m.id} style={[s.listRow, i > 0 && s.listRowDivider]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.listName} numberOfLines={1}>{m.nome_arquivo}</Text>
+                        <Text style={s.listSub}>{new Date(m.created_at).toLocaleDateString('pt-BR')}</Text>
+                      </View>
+                      <Pressable onPress={() => abrirPdfStorage(m.storage_path, 'contratos')} style={[s.docBtn, { backgroundColor: '#38BDF822' }]}>
+                        <Download size={13} color="#38BDF8" />
+                        <Text style={[s.docBtnText, { color: '#38BDF8' }]}>Baixar</Text>
+                      </Pressable>
+                      <Pressable onPress={() => modeloRemoveMut.mutate(m)} disabled={modeloRemoveMut.isPending} style={{ padding: 8 }}>
+                        <Trash2 size={16} color="#737373" />
+                      </Pressable>
+                    </View>
+                  ))
+                )}
+              </Card>
 
               {/* Contrato principal */}
               <Card title={c ? `Contrato v${c.versao ?? 1}` : 'Contrato'} Icon={FileSignature}>

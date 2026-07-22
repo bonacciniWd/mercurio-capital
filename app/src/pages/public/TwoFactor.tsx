@@ -32,7 +32,7 @@ export function TwoFactor() {
   return (
     <div className="mx-auto flex min-h-screen max-w-md items-center px-6">
       <div className="card w-full p-8">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gold-600">Segurança adicional</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-red-600">Segurança adicional</p>
         <h1 className="mt-2 text-2xl font-bold text-navy">Verificação em duas etapas</h1>
         <p className="mt-2 text-sm text-silver-600">
           Informe o código TOTP do seu autenticador (Google Authenticator, 1Password, Authy etc.) para concluir o acesso.

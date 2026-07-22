@@ -229,6 +229,22 @@
 
 ---
 
+## Fase Fundos & Documentos (Admin limitado, Fundos, Checklist, Modelo de contrato)
+
+> Detalhamento e evidências em [docs/handoffs/16-handoff-fase-fundos-docs.md](handoffs/16-handoff-fase-fundos-docs.md). Web + Mobile + DB.
+
+- [x] Papel **admin limitado** (`admin_nivel`): `app_admin_nivel()`, `app_is_admin_full()`, RPC `admin_set_admin_nivel` (`20260718000001_admin_nivel.sql`); guard de rota `RequireAdminScope` + nav filtrada.
+- [x] Hardening das RPCs sensíveis para `app_is_admin_full()` + policies `admin_full_{config,flags,campanhas}` (`20260718000002_admin_nivel_hardening.sql`).
+- [x] **Fundos** por proposta (admin-only): enum `fundo_status`, tabelas `fundos`/`proposta_fundos`, RPCs (`20260722000001_fundos.sql`, `20260722000002_fundos_rpcs.sql`); badges/filtro no Kanban e card no detalhe.
+- [x] **Checklist real** de documentos: expansão isolada de `documento_tipo` (`20260722000003_documento_tipo_expand.sql`), `documento_requisitos` + seed, `proposta_documentos.status`, `proposta_documentos_seed` (`20260722000004_documentos_checklist.sql`); UI cliente/admin sem mock + obrigatórios pendentes no dashboard.
+- [x] **Modelo de contrato** por proposta (`proposta_contrato_modelos` + RPCs, `20260722000005_proposta_contrato_modelos.sql`) e gate `isPropostaAprovada` na aba Contrato.
+- [x] **Paridade mobile** (Expo): documentos, contrato (gate + modelos) e fundos (admin).
+- [x] Smoke tests transacionais: `fase-21-admin-nivel`, `fase-22-fundos`, `fase-23-documentos-checklist`, `fase-24-contrato-modelos`.
+
+**Saída**: admin limitado operável; fundos internos por proposta; checklist real de documentos ponta a ponta; modelo de contrato baixável por parceiro/cliente; paridade mobile.
+
+---
+
 ## Backlog para fases futuras
 
 - App mobile (PWA → React Native).

@@ -358,7 +358,7 @@ export function AdminParceiros() {
                   <p className="text-silver-500">{active.membros_count} membros</p>
                   <Link
                     to={`/admin/parceiros/${active.partner_id}/equipes`}
-                    className="mt-1 inline-block text-[11px] font-semibold text-gold-600 hover:underline"
+                    className="mt-1 inline-block text-[11px] font-semibold text-red-600 hover:underline"
                   >
                     Gerenciar →
                   </Link>

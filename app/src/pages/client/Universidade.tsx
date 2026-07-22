@@ -126,7 +126,7 @@ export function ClientUniversidade() {
       {!assinaturaQuery.isLoading && !ativa && (
         <div className="card relative p-10 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold/15">
-            <Lock className="h-7 w-7 text-gold-600" />
+            <Lock className="h-7 w-7 text-red-600" />
           </div>
           <h2 className="mt-4 text-xl font-bold text-navy">Acesso por assinatura</h2>
           <p className="mt-1 text-sm text-silver-600">Desbloqueie todos os cursos e certificados.</p>

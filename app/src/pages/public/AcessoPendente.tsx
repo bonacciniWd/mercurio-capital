@@ -88,7 +88,7 @@ export function AcessoPendente() {
       <div className="card w-full p-8">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gold-600">Cadastro em análise</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-red-600">Cadastro em análise</p>
             <h1 className="mt-2 text-2xl font-bold text-navy">
               {status === 'rejected' ? 'Cadastro recusado' : 'Acesso operacional pendente'}
             </h1>

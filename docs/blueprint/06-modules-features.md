@@ -83,10 +83,23 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - Proposta criada com e-mail de cliente enfileira `proposta_cliente_magic_link_v1` em `email_outbox` (`evento=proposta_criada`).
 - Mudanças de status enfileiram `proposta_status_changed_v1` (`evento=proposta_status_changed`). Falhas de e-mail não bloqueiam a operação.
 
-### Documentos
-- Categorias: PF, PJ, Imóvel.
+### Documentos (checklist real)
+- Categorias: PF, PJ, Imóvel. Catálogo em `documento_requisitos` (obrigatório + ordem por categoria).
+- Ao criar proposta, `proposta_documentos_seed` materializa **placeholders `status='pendente'`** = Imóvel (sempre) + PF **ou** PJ (pelo proponente principal). Idempotente; disparado por trigger `after insert on proponentes` e revalidado nas telas.
+- Coluna `proposta_documentos.status` (`pendente|enviado|aprovado|rejeitado`) sincronizada por trigger com `storage_path`/`validado`; compat mantida com `validado`.
+- UI cliente `/c/documentos`: checklist agrupado por categoria + abas Pendentes/Enviados/Aprovados (dados reais, sem mock); upload via `PropostaDocsUploader`. Dashboard do cliente mostra contagem de obrigatórios pendentes com deep-link.
+- Upload por cliente, admin e parceiro grava no bucket privado `proposta-docs`.
 - OCR opcional (Tesseract.js) com texto persistido em `proposta_documentos.ocr_texto`.
 - Solicitação de documento ao cliente cria `proposta_pendencia` e dispara WhatsApp.
+
+### Fundos (tags internas — admin)
+- Equipe interna cria fundos (`fundos`: nome + `cor_hex`) e atribui 1+ a uma proposta (`proposta_fundos`) com `status_fundo` por cores: verde=`aprovado`, laranja=`atencao`, amarelo=`aguardando`, vermelho=`rejeitado`.
+- Card **Fundos** no detalhe admin (`/admin/propostas/:id`) e badges + filtro por fundo no Kanban admin (`PropostasKanban`, `scope='admin'`). Parceiro e cliente **nunca** veem fundos (RLS admin-only).
+- RPCs: `admin_fundo_upsert`, `admin_fundo_toggle_ativo`, `admin_proposta_fundo_set`, `admin_proposta_fundo_remove`.
+
+### Modelo de contrato (por proposta)
+- Admin sobe N modelos de contrato por proposta (`proposta_contrato_modelos`, bucket `contratos` em `{proposta_id}/modelos/`); parceiro dono e cliente **baixam** via `signedUrl` curta. Distinto do PDF gerado pelo Clicksign.
+- Aba Contrato liberada quando `isPropostaAprovada(status)` (ver §02.2).
 
 ### DoD
 - [x] Criação de proposta gera protocolo único, magic link canônico e e-mail transacional quando há destinatário.
@@ -132,6 +145,8 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - Cliente vê **somente** propostas onde figura como `cliente_id` ou `proponentes.cliente_id`.
 - Timeline visual baseada em `proposta_status_historico`.
 - Upload de documentos solicitados (pendências).
+- `/c/documentos` usa o **checklist real** (placeholders `pendente` + upload), agrupado por categoria com abas Pendentes/Enviados/Aprovados; sem mock. A home do cliente exibe card “Documentos obrigatórios pendentes” com deep-link. Paridade mobile em `mobile/app/(cliente)/documentos.tsx` e `mobile/app/(cliente)/index.tsx`.
+- Aba/tela de contrato exibe **modelos de contrato** para download (signed URL) e só aparece quando `isPropostaAprovada(status)`.
 
 ---
 
@@ -165,6 +180,9 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - Filtros: tipo de operação, valor de imóvel, valor pedido, originador, status, pendências.
 - Disparo manual de notificações (WhatsApp/push) com templates aprovados.
 - Edição de documentação central (substituir/anexar).
+- **Fundos**: badges coloridos + filtro por fundo no Kanban admin; card Fundos no detalhe da proposta com troca de `status_fundo`. Paridade mobile em `mobile/app/(admin)/kanban.tsx` e `mobile/app/(admin)/proposta/[id].tsx`.
+- **Modelo de contrato**: upload por admin no detalhe da proposta; download por admin/parceiro/cliente.
+- **Admin limitado** (`admin_nivel='limitado'`): acesso restrito a Dashboard, Aprovações, Parceiros, Rede, Kanban e Detalhe de proposta (ver §02.1).
 
 ---
 

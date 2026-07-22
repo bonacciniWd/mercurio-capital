@@ -15,6 +15,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { calcularFinanciamento } from '@/lib/credito'
+import { isPropostaAprovada } from '@/lib/propostaStatus'
 
 const PRODUTO_LABEL: Record<string, string> = {
   home_equity: 'Home Equity',
@@ -52,11 +53,6 @@ const TIPO_LABEL: Record<string, string> = {
   matricula_imovel: 'Matrícula do Imóvel', iptu: 'IPTU',
   certidao_casamento: 'Certidão de Casamento', outros: 'Outros',
 }
-
-const PRE_CONTRATO = new Set([
-  'simulacao', 'pre_analise', 'analise_credito', 'analise_imovel',
-  'analise_juridica', 'comite', 'proposta_cliente', 'resolucao_pendencias',
-])
 
 type Tab = 'resumo' | 'documentos' | 'pendencias' | 'contrato' | 'historico'
 
@@ -124,7 +120,7 @@ export default function ClientePropostaDetalhe() {
   })
 
   const contratoQ = useQuery({
-    enabled: !!id && tab === 'contrato' && !PRE_CONTRATO.has(propostaQ.data?.status ?? ''),
+    enabled: !!id && tab === 'contrato' && isPropostaAprovada(propostaQ.data?.status ?? ''),
     queryKey: ['cliente-prop-contrato', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -133,6 +129,20 @@ export default function ClientePropostaDetalhe() {
         .eq('proposta_id', id!).maybeSingle()
       if (error) throw error
       return data
+    },
+  })
+
+  const modelosQ = useQuery({
+    enabled: !!id && tab === 'contrato' && isPropostaAprovada(propostaQ.data?.status ?? ''),
+    queryKey: ['cliente-prop-modelos', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('proposta_contrato_modelos')
+        .select('id, storage_path, nome_arquivo, created_at')
+        .eq('proposta_id', id!)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as { id: string; storage_path: string; nome_arquivo: string; created_at: string }[]
     },
   })
 
@@ -486,6 +496,7 @@ export default function ClientePropostaDetalhe() {
             status={p.status}
             contrato={contratoQ.data}
             assinaturas={assinaturasQ.data ?? []}
+            modelos={modelosQ.data ?? []}
             loading={contratoQ.isLoading}
             onAbrirPdf={(path) => abrirDocumento(path, 'contratos')}
           />
@@ -542,11 +553,19 @@ interface ContratoTabProps {
   contrato: any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   assinaturas: any[]
+  modelos: { id: string; storage_path: string; nome_arquivo: string; created_at: string }[]
   loading: boolean
   onAbrirPdf: (path: string) => void
 }
-function ContratoTab({ status, contrato, assinaturas, loading, onAbrirPdf }: ContratoTabProps) {
-  if (PRE_CONTRATO.has(status)) {
+function ContratoTab({ status, contrato, assinaturas, modelos, loading, onAbrirPdf }: ContratoTabProps) {
+  if (!isPropostaAprovada(status)) {
+    if (status === 'cancelado') {
+      return (
+        <View className="rounded-2xl border border-silver-200 bg-white p-8">
+          <Text className="text-center text-sm text-silver-500">Proposta cancelada.</Text>
+        </View>
+      )
+    }
     return (
       <View className="items-center rounded-2xl border border-silver-200 bg-white p-8">
         <FileSignature size={36} color="#CED4DA" />
@@ -558,26 +577,54 @@ function ContratoTab({ status, contrato, assinaturas, loading, onAbrirPdf }: Con
       </View>
     )
   }
-  if (status === 'cancelado') {
-    return (
-      <View className="rounded-2xl border border-silver-200 bg-white p-8">
-        <Text className="text-center text-sm text-silver-500">Proposta cancelada.</Text>
+  const modelosBlock = (
+    <View className="rounded-2xl border border-silver-200 bg-white p-5">
+      <View className="flex-row items-center gap-2">
+        <FileText size={18} color="#0F0F0F" />
+        <Text className="text-sm font-bold text-navy">Modelo de contrato</Text>
       </View>
-    )
-  }
+      <Text className="mt-1 text-xs text-silver-500">
+        Documento de referência enviado pela equipe — distinto do PDF gerado para assinatura.
+      </Text>
+      {modelos.length === 0 ? (
+        <Text className="mt-3 text-sm text-silver-500">Nenhum modelo disponível.</Text>
+      ) : (
+        <View className="mt-3 gap-2">
+          {modelos.map((m) => (
+            <Pressable
+              key={m.id}
+              onPress={() => onAbrirPdf(m.storage_path)}
+              className="flex-row items-center gap-3 rounded-lg border border-silver-200 bg-silver-50 p-3 active:opacity-70"
+            >
+              <FileText size={18} color="#737373" />
+              <View className="flex-1">
+                <Text className="text-sm font-semibold text-navy" numberOfLines={1}>{m.nome_arquivo}</Text>
+                <Text className="text-[11px] text-silver-500">{new Date(m.created_at).toLocaleDateString('pt-BR')}</Text>
+              </View>
+              <Download size={16} color="#9CA3AF" />
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </View>
+  )
   if (loading) {
-    return <View className="rounded-2xl bg-white p-8"><ActivityIndicator color="#D4AF37" /></View>
+    return <>{modelosBlock}<View className="rounded-2xl bg-white p-8"><ActivityIndicator color="#D4AF37" /></View></>
   }
   if (!contrato) {
     return (
-      <View className="items-center rounded-2xl border border-silver-200 bg-white p-8">
-        <Loader2 size={28} color="#CED4DA" />
-        <Text className="mt-3 text-sm text-silver-500">Contrato ainda não gerado.</Text>
-      </View>
+      <>
+        {modelosBlock}
+        <View className="items-center rounded-2xl border border-silver-200 bg-white p-8">
+          <Loader2 size={28} color="#CED4DA" />
+          <Text className="mt-3 text-sm text-silver-500">Contrato ainda não gerado.</Text>
+        </View>
+      </>
     )
   }
   return (
     <>
+      {modelosBlock}
       <View className="rounded-2xl border border-silver-200 bg-white p-5">
         <View className="flex-row items-center gap-2">
           <FileSignature size={18} color="#D4AF37" />

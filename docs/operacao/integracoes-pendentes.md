@@ -1,5 +1,5 @@
 # Status de integrações — Mercurio Capital
-_Atualizado em 01/06/2026_
+_Atualizado em 18/07/2026_
 
 ---
 
@@ -7,15 +7,20 @@ _Atualizado em 01/06/2026_
 
 | Serviço | Status |
 |---|---|
-| **Vimeo Pro** | ✅ Upload oficial via painel admin/universidade — requer `VIMEO_ACCESS_TOKEN` com upload/criação e whitelist em `VIMEO_EMBED_DOMAINS` |
+| **Vimeo Pro** | ⚠️ Upload Access em review no Vimeo; fluxo integrado no painel admin/universidade. Enquanto o provedor não liberar totalmente, uploads de vídeo podem falhar. |
 | **Stripe** | ✅ Cliente providenciando — aguardando `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` e Price IDs do LMS |
 | **Clicksign** | ✅ Cliente providenciando — aguardando `CLICKSIGN_API_TOKEN` e `CLICKSIGN_WEBHOOK_SECRET` |
-| **Resend** | ✅ Ativo em produção (`email_outbox` + `email-dispatcher`; secrets `RESEND_API_KEY`/`RESEND_FROM`; Supabase Cron a cada 5 min) |
+| **Resend** | ✅ Ativo em produção (`email_outbox` + `email-dispatcher`; templates gerenciáveis/testáveis no admin; Supabase Cron a cada 5 min) |
 | **Bacen SCR** | ✅ Integração real implementada (edge configurável) — requer `BACEN_SCR_API_URL` + credenciais do provedor homologado |
 | **Jusbrasil** | ✅ Cliente providenciando |
 | **Escavador** | ✅ Cliente providenciando |
 | **RI Digital / ARISP** | ✅ Cliente providenciando |
 | **Nacional Consultas** | ✅ Cliente providenciando |
+
+### Nota operacional v0.0.9
+
+- Dispatcher/cron de e-mail ativo (`email-dispatcher-every-5-minutes`) e processamento da `email_outbox` validado.
+- Links canônicos operacionais: `SITE_URL`, `APP_URL` e `VITE_PUBLIC_APP_URL` apontam para https://mercuriocapitalsa.com.br.
 
 ---
 

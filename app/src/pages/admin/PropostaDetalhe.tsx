@@ -22,6 +22,15 @@ import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
 import { PropostaPendencias } from '@/components/PropostaPendencias'
 import { PropostaConsultas } from '@/components/PropostaConsultas'
 import { PropostaContrato } from '@/components/PropostaContrato'
+import { PropostaFundos } from '@/components/PropostaFundos'
+import {
+  buildChecklist,
+  CATEGORIA_LABEL,
+  DOC_STATUS_LABEL,
+  type DocCategoria,
+  type DocRowLite,
+  type RequisitoRow,
+} from '@/lib/documentos'
 
 const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Pendências', 'Consultas', 'Contrato', 'Histórico'] as const
 
@@ -97,6 +106,14 @@ const TIPO_LABEL: Record<string, string> = {
   matricula_imovel: 'Matrícula do Imóvel',
   iptu: 'IPTU',
   certidao_casamento: 'Certidão de Casamento',
+  certidao_nascimento: 'Certidão de Nascimento',
+  irpf_declaracao: 'IRPF — Declaração',
+  irpf_recibo: 'IRPF — Recibo',
+  extrato_bancario: 'Extrato Bancário',
+  demonstrativo_contabil: 'Demonstrativo Contábil',
+  ficha_cadastral_imovel: 'Ficha Cadastral do Imóvel',
+  fotos_imovel: 'Fotos do Imóvel',
+  contrato_compra_venda: 'Contrato de Compra e Venda',
   outros: 'Outros',
 }
 
@@ -152,7 +169,8 @@ interface DocRow {
   id: string
   tipo: string
   categoria: string
-  storage_path: string
+  storage_path: string | null
+  status: string | null
   validado: boolean
   origem: string | null
   created_at: string
@@ -226,15 +244,28 @@ export function AdminPropostaDetalhe() {
   const { data: docs } = useQuery({
     queryKey: ['admin-proposta-docs', id],
     queryFn: async (): Promise<DocRow[]> => {
+      await supabase.rpc('proposta_documentos_seed', { p_proposta_id: id! })
       const { data, error } = await supabase
         .from('proposta_documentos')
-        .select('id, tipo, categoria, storage_path, validado, origem, created_at')
+        .select('id, tipo, categoria, storage_path, status, validado, origem, created_at')
         .eq('proposta_id', id!)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data || []
     },
     enabled: !!id && tab === 'Documentos',
+  })
+
+  const { data: requisitos = [] } = useQuery({
+    queryKey: ['doc-requisitos'],
+    queryFn: async (): Promise<RequisitoRow[]> => {
+      const { data, error } = await supabase
+        .from('documento_requisitos')
+        .select('categoria, tipo, obrigatorio, ordem')
+      if (error) throw error
+      return (data ?? []) as RequisitoRow[]
+    },
+    enabled: tab === 'Documentos',
   })
 
   const statusMut = useMutation({
@@ -307,38 +338,42 @@ export function AdminPropostaDetalhe() {
           </div>
         </div>
 
-        <div className="card p-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-silver-500">Alterar status</p>
-          <div className="flex flex-wrap gap-2">
-            <select
-              className="input w-auto"
-              value={novoStatus}
-              onChange={(e) => setNovoStatus(e.target.value)}
-            >
-              <option value="">Selecione…</option>
-              {STATUS_ORDER.filter((s) => s !== proposta.status).map((s) => (
-                <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-              ))}
-            </select>
-            <input
-              className="input"
-              placeholder="Motivo / observação"
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
-            />
-            <button
-              className="btn-gold"
-              disabled={!novoStatus || statusMut.isPending}
-              onClick={() => statusMut.mutate({ status: novoStatus, motivo })}
-            >
-              {statusMut.isPending ? 'Aplicando…' : 'Aplicar'}
-            </button>
+        <div className="flex w-full flex-col gap-3 lg:w-96">
+          <div className="card p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-silver-500">Alterar status</p>
+            <div className="flex flex-wrap gap-2">
+              <select
+                className="input w-auto"
+                value={novoStatus}
+                onChange={(e) => setNovoStatus(e.target.value)}
+              >
+                <option value="">Selecione…</option>
+                {STATUS_ORDER.filter((s) => s !== proposta.status).map((s) => (
+                  <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+                ))}
+              </select>
+              <input
+                className="input"
+                placeholder="Motivo / observação"
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+              />
+              <button
+                className="btn-gold"
+                disabled={!novoStatus || statusMut.isPending}
+                onClick={() => statusMut.mutate({ status: novoStatus, motivo })}
+              >
+                {statusMut.isPending ? 'Aplicando…' : 'Aplicar'}
+              </button>
+            </div>
+            {statusMut.error && (
+              <p className="mt-2 inline-flex items-center gap-1 text-xs text-danger">
+                <AlertTriangle className="h-3 w-3" /> {(statusMut.error as Error).message}
+              </p>
+            )}
           </div>
-          {statusMut.error && (
-            <p className="mt-2 inline-flex items-center gap-1 text-xs text-danger">
-              <AlertTriangle className="h-3 w-3" /> {(statusMut.error as Error).message}
-            </p>
-          )}
+
+          <PropostaFundos propostaId={id!} />
         </div>
       </div>
 
@@ -462,14 +497,51 @@ export function AdminPropostaDetalhe() {
       {tab === 'Documentos' && id && (
         <div className="space-y-6">
           <div className="card p-5">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-silver-500">Checklist de documentos</h3>
+            {(() => {
+              const checklist = buildChecklist((docs ?? []) as DocRowLite[], requisitos)
+              if (checklist.length === 0) {
+                return <div className="p-4 text-center text-sm text-silver-500">Checklist ainda não gerado.</div>
+              }
+              const grupos = (['pessoa_fisica', 'pessoa_juridica', 'imovel'] as DocCategoria[])
+                .map((cat) => [cat, checklist.filter((i) => i.categoria === cat)] as const)
+                .filter(([, items]) => items.length > 0)
+              return (
+                <div className="space-y-4">
+                  {grupos.map(([cat, items]) => (
+                    <div key={cat}>
+                      <p className="mb-1 text-xs font-semibold text-silver-500">{CATEGORIA_LABEL[cat]}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {items.map((i) => (
+                          <span
+                            key={`${i.categoria}-${i.tipo}`}
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                              i.status === 'aprovado' ? 'bg-success/10 text-success'
+                              : i.status === 'enviado' ? 'bg-navy/10 text-navy'
+                              : i.status === 'rejeitado' ? 'bg-danger/10 text-danger'
+                              : 'bg-warning/10 text-warning'
+                            }`}
+                          >
+                            {TIPO_LABEL[i.tipo] || i.tipo}{i.obrigatorio ? ' *' : ''} · {DOC_STATUS_LABEL[i.status]}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
+
+          <div className="card p-5">
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-silver-500">Validação de documentos</h3>
-            {!docs ? (
-              <div className="p-6 text-center text-sm text-silver-500">Carregando…</div>
-            ) : docs.length === 0 ? (
-              <div className="p-6 text-center text-sm text-silver-500">Sem documentos enviados.</div>
-            ) : (
+            {(() => {
+              const reais = (docs ?? []).filter((d) => d.storage_path)
+              if (!docs) return <div className="p-6 text-center text-sm text-silver-500">Carregando…</div>
+              if (reais.length === 0) return <div className="p-6 text-center text-sm text-silver-500">Sem documentos enviados.</div>
+              return (
               <ul className="space-y-2">
-                {docs.map((d) => (
+                {reais.map((d) => (
                   <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-silver-100 p-3">
                     <div className="flex-1">
                       <p className="text-sm font-medium text-silver-900">
@@ -503,10 +575,11 @@ export function AdminPropostaDetalhe() {
                   </li>
                 ))}
               </ul>
-            )}
+              )
+            })()}
           </div>
 
-          <PropostaDocsUploader propostaId={id} origem="parceiro" />
+          <PropostaDocsUploader propostaId={id} origem="parceiro" onChange={() => qc.invalidateQueries({ queryKey: ['admin-proposta-docs', id] })} />
         </div>
       )}
 

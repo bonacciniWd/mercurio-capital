@@ -121,7 +121,7 @@ export function ConviteMembro() {
         <div className="card w-full max-w-md p-10 text-center">
           {!isAuthenticated ? (
             <>
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold/15 text-gold-600">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gold/15 text-red-600">
                 <LogIn className="h-7 w-7" />
               </div>
               {status === 'validando' ? (

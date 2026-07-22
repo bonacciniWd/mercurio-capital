@@ -14,15 +14,36 @@
   - E-mail/senha (com validador de força).
   - Magic link customizado (Edge) — preferencial para clientes.
   - 2FA TOTP obrigatório para `admin` e `partner` aprovados.
-- JWT inclui claims customizados em `app_metadata`: `role`, `partner_id`, `equipe_id`, `approved`, `subscription_active`.
+- JWT inclui claims customizados em `app_metadata`: `role`, `partner_id`, `equipe_id`, `approved`, `subscription_active`, `admin_nivel`.
+  - `admin_nivel` (`full` | `limitado`, default `full` quando ausente) distingue admin pleno de admin limitado. Alterado apenas por admin full via RPC `admin_set_admin_nivel` (grava em `auth.users.raw_app_meta_data`).
 - Sessão idle timeout: 30 min para `admin`, 8h para outros.
 
 ## 3. Autorização
 
-- **Frontend**: route guards (`RequireAuth`, `RequireRole`, `RequireApproved`, `Require2FA`).
+- **Frontend**: route guards (`RequireAuth`, `RequireRole`, `RequireApproved`, `Require2FA`, `RequireAdminScope`).
 - **Banco (RLS)**: policies por tabela (ver §02 e §04).
 - **Edge Functions**: validação de JWT + claim antes de qualquer chamada externa.
 - **Service role key**: nunca usado no frontend; apenas dentro de Edge.
+
+### 3.1 Hardening admin limitado (`app_is_admin_full()`)
+
+Helpers: `app_admin_nivel()` e `app_is_admin_full()` (= `app_is_admin() AND admin_nivel='full'`). Migrations `20260718000001_admin_nivel.sql` (helpers + `admin_set_admin_nivel`) e `20260718000002_admin_nivel_hardening.sql` (troca de guard).
+
+RPCs sensíveis (fora do escopo do admin limitado) tiveram o guard `app_is_admin()` → `app_is_admin_full()`:
+
+- Carteiras: `admin_wallet_ajuste`, `admin_wallet_set_bloqueio`.
+- Preços: `admin_precos_upsert`.
+- Feature flags: `admin_feature_flag_upsert`, `admin_feature_flag_delete`.
+- LGPD: `lgpd_anonimizar_conta`.
+- Integrações/WhatsApp: `admin_integracao_toggle`, `admin_integracao_config_set`.
+- Fluxos: `admin_fluxo_upsert`, `admin_fluxo_delete`, `admin_fluxo_executar`.
+- Campanhas: `admin_campanha_upsert`, `admin_campanha_cancelar`, `admin_campanha_disparar`.
+- Templates de e-mail/WhatsApp: `admin_template_upsert`, `admin_template_delete`, `admin_email_template_test_enqueue`.
+- Policies de escrita direta: `admin_full_config` (`configuracoes_sistema`), `admin_full_flags` (`feature_flags`), `admin_full_campanhas` (`campanhas`).
+
+**Não alteradas** (seguem em `app_is_admin()`, disponíveis ao admin limitado): aprovações de parceiro, `admin_set_proposta_status`, rede, dashboards, kanban, detalhe de proposta e as RPCs de **fundos**.
+
+Smoke test: `supabase/smoke-tests/fase-21-admin-nivel.sql` (2 JWTs admin — full vs limitado — cobrindo 1 RPC sensível barrada para limitado e `admin_set_proposta_status` permitida para ambos).
 
 ## 4. Storage — políticas por bucket
 

@@ -7,12 +7,15 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Clock } from 'lucide-react-native'
 import { brl } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
+import { FUNDO_STATUS_COLOR, type FundoStatus } from '@/lib/fundoStatus'
 
 type Row = {
   id: string; protocolo: string | null; status: string
   valor_solicitado: number; created_at: string; updated_at: string
   cliente: { nome_completo: string } | null
 }
+
+type FundoBadge = { fundo_id: string; nome: string; cor_hex: string; status_fundo: FundoStatus }
 
 // Agrupa status enum em colunas de kanban
 const COLS_DEF: { id: string; label: string; accent: string; statuses: string[] }[] = [
@@ -50,6 +53,27 @@ export default function Kanban() {
       items: list.filter(p => c.statuses.includes(p.status)),
     }))
   }, [data])
+
+  const { data: fundosRows } = useQuery({
+    queryKey: ['admin-kanban-mobile-fundos'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('proposta_fundos')
+        .select('proposta_id, status_fundo, fundos(id, nome, cor_hex)')
+      if (error) throw error
+      return (data ?? []) as unknown as { proposta_id: string; status_fundo: FundoStatus; fundos: { id: string; nome: string; cor_hex: string } | null }[]
+    },
+  })
+
+  const fundosByProposta = useMemo(() => {
+    const map = new Map<string, FundoBadge[]>()
+    for (const r of fundosRows ?? []) {
+      if (!r.fundos) continue
+      const list = map.get(r.proposta_id) ?? (map.set(r.proposta_id, []), map.get(r.proposta_id)!)
+      list.push({ fundo_id: r.fundos.id, nome: r.fundos.nome, cor_hex: r.fundos.cor_hex, status_fundo: r.status_fundo })
+    }
+    return map
+  }, [fundosRows])
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0A0A0A' }} edges={['top', 'bottom']}>
@@ -94,10 +118,20 @@ export default function Kanban() {
                   const dias = diasDesde(p.updated_at)
                   const overdue = dias > 7
                   return (
-                    <Pressable key={p.id} style={s.card}>
+                    <Pressable key={p.id} style={s.card} onPress={() => router.push(`/(admin)/proposta/${p.id}` as any)}>
                       <Text style={s.cardId} numberOfLines={1}>{p.protocolo ?? p.id.slice(0, 8)}</Text>
                       <Text style={s.cardClient} numberOfLines={1}>{p.cliente?.nome_completo ?? '—'}</Text>
                       <Text style={s.cardValue}>{brl(Number(p.valor_solicitado || 0) * 100)}</Text>
+                      {(fundosByProposta.get(p.id)?.length ?? 0) > 0 && (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
+                          {fundosByProposta.get(p.id)!.map(f => (
+                            <View key={f.fundo_id} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: f.cor_hex }}>
+                              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: FUNDO_STATUS_COLOR[f.status_fundo], borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)' }} />
+                              <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700' }} numberOfLines={1}>{f.nome}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
                       <View style={s.cardFooter}>
                         <View style={[s.stagePill, { backgroundColor: c.accent + '22' }]}>
 

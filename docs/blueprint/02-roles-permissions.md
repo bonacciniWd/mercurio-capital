@@ -10,11 +10,13 @@ client (lead autenticado)
 public (visitante)
 ```
 
-- `admin`: operação interna Mercurio.
+- `admin`: operação interna Mercurio. Subdivide-se por `admin_nivel` (claim em `app_metadata`): `full` (padrão) e `limitado`.
 - `partner`: dono da conta de parceria. Pode ter um ou mais `team_member` na sua **equipe**.
 - `team_member`: pertence a **uma única** equipe; herda visibilidade das propostas da equipe, mas com permissões reduzidas.
 - `client`: cliente final autenticado, vê apenas suas próprias propostas.
 - `public`: sem login, somente landing, login, registro e consulta por protocolo (rate-limited).
+
+> **Admin limitado** (`admin_nivel='limitado'`): continua `role='admin'` (`app_is_admin()=true`), porém `app_is_admin_full()=false`. Ver §2.1.
 
 ## 2. Tabela mestra de permissões
 
@@ -57,8 +59,45 @@ public (visitante)
 | 35 | Bloquear/desbloquear carteira | ✅ | ❌ | ❌ | ❌ | ❌ |
 | 36 | Editar tabela `precos_consulta` | ✅ | ❌ | ❌ | ❌ | ❌ |
 | 37 | Definir limite diário da própria carteira | ✅ | ⚠️ se habilitado por admin | ❌ | ❌ | ❌ |
+| 38 | Criar/atribuir **fundos** e alterar `status_fundo` | ✅ (qualquer admin) | ❌ | ❌ | ❌ | ❌ |
+| 39 | Ver/baixar **modelo de contrato** da proposta | ✅ | ✅ (dono) | ✅ (equipe) | ✅ (cliente da proposta) | ❌ |
+| 40 | Enviar **modelo de contrato** | ✅ | ❌ | ❌ | ❌ | ❌ |
 
 Legenda: ✅ pleno · ⚠️ parcial/condicional · ✏️ campos restritos · 🔒 público com restrição · ❌ negado.
+
+## 2.1 Admin limitado (`admin_nivel`)
+
+Papel operacional que é `role='admin'` mas com escopo reduzido. Implementado sem novo `role`:
+
+- Helper `public.app_admin_nivel()` → `coalesce(app_metadata->>'admin_nivel','full')`.
+- Helper `public.app_is_admin_full()` → `app_is_admin() AND app_admin_nivel()='full'`.
+- RPC `admin_set_admin_nivel(p_user_id uuid, p_nivel text)` (`security definer`, guard `app_is_admin_full()`, valida `full`|`limitado`, grava em `auth.users.raw_app_meta_data`, audita).
+
+**Telas liberadas ao admin limitado** (as demais rotas `/admin/*` redirecionam para `/admin`):
+
+| Tela | Rota | Admin full | Admin limitado |
+|---|---|:---:|:---:|
+| Dashboard | `/admin` (index) | ✅ | ✅ |
+| Aprovações | `/admin/aprovacoes` | ✅ | ✅ |
+| Parceiros | `/admin/parceiros` (+ `/:partnerId/equipes`) | ✅ | ✅ |
+| Rede | `/admin/rede` | ✅ | ✅ |
+| Kanban | `/admin/kanban` | ✅ | ✅ |
+| Detalhe de proposta | `/admin/propostas/:id` | ✅ | ✅ |
+| Financeiro / Preços / Carteiras | `/admin/financeiro*` | ✅ | ❌ |
+| Fluxos / Campanhas / Templates | `/admin/{fluxos,campanhas,templates}` | ✅ | ❌ |
+| Feature flags / Integrações / Configurações | … | ✅ | ❌ |
+
+No front, o gate é `app/src/guards/RequireAdminScope.tsx` (allowlist em `app/src/lib/adminScope.ts`) aplicado dentro do bloco `/admin`; o `AdminLayout` filtra a navegação pelo mesmo allowlist.
+
+**Fundos** (item 38) permanecem liberados para **qualquer admin** (guard `app_is_admin()`), inclusive limitado, pois são parte do escopo de Kanban/detalhe de proposta. O hardening (§08) mantém as RPCs sensíveis fora do escopo restritas a `app_is_admin_full()`.
+
+## 2.2 Gate “aprovado” da aba Contrato
+
+A aba Contrato (web e mobile) usa `isPropostaAprovada(status)` (`app/src/lib/propostaStatus.ts` / `mobile/lib/propostaStatus.ts`):
+
+- **Não aprovada** = status ∈ {`simulacao`, `pre_analise`, `analise_credito`, `analise_imovel`, `analise_juridica`, `comite`, `cancelado`} → placeholder.
+- **Aprovada** = qualquer outro status (a partir de `proposta_cliente`) → libera a aba para admin/partner/cliente.
+- É gate **apenas de UI**: a geração Clicksign continua exigindo `emissao_contrato` no backend.
 
 Nota de implementação (branch atual): a criação de proposta via UI está ativa no web em `/p/propostas/nova` (partner e team_member) e `/admin/propostas/nova` (admin), e no mobile pelos fluxos `mobile/app/propostas/nova.tsx` (wizard compartilhado) e `mobile/app/(admin)/propostas-nova.tsx` (entrada admin). Em ambos os canais, criação admin aceita parceiro `approved` e `pending`; parceiros pendentes continuam sem acesso operacional e sem permissão de criar proposta por conta própria.
 

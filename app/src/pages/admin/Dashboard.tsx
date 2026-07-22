@@ -80,7 +80,7 @@ export function AdminDashboard() {
             <div className="card p-5 lg:col-span-2">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-semibold text-navy">Top 10 parceiros · volume</h2>
-                <Link to="/admin/parceiros" className="text-xs font-medium text-gold-600 hover:underline">Ver todos →</Link>
+                <Link to="/admin/parceiros" className="text-xs font-medium text-red-600 hover:underline">Ver todos →</Link>
               </div>
               {topChart.length === 0 ? (
                 <p className="py-12 text-center text-sm text-silver-400">Sem dados.</p>

@@ -701,7 +701,7 @@ function Step5({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
         ))}
       </div>
 
-      <button type="button" onClick={addProp} className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-gold-600">
+      <button type="button" onClick={addProp} className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-red-600">
         <Plus className="h-4 w-4" /> Adicionar outro proponente
       </button>
     </>
@@ -783,7 +783,7 @@ function Step6({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
         ))}
       </div>
 
-      <button type="button" onClick={addIm} className="mt-4 inline-flex items-center gap-2 rounded-lg border-2 border-dashed border-silver-300 px-4 py-3 text-sm font-medium text-silver-600 hover:border-gold hover:text-gold-600">
+      <button type="button" onClick={addIm} className="mt-4 inline-flex items-center gap-2 rounded-lg border-2 border-dashed border-silver-300 px-4 py-3 text-sm font-medium text-silver-600 hover:border-gold hover:text-red-600">
         <Plus className="h-4 w-4" /> Adicionar outro imóvel
       </button>
     </>

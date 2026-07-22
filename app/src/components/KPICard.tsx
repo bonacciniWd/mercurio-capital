@@ -19,7 +19,7 @@ export function KPICard({
     success: 'text-success',
     warning: 'text-warning',
     danger: 'text-danger',
-    gold: 'text-gold-600',
+    gold: 'text-red-600',
   }[intent]
 
   return (

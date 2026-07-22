@@ -23,8 +23,9 @@
 | 12 | Fluxos Evolution + templates + campanhas + email outbox | ✅ |
 | 13 | Analytics MVs + React Flow rede + feature flags + lazy + tour + a11y | ✅ |
 | 14 | LGPD (export/anonimização) + PII masking + runbooks + DR plan + pen test checklist | ✅ |
+| Fundos & Docs | Admin limitado + hardening · Fundos por proposta · Checklist real de documentos · Modelo de contrato · paridade mobile | ✅ |
 
-Smoke tests transacionais: Fase 3, 8, 10, 12, 13, 14 — todos verdes contra `bhagksfvszeogtjvjtpx`.
+Smoke tests transacionais: Fase 3, 8, 10, 12, 13, 14, 21 (admin nível), 22 (fundos), 23 (documentos checklist), 24 (modelo de contrato) — todos verdes contra `bhagksfvszeogtjvjtpx`.
 
 ### Atualizações pós-snapshot (2026-07-06 a 2026-07-08)
 
@@ -40,6 +41,14 @@ Smoke tests transacionais: Fase 3, 8, 10, 12, 13, 14 — todos verdes contra `bh
 - Release iOS `0.0.2` operacional via EAS com build concluída e envio para TestFlight realizado via Apple Transporter (acompanhamento no App Store Connect).
 - Governança de release desktop macOS consolidada com gate hard-fail para assinatura/notarização.
 - Hotfix desktop 0.0.4 consolidado: bootstrap inicial em `/p/login`, alias `/login` mantido por redirect e widget de atualização com hide/show + reabertura automática em estados críticos.
+
+### Ciclo Fundos & Documentos (2026-07-18 a 2026-07-22)
+
+- Papel **admin limitado** (`admin_nivel`) com `app_is_admin_full()` e hardening das RPCs sensíveis; guard de rota `RequireAdminScope` + nav filtrada (`20260718000001`/`20260718000002`).
+- **Fundos** internos por proposta (admin-only): `fundos`/`proposta_fundos`, RPCs, badges/filtro no Kanban e card no detalhe (`20260722000001`/`20260722000002`).
+- **Checklist real** de documentos: `documento_requisitos` + `proposta_documentos.status` + `proposta_documentos_seed` (placeholders PF/PJ + Imóvel); UI cliente/admin sem mock (`20260722000003`/`20260722000004`).
+- **Modelo de contrato** por proposta (`proposta_contrato_modelos`) + gate `isPropostaAprovada` na aba Contrato (`20260722000005`).
+- Paridade mobile (Expo) para documentos, contrato e fundos. Detalhes em [docs/handoffs/16-handoff-fase-fundos-docs.md](handoffs/16-handoff-fase-fundos-docs.md).
 
 ---
 

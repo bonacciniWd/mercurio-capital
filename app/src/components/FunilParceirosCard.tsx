@@ -78,7 +78,7 @@ export function FunilParceirosCard() {
                   {conv !== null && (
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-silver-500">vs etapa anterior</span>
-                      <span className={`font-semibold ${conv >= 70 ? 'text-success' : conv >= 40 ? 'text-gold-600' : 'text-danger'}`}>
+                      <span className={`font-semibold ${conv >= 70 ? 'text-success' : conv >= 40 ? 'text-red-600' : 'text-danger'}`}>
                         {conv}%
                       </span>
                     </div>

@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Loader2, FileSignature, Send, AlertTriangle, CheckCircle2, Clock,
-  FileText, Download, Eye, BadgeCheck, Coins,
+  FileText, Download, Eye, BadgeCheck, Coins, Upload, Trash2,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
+import { isPropostaAprovada } from '@/lib/propostaStatus'
 
 type Role = 'partner' | 'admin' | 'client'
 
@@ -58,6 +59,14 @@ interface Comissao {
   valor: number
   status: 'prevista' | 'aprovada' | 'paga'
   paga_em: string | null
+}
+
+interface ContratoModelo {
+  id: string
+  proposta_id: string
+  storage_path: string
+  nome_arquivo: string
+  created_at: string
 }
 
 const STATUS_LABEL_ASSIN: Record<string, string> = {
@@ -137,6 +146,59 @@ export function PropostaContrato({ propostaId, role }: Props) {
       return data as Comissao | null
     },
   })
+
+  const modelosQuery = useQuery({
+    queryKey: ['contrato-modelos', propostaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('proposta_contrato_modelos')
+        .select('id, proposta_id, storage_path, nome_arquivo, created_at')
+        .eq('proposta_id', propostaId)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as ContratoModelo[]
+    },
+  })
+
+  const modeloUploadMut = useMutation({
+    mutationFn: async (file: File) => {
+      if (file.size > 20 * 1024 * 1024) throw new Error('Arquivo acima de 20MB.')
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'pdf'
+      const path = `${propostaId}/modelos/${crypto.randomUUID()}.${ext}`
+      const { error: upErr } = await supabase.storage
+        .from('contratos')
+        .upload(path, file, { contentType: file.type, upsert: false })
+      if (upErr) throw new Error(upErr.message)
+      const { error: rpcErr } = await supabase.rpc('proposta_contrato_modelo_add', {
+        p_proposta_id: propostaId,
+        p_storage_path: path,
+        p_nome_arquivo: file.name,
+      })
+      if (rpcErr) {
+        await supabase.storage.from('contratos').remove([path])
+        throw new Error(rpcErr.message)
+      }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['contrato-modelos', propostaId] }),
+    onError: (e) => setErro(e instanceof Error ? e.message : 'falha'),
+  })
+
+  const modeloRemoveMut = useMutation({
+    mutationFn: async (m: ContratoModelo) => {
+      const { data, error } = await supabase.rpc('proposta_contrato_modelo_remove', { p_id: m.id })
+      if (error) throw error
+      const path = (data as string | null) ?? m.storage_path
+      await supabase.storage.from('contratos').remove([path])
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['contrato-modelos', propostaId] }),
+    onError: (e) => setErro(e instanceof Error ? e.message : 'falha'),
+  })
+
+  async function baixarModelo(path: string) {
+    const { data, error } = await supabase.storage.from('contratos').createSignedUrl(path, 60 * 5)
+    if (error || !data?.signedUrl) { setErro(error?.message ?? 'falha url'); return }
+    window.open(data.signedUrl, '_blank')
+  }
 
   // ----- Mutations -----
   const gerarMut = useMutation({
@@ -241,19 +303,19 @@ export function PropostaContrato({ propostaId, role }: Props) {
   const liberacao = liberacaoQuery.data
   const comissao = comissaoQuery.data
 
-  // Estágios anteriores à emissão de contrato → mostra placeholder
-  const PRE_CONTRATO = ['simulacao','pre_analise','analise_credito','analise_imovel','analise_juridica','comite','proposta_cliente','resolucao_pendencias']
-  if (PRE_CONTRATO.includes(status)) {
+  // Estágios anteriores à aprovação → mostra placeholder.
+  // Aprovada libera a aba (inclui proposta_cliente em diante).
+  if (status === 'cancelado') {
+    return <div className="card p-8 text-center text-sm text-silver-500">Proposta cancelada.</div>
+  }
+  if (!isPropostaAprovada(status)) {
     return (
       <div className="card p-8 text-center">
         <FileSignature className="mx-auto mb-3 h-10 w-10 text-silver-300" />
-        <p className="text-sm font-medium text-silver-700">Aguardando aprovação para emissão de contrato.</p>
+        <p className="text-sm font-medium text-silver-700">Aguardando aprovação para liberar a aba de contrato.</p>
         <p className="mt-1 text-xs text-silver-500">Status atual: {status}</p>
       </div>
     )
-  }
-  if (status === 'cancelado') {
-    return <div className="card p-8 text-center text-sm text-silver-500">Proposta cancelada.</div>
   }
 
   return (
@@ -326,6 +388,73 @@ export function PropostaContrato({ propostaId, role }: Props) {
               Reenviar
             </button>
           </div>
+        )}
+      </div>
+
+      {/* Modelo de contrato (distinto do PDF gerado pelo Clicksign) */}
+      <div className="card p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-navy" />
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-silver-500">Modelo de contrato</h3>
+          </div>
+          {role === 'admin' && (
+            <label className={`btn-gold inline-flex cursor-pointer items-center gap-2 text-xs ${modeloUploadMut.isPending ? 'pointer-events-none opacity-60' : ''}`}>
+              {modeloUploadMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+              {modeloUploadMut.isPending ? 'Enviando…' : 'Enviar modelo'}
+              <input
+                type="file"
+                className="hidden"
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) { setErro(null); modeloUploadMut.mutate(f) }
+                  e.target.value = ''
+                }}
+              />
+            </label>
+          )}
+        </div>
+
+        <p className="mb-3 text-xs text-silver-500">
+          Documento de referência enviado pela equipe interna — distinto do PDF gerado para assinatura.
+        </p>
+
+        {modelosQuery.isLoading ? (
+          <div className="flex items-center justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>
+        ) : (modelosQuery.data?.length ?? 0) === 0 ? (
+          <p className="rounded-md border border-silver-200 bg-white p-4 text-sm text-silver-500">
+            Nenhum modelo de contrato disponível.
+          </p>
+        ) : (
+          <ul className="divide-y divide-silver-100 overflow-hidden rounded-md border border-silver-200 bg-white">
+            {modelosQuery.data!.map((m) => (
+              <li key={m.id} className="flex items-center justify-between gap-3 p-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <FileText className="h-4 w-4 shrink-0 text-silver-500" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-navy">{m.nome_arquivo}</p>
+                    <p className="text-xs text-silver-500">{new Date(m.created_at).toLocaleString('pt-BR')}</p>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button className="btn-outline text-xs" onClick={() => baixarModelo(m.storage_path)}>
+                    <Download className="mr-1 inline h-3 w-3" /> Baixar
+                  </button>
+                  {role === 'admin' && (
+                    <button
+                      className="rounded-md p-1 text-silver-500 hover:bg-silver-50 hover:text-danger disabled:opacity-50"
+                      disabled={modeloRemoveMut.isPending}
+                      onClick={() => modeloRemoveMut.mutate(m)}
+                      aria-label="Remover modelo"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 
