@@ -1,5 +1,7 @@
 export type AppRole = 'admin' | 'partner' | 'team_member' | 'client'
 
+export type AdminNivel = 'full' | 'limitado'
+
 export type AuthProfile = {
   id: string
   email: string
@@ -15,6 +17,7 @@ export type AuthProfile = {
 
 export type AuthSession = AuthProfile & {
   userId: string
+  adminNivel: AdminNivel
   twoFactorVerified: boolean
   twoFactorEnrolled: boolean
 }

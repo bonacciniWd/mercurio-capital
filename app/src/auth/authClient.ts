@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import type { AppRole, AuthProfile, AuthRedirect, AuthSession, LoginInput } from '@/auth/types'
+import type { AdminNivel, AppRole, AuthProfile, AuthRedirect, AuthSession, LoginInput } from '@/auth/types'
 
 type MeRow = {
   id: string
@@ -177,6 +177,14 @@ function sanitizeRole(value: unknown): AppRole {
   return 'client'
 }
 
+function sanitizeAdminNivel(value: unknown): AdminNivel {
+  return value === 'limitado' ? 'limitado' : 'full'
+}
+
+function readAdminNivelFromMetadata(appMetadata: Record<string, unknown> | null | undefined): AdminNivel {
+  return sanitizeAdminNivel((appMetadata ?? {}).admin_nivel)
+}
+
 function buildFallbackProfileFromSessionUser(user: SupabaseSessionUser): AuthProfile {
   const appMetadata = user.app_metadata ?? {}
   const role = sanitizeRole(appMetadata.role)
@@ -311,14 +319,19 @@ async function readTwoFactorEnrolled(): Promise<boolean> {
   }
 }
 
-export async function buildSession(profile: AuthProfile, userId: string): Promise<AuthSession> {
+export async function buildSession(
+  profile: AuthProfile,
+  userId: string,
+  appMetadata?: Record<string, unknown> | null,
+): Promise<AuthSession> {
+  const adminNivel = readAdminNivelFromMetadata(appMetadata)
   const twoFactorEnrolled = profile.requiresTwoFactor ? await readTwoFactorEnrolled() : false
   const twoFactorVerified = profile.requiresTwoFactor
     ? twoFactorEnrolled
       ? await readTwoFactorVerified()
       : false
     : true
-  return { ...profile, userId, twoFactorVerified, twoFactorEnrolled }
+  return { ...profile, userId, adminNivel, twoFactorVerified, twoFactorEnrolled }
 }
 
 export function resolveRedirect(session: AuthSession): AuthRedirect {
@@ -352,7 +365,7 @@ export async function getCurrentSession(): Promise<AuthSession | null> {
       return null
     }
 
-    return buildSession(profile, supaSession.user.id)
+    return buildSession(profile, supaSession.user.id, supaSession.user.app_metadata)
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[auth] getCurrentSession throw', err)
@@ -431,7 +444,7 @@ export async function loginWithPassword(input: LoginInput): Promise<AuthSession>
     throw new Error(`Esta conta pertence a outro módulo. Acesse ${moduleByRole[profile.role]}.`)
   }
 
-  return buildSession(profile, effectiveSession.user.id)
+  return buildSession(profile, effectiveSession.user.id, effectiveSession.user.app_metadata)
 }
 
 export async function consumeMagicToken(tokenHash: string): Promise<AuthSession> {
@@ -450,7 +463,7 @@ export async function consumeMagicToken(tokenHash: string): Promise<AuthSession>
     throw new Error('Conta não encontrada para este token.')
   }
 
-  return buildSession(profile, data.session.user.id)
+  return buildSession(profile, data.session.user.id, data.session.user.app_metadata)
 }
 
 export type MfaChallenge = {
