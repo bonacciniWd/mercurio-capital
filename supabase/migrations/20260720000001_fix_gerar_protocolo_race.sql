@@ -70,7 +70,5 @@ begin
   return new;
 end;
 $$;
-
 comment on function gerar_protocolo() is
   'Gera protocolo MERC-YYYY-NNNNNN de forma concorrência-segura usando advisory lock por ano e max(sequência)+1.';
-
