@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { ScrollView, View, Text, Pressable, ActivityIndicator, Alert } from 'react-native'
+import { ScrollView, View, Text, Pressable, ActivityIndicator, Alert, Linking } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
 import {
   ArrowLeft, FileText, Users, Home, Clock, MessageSquare, ChevronRight,
-  TrendingUp, Shield, Calendar, MapPin, Building2, User, Phone, Mail,
+  TrendingUp, Shield, Calendar, MapPin, Building2, User, Phone, Mail, Download,
 } from 'lucide-react-native'
 import { useQuery } from '@tanstack/react-query'
 import { StatusBadge } from '@/components/Badge'
@@ -12,6 +12,7 @@ import { brl } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
 import { STATUS_LABEL, PRODUTO_LABEL } from '@/lib/partner'
+import { isPropostaAprovada } from '@/lib/propostaStatus'
 
 // Reusa a calculadora do app web
 // (cópia simples, sem dependência cruzada)
@@ -140,6 +141,30 @@ export default function PropostaDetalhe() {
     enabled: !!id && tab === 'historico',
   })
 
+  const modelosQ = useQuery({
+    queryKey: ['proposta-mobile-modelos', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('proposta_contrato_modelos')
+        .select('id, storage_path, nome_arquivo, created_at')
+        .eq('proposta_id', id!)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as { id: string; storage_path: string; nome_arquivo: string; created_at: string }[]
+    },
+    enabled: !!id && tab === 'resumo',
+  })
+
+  async function baixarModelo(path: string) {
+    try {
+      const { data, error } = await supabase.storage.from('contratos').createSignedUrl(path, 60 * 5)
+      if (error || !data?.signedUrl) throw new Error(error?.message ?? 'Falha ao gerar URL')
+      await Linking.openURL(data.signedUrl)
+    } catch (e) {
+      Alert.alert('Erro', e instanceof Error ? e.message : String(e))
+    }
+  }
+
   if (propostaQ.isLoading) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-silver-50" edges={['top', 'bottom']}>
@@ -230,6 +255,39 @@ export default function PropostaDetalhe() {
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, gap: 12 }}>
         {tab === 'resumo' && (
           <Resumo proposta={proposta} calc={calc} ltv={ltv} valorImoveis={valorImoveis} valor={valor} />
+        )}
+        {tab === 'resumo' && isPropostaAprovada(proposta.status) && (
+          <View className="rounded-2xl border border-silver-200 bg-white p-4">
+            <View className="flex-row items-center gap-2">
+              <FileText size={15} color="#DC2626" />
+              <Text className="text-sm font-bold text-navy">Modelo de contrato</Text>
+            </View>
+            <Text className="mt-1 text-xs text-silver-500">
+              Documento de referência da equipe — distinto do PDF gerado para assinatura.
+            </Text>
+            {modelosQ.isLoading ? (
+              <ActivityIndicator color="#DC2626" className="mt-3" />
+            ) : !modelosQ.data?.length ? (
+              <Text className="mt-3 text-sm text-silver-500">Nenhum modelo disponível.</Text>
+            ) : (
+              <View className="mt-3 gap-2">
+                {modelosQ.data.map((m) => (
+                  <Pressable
+                    key={m.id}
+                    onPress={() => baixarModelo(m.storage_path)}
+                    className="flex-row items-center gap-3 rounded-lg border border-silver-200 bg-silver-50 p-3 active:opacity-70"
+                  >
+                    <FileText size={18} color="#737373" />
+                    <View className="flex-1">
+                      <Text className="text-sm font-semibold text-navy" numberOfLines={1}>{m.nome_arquivo}</Text>
+                      <Text className="text-[11px] text-silver-500">{new Date(m.created_at).toLocaleDateString('pt-BR')}</Text>
+                    </View>
+                    <Download size={16} color="#9CA3AF" />
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
         )}
         {tab === 'proponentes' && (
           <Proponentes loading={proponentesQ.isLoading} data={proponentesQ.data ?? []} />

@@ -3,29 +3,9 @@ import { FileText, Upload, X, CheckCircle2, AlertCircle, Loader2, ScanText } fro
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
+import { TIPO_LABEL, categoriaForTipo, type DocCategoria, type DocumentoTipo } from '@/lib/documentos'
 
-export type DocumentoTipo =
-  | 'rg' | 'cpf' | 'cnh'
-  | 'contrato_social'
-  | 'comprovante_residencia'
-  | 'comprovante_renda'
-  | 'matricula_imovel' | 'iptu'
-  | 'certidao_casamento' | 'outros'
-
-export type DocCategoria = 'pessoa_fisica' | 'pessoa_juridica' | 'imovel'
-
-const TIPO_LABEL: Record<DocumentoTipo, string> = {
-  rg: 'RG',
-  cpf: 'CPF',
-  cnh: 'CNH',
-  contrato_social: 'Contrato Social',
-  comprovante_residencia: 'Comprovante de Residência',
-  comprovante_renda: 'Comprovante de Renda',
-  matricula_imovel: 'Matrícula do Imóvel',
-  iptu: 'IPTU',
-  certidao_casamento: 'Certidão de Casamento',
-  outros: 'Outros',
-}
+export type { DocumentoTipo, DocCategoria }
 
 const ACCEPT = '.pdf,.png,.jpg,.jpeg,.webp,.heic,.heif'
 const MAX_BYTES = 20 * 1024 * 1024
@@ -37,6 +17,8 @@ type Props = {
   /** Quando informado, restringe os tipos exibidos no select. */
   tiposPermitidos?: DocumentoTipo[]
   className?: string
+  /** Chamado após upload/remoção bem-sucedidos (para revalidar checklists externos). */
+  onChange?: () => void
 }
 
 type DocRow = {
@@ -67,7 +49,7 @@ async function runOcrInBackground(docId: string, file: File) {
   }
 }
 
-export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, className }: Props) {
+export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, className, onChange }: Props) {
   const qc = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const [tipoSel, setTipoSel] = useState<DocumentoTipo>(tiposPermitidos?.[0] ?? 'comprovante_residencia')
@@ -79,6 +61,7 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
         .from('proposta_documentos')
         .select('id, tipo, categoria, storage_path, mime_type, tamanho_bytes, origem, validado, ocr_texto, created_at')
         .eq('proposta_id', propostaId)
+        .not('storage_path', 'is', null)
         .order('created_at', { ascending: false })
       if (error) throw error
       return (data || []) as DocRow[]
@@ -89,7 +72,7 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
     mutationFn: async ({ file, tipo }: { file: File; tipo: DocumentoTipo }) => {
       if (file.size > MAX_BYTES) throw new Error('Arquivo acima de 20MB.')
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
-      const categoria: DocCategoria = tipo === 'matricula_imovel' || tipo === 'iptu' ? 'imovel' : 'pessoa_fisica'
+      const categoria: DocCategoria = categoriaForTipo(tipo)
       const path = `${propostaId}/${categoria}/${crypto.randomUUID()}.${ext}`
 
       const { error: upErr } = await supabase.storage
@@ -108,6 +91,7 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
           mime_type: file.type,
           tamanho_bytes: file.size,
           origem,
+          status: 'enviado',
         })
         .select('id')
         .single()
@@ -125,7 +109,7 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
 
       return row.id as string
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['proposta-docs', propostaId] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['proposta-docs', propostaId] }); onChange?.() },
     onError: (err) => setError(err instanceof Error ? err.message : 'Falha no upload.'),
   })
 
@@ -135,7 +119,7 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
       if (delErr) throw new Error(delErr.message)
       await supabase.storage.from('proposta-docs').remove([d.storage_path])
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['proposta-docs', propostaId] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['proposta-docs', propostaId] }); onChange?.() },
     onError: (err) => setError(err instanceof Error ? err.message : 'Falha ao remover.'),
   })
 

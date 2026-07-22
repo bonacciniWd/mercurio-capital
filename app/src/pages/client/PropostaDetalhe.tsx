@@ -91,7 +91,7 @@ export function ClientPropostaDetalhe() {
       <div className="card p-10 text-center text-sm text-silver-600">
         Proposta não encontrada.
         <div className="mt-4">
-          <Link to="/c" className="text-gold-600 underline">Voltar</Link>
+          <Link to="/c" className="text-red-600 underline">Voltar</Link>
         </div>
       </div>
     )

@@ -7,6 +7,7 @@ import { useMemo, useState, useCallback } from 'react'
 import { brl } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
+import { buildChecklist, countObrigatoriosPendentes, type DocRowLite, type RequisitoRow } from '@/lib/documentos'
 
 const PRODUTO_LABEL: Record<string, string> = {
   home_equity: 'Home Equity',
@@ -103,6 +104,30 @@ export default function ClienteHome() {
       return data ?? []
     },
   })
+
+  const docsAllQ = useQuery({
+    queryKey: ['cliente-docs-all'],
+    queryFn: async (): Promise<DocRowLite[]> => {
+      const { data, error } = await supabase
+        .from('proposta_documentos')
+        .select('proposta_id, categoria, tipo, storage_path, status, validado')
+      if (error) throw error
+      return (data ?? []) as DocRowLite[]
+    },
+  })
+
+  const reqQ = useQuery({
+    queryKey: ['doc-requisitos'],
+    queryFn: async (): Promise<RequisitoRow[]> => {
+      const { data, error } = await supabase
+        .from('documento_requisitos')
+        .select('categoria, tipo, obrigatorio, ordem')
+      if (error) throw error
+      return (data ?? []) as RequisitoRow[]
+    },
+  })
+
+  const docsObrigatoriosPendentes = countObrigatoriosPendentes(buildChecklist(docsAllQ.data ?? [], reqQ.data ?? []))
 
   const steps = useMemo(() => {
     const currentIdx = proposta ? STEP_ORDER.findIndex(s => s.key === proposta.status) : -1
@@ -216,6 +241,23 @@ export default function ClienteHome() {
               <Text className="text-sm font-bold text-white">Resolver agora</Text>
             </Pressable>
           </View>
+        )}
+
+        {docsObrigatoriosPendentes > 0 && (
+          <Pressable
+            onPress={() => router.push('/(cliente)/documentos')}
+            className="mx-5 mt-4 flex-row items-center gap-3 rounded-xl border border-danger/30 bg-danger/5 p-4 active:opacity-80"
+          >
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-danger/10">
+              <FileText size={20} color="#dc2626" />
+            </View>
+            <View className="flex-1">
+              <Text className="font-semibold text-navy">Documentos obrigatórios pendentes</Text>
+              <Text className="text-xs text-silver-600">
+                {docsObrigatoriosPendentes} {docsObrigatoriosPendentes === 1 ? 'documento pendente' : 'documentos pendentes'}. Toque para enviar.
+              </Text>
+            </View>
+          </Pressable>
         )}
 
         <View className="px-5 pt-5">

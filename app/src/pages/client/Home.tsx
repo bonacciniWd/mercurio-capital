@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, FileText, Clock, Loader2 } from 'lucide-react'
+import { ArrowRight, FileText, Clock, Loader2, FileWarning } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth/AuthContext'
 import { brl } from '@/lib/utils'
+import { buildChecklist, countObrigatoriosPendentes, type DocRowLite, type RequisitoRow } from '@/lib/documentos'
 
 const PRODUTO_LABEL: Record<string, string> = {
   home_equity: 'Home Equity',
@@ -58,9 +59,36 @@ export function ClientHome() {
 
   const pendentesCount = propostas?.filter((p) => p.status === 'resolucao_pendencias' || p.status === 'proposta_cliente').length || 0
 
+  const { data: docsAll = [] } = useQuery({
+    queryKey: ['client-docs-all'],
+    queryFn: async (): Promise<DocRowLite[]> => {
+      const { data, error } = await supabase
+        .from('proposta_documentos')
+        .select('proposta_id, categoria, tipo, storage_path, status, validado')
+      if (error) throw error
+      return (data ?? []) as DocRowLite[]
+    },
+  })
+
+  const { data: requisitos = [] } = useQuery({
+    queryKey: ['doc-requisitos'],
+    queryFn: async (): Promise<RequisitoRow[]> => {
+      const { data, error } = await supabase
+        .from('documento_requisitos')
+        .select('categoria, tipo, obrigatorio, ordem')
+      if (error) throw error
+      return (data ?? []) as RequisitoRow[]
+    },
+  })
+
+  const docsObrigatoriosPendentes = countObrigatoriosPendentes(buildChecklist(docsAll, requisitos))
+
   return (
     <>
-      <div className="mb-6 rounded-lg bg-gradient-to-r from-navy to-navy-600 p-6 text-white">
+      <div className=" -mb-2 rounded-lg bg-gradient-to-r from-slate-800 z-10 to-slate-950  text-white">
+        <img src="/src/assets/fundo-login.jpg" alt="Mercúrio Capital" className="h-56 rounded-t-xl w-full bg-" />
+      </div>
+      <div className="mb-6 rounded-lg bg-gradient-to-r from-slate-800 z-40 to-slate-950 p-6 text-white">
         <h1 className="text-2xl font-bold">Olá, {nome} 👋</h1>
         <p className="mt-1 text-white/80">Acompanhe o andamento das suas propostas.</p>
       </div>
@@ -70,6 +98,26 @@ export function ClientHome() {
         <Card label="Aguardando você" value={pendentesCount.toString()} tone={pendentesCount > 0 ? 'danger' : undefined} />
         <Card label="Status" value={propostas?.[0] ? STATUS_LABEL[propostas[0].status] || propostas[0].status : '—'} small />
       </div>
+
+      {docsObrigatoriosPendentes > 0 && (
+        <Link
+          to="/c/documentos"
+          className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-danger/20 bg-danger/5 p-4 transition hover:shadow-card"
+        >
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-danger/10 p-2.5"><FileWarning className="h-5 w-5 text-danger" /></div>
+            <div>
+              <p className="font-semibold text-navy">Documentos obrigatórios pendentes</p>
+              <p className="text-sm text-silver-600">
+                Você tem <b>{docsObrigatoriosPendentes}</b> {docsObrigatoriosPendentes === 1 ? 'documento obrigatório pendente' : 'documentos obrigatórios pendentes'}.
+              </p>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1 text-sm font-medium text-danger">
+            Enviar agora <ArrowRight className="h-4 w-4" />
+          </span>
+        </Link>
+      )}
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-silver-500">Suas propostas</h2>
 
@@ -116,7 +164,7 @@ export function ClientHome() {
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs text-silver-500">
                   <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" /> Atualizado {formatRelative(p.updated_at)}</span>
-                  <span className="inline-flex items-center gap-1 font-medium text-gold-600">
+                  <span className="inline-flex items-center gap-1 font-medium text-red-600">
                     Ver detalhes <ArrowRight className="h-3.5 w-3.5" />
                   </span>
                 </div>
