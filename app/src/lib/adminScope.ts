@@ -1,43 +1,54 @@
-import type { AuthSession } from '@/auth/types'
+import type { AdminNivel, AuthSession } from '@/auth/types'
+
+// Escopo de admin por `admin_nivel`:
+// - full:     acesso total (o guard nem chega a restringir).
+// - limitado: base + Propostas (listagem/detalhe), Nova proposta (criação) e Relatórios.
+// - juridico: base + Propostas (listagem/detalhe) e Relatórios — SEM criação de proposta.
+//
+// "base" = dashboard, aprovações, parceiros (+ equipes), rede e kanban.
 
 // Itens de menu (paths absolutos) visíveis para admins de escopo reduzido.
-// Detalhe de proposta não tem item de menu próprio (é acessado via Kanban/Parceiros).
-export const LIMITED_ADMIN_NAV_ALLOWLIST = new Set<string>([
+// limitado e juridico compartilham o mesmo menu (a diferença de criação é
+// aplicada por rota e pelo botão "Nova proposta", não por item de menu).
+const RESTRICTED_ADMIN_NAV_ALLOWLIST = new Set<string>([
   '/admin',
   '/admin/aprovacoes',
   '/admin/parceiros',
   '/admin/rede',
   '/admin/kanban',
+  '/admin/propostas',
+  '/admin/relatorios',
 ])
 
-function isRestrictedAdminNivel(session: AuthSession | null | undefined): boolean {
-  return session?.role === 'admin' && (session.adminNivel === 'limitado' || session.adminNivel === 'juridico')
+// Retorna o admin_nivel efetivo da sessão, ou null se não for admin.
+export function adminNivelOf(session: AuthSession | null | undefined): AdminNivel | null {
+  if (session?.role !== 'admin') {
+    return null
+  }
+  return session.adminNivel ?? 'full'
 }
 
 export function isRestrictedAdmin(session: AuthSession | null | undefined): boolean {
-  return isRestrictedAdminNivel(session)
-}
-
-export function isLimitedAdmin(session: AuthSession | null | undefined): boolean {
-  return isRestrictedAdminNivel(session)
+  const nivel = adminNivelOf(session)
+  return nivel === 'limitado' || nivel === 'juridico'
 }
 
 export function isRestrictedAdminNavPath(to: string): boolean {
-  return LIMITED_ADMIN_NAV_ALLOWLIST.has(to)
+  return RESTRICTED_ADMIN_NAV_ALLOWLIST.has(to)
 }
 
-export function isLimitedAdminNavPath(to: string): boolean {
-  return isRestrictedAdminNavPath(to)
+// Somente full e limitado podem criar proposta (rota admin e botão "Nova proposta").
+export function canCreateProposta(session: AuthSession | null | undefined): boolean {
+  const nivel = adminNivelOf(session)
+  return nivel === 'full' || nivel === 'limitado'
 }
 
-// Verifica se a rota (pathname absoluto) é permitida para admin de escopo reduzido.
-// Permitido: dashboard (index), aprovacoes, parceiros, parceiros/:id/equipes,
-// rede, kanban e propostas/:id (detalhe — exceto "nova").
-export function isLimitedAdminPathAllowed(pathname: string): boolean {
-  return isRestrictedAdminPathAllowed(pathname)
-}
+// Verifica se a rota (pathname absoluto) é permitida para o admin_nivel informado.
+export function isAdminPathAllowed(pathname: string, nivel: AdminNivel): boolean {
+  if (nivel === 'full') {
+    return true
+  }
 
-export function isRestrictedAdminPathAllowed(pathname: string): boolean {
   const normalized = pathname.replace(/\/+$/, '')
 
   if (normalized === '/admin' || normalized === '') {
@@ -52,12 +63,19 @@ export function isRestrictedAdminPathAllowed(pathname: string): boolean {
   const segments = normalized.slice('/admin/'.length).split('/').filter(Boolean)
 
   if (segments.length === 1) {
-    return segments[0] === 'aprovacoes' || segments[0] === 'parceiros'
-      || segments[0] === 'rede' || segments[0] === 'kanban'
+    const seg = segments[0]
+    // Comum a limitado e juridico (leitura).
+    return seg === 'aprovacoes' || seg === 'parceiros' || seg === 'rede'
+      || seg === 'kanban' || seg === 'propostas' || seg === 'relatorios'
   }
 
   if (segments.length === 2 && segments[0] === 'propostas') {
-    return segments[1] !== 'nova'
+    if (segments[1] === 'nova') {
+      // Criação de proposta: apenas limitado (full já retornou true acima).
+      return nivel === 'limitado'
+    }
+    // Detalhe de proposta (`propostas/:id`): limitado e juridico.
+    return true
   }
 
   if (segments.length === 3 && segments[0] === 'parceiros' && segments[2] === 'equipes') {

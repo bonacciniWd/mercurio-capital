@@ -4,13 +4,13 @@
 
 @layer base {
   :root {
-    color-scheme: light;
+    color-scheme: dark;
   }
   html, body, #root {
     height: 100%;
   }
   body {
-    @apply bg-silver-50 text-silver-900 font-sans antialiased;
+    @apply bg-black text-silver-900 font-sans antialiased;
   }
   .dark body {
     @apply bg-[#121826] text-[#F1F5F9];
@@ -153,6 +153,76 @@
   }
   .label {
     @apply block text-sm font-medium text-silver-700 mb-1.5;
+  }
+
+  .footer__credits {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.42rem 0.82rem;
+    border-top-left-radius: 40px;
+    border-bottom-right-radius: 40px;
+    border: 1px solid rgba(243, 13, 13, 0.79);
+    background: rgb(4, 7, 6);
+    text-decoration: none;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  .footer__credits:hover {
+    transform: translateY(-1px);
+    border-color: rgba(40, 243, 13, 0.42);
+    box-shadow: 0 12px 28px -18px rgba(40, 243, 13, 0.8);
+  }
+
+  .footer__credits:focus-visible {
+    outline: 2px solid rgba(243, 51, 13, 0.85);
+    outline-offset: 2px;
+  }
+
+  .brand-credit {
+    background: linear-gradient(140deg, rgb(243, 13, 13), rgb(255, 255, 255), rgb(240, 19, 19), rgb(255, 255, 255));
+    background-size: 800% 300%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 600;
+    white-space: nowrap;
+    animation: moveGradient 6s ease-in-out infinite;
+  }
+
+  .build-version {
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    background: linear-gradient(180deg, rgb(212, 32, 19), rgb(17, 16, 16));
+    color: rgb(235, 255, 230);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    padding: 0.18rem 0.5rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+}
+
+@keyframes moveGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@media (max-width: 640px) {
+  .brand-credit {
+    font-size: 0.7rem;
+  }
+
+  .build-version {
+    font-size: 0.66rem;
   }
 }
 

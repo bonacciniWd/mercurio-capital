@@ -551,7 +551,8 @@ export function AdminPropostaDetalhe() {
               <tbody>
                 {imoveis.map((i) => (
                   <tr key={i.id} className="border-t border-silver-100">
-                    <td className="px-4 py-3 capitalize">{i.tipo} {i.principal && <span className="ml-1 badge bg-gold/15 text-red-600">Principal</span>}</td>
+                    <td className="px-4 py-3 capitalize">{i.tipo} {i.principal && <span className="ml-1 badge bg-gold/15 text-red-600
+                    ">Principal</span>}</td>
                     <td className="px-4 py-3">{[i.logradouro, i.numero, i.bairro].filter(Boolean).join(', ') || '—'}</td>
                     <td className="px-4 py-3">{[i.cidade, i.estado].filter(Boolean).join('/') || '—'}</td>
                     <td className="px-4 py-3 text-right font-medium">{brl(Number(i.valor) * 100)}</td>

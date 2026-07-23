@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, createHashRouter, Navigate } from 'react-router-dom'
 import { lazy } from 'react'
 import { PublicLayout } from '@/layouts/PublicLayout'
 import { ClientLayout } from '@/layouts/ClientLayout'
@@ -244,6 +244,10 @@ const appRoutes = [
   { path: '*', element: <Navigate to="/" replace /> },
 ]
 
+function shouldUseHashRouter() {
+  return typeof window !== 'undefined' && window.location.protocol === 'file:'
+}
+
 export function createAppRouter() {
-  return createBrowserRouter(appRoutes)
+  return shouldUseHashRouter() ? createHashRouter(appRoutes) : createBrowserRouter(appRoutes)
 }

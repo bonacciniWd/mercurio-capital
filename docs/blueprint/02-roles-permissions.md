@@ -65,6 +65,8 @@ public (visitante)
 
 Legenda: ✅ pleno · ⚠️ parcial/condicional · ✏️ campos restritos · 🔒 público com restrição · ❌ negado.
 
+> Nuances por `admin_nivel` (coluna **admin** acima é o caso `full`): **admin limitado** herda leitura de Propostas/Relatórios **e** pode **criar proposta** (item 6) via `/admin/propostas/nova`; **admin jurídico** tem leitura de Propostas/Relatórios mas **não** cria proposta (item 6 = ❌). Detalhes em §2.1 e §2.2.
+
 ## 2.1 Admin limitado (`admin_nivel='limitado'`)
 
 Papel operacional que é `role='admin'` mas com escopo reduzido. Implementado sem novo `role`:
@@ -73,31 +75,34 @@ Papel operacional que é `role='admin'` mas com escopo reduzido. Implementado se
 - Helper `public.app_is_admin_full()` → `app_is_admin() AND app_admin_nivel()='full'`.
 - RPC `admin_set_admin_nivel(p_user_id uuid, p_nivel text)` (`security definer`, guard `app_is_admin_full()`, valida `full`|`limitado`|`juridico`, grava em `auth.users.raw_app_meta_data`, audita).
 
-**Telas liberadas ao admin limitado** (as demais rotas `/admin/*` redirecionam para `/admin`):
+**Telas liberadas por `admin_nivel`** (as demais rotas `/admin/*` redirecionam para `/admin`):
 
-| Tela | Rota | Admin full | Admin limitado |
-|---|---|:---:|:---:|
-| Dashboard | `/admin` (index) | ✅ | ✅ |
-| Aprovações | `/admin/aprovacoes` | ✅ | ✅ |
-| Parceiros | `/admin/parceiros` (+ `/:partnerId/equipes`) | ✅ | ✅ |
-| Rede | `/admin/rede` | ✅ | ✅ |
-| Kanban | `/admin/kanban` | ✅ | ✅ |
-| Detalhe de proposta | `/admin/propostas/:id` | ✅ | ✅ |
-| Financeiro / Preços / Carteiras | `/admin/financeiro*` | ✅ | ❌ |
-| Fluxos / Campanhas / Templates | `/admin/{fluxos,campanhas,templates}` | ✅ | ❌ |
-| Feature flags / Integrações / Configurações | … | ✅ | ❌ |
+| Tela | Rota | Admin full | Admin limitado | Admin jurídico |
+|---|---|:---:|:---:|:---:|
+| Dashboard | `/admin` (index) | ✅ | ✅ | ✅ |
+| Aprovações | `/admin/aprovacoes` | ✅ | ✅ | ✅ |
+| Parceiros | `/admin/parceiros` (+ `/:partnerId/equipes`) | ✅ | ✅ | ✅ |
+| Rede | `/admin/rede` | ✅ | ✅ | ✅ |
+| Kanban | `/admin/kanban` | ✅ | ✅ | ✅ |
+| Propostas (listagem) | `/admin/propostas` | ✅ | ✅ | ✅ |
+| Detalhe de proposta | `/admin/propostas/:id` | ✅ | ✅ | ✅ |
+| **Nova proposta (criação)** | `/admin/propostas/nova` | ✅ | ✅ | ❌ |
+| Relatórios | `/admin/relatorios` | ✅ | ✅ | ✅ |
+| Financeiro / Preços / Carteiras | `/admin/financeiro*` | ✅ | ❌ | ❌ |
+| Fluxos / Campanhas / Templates | `/admin/{fluxos,campanhas,templates}` | ✅ | ❌ | ❌ |
+| Feature flags / Integrações / Configurações | … | ✅ | ❌ | ❌ |
 
-No front, o gate é `app/src/guards/RequireAdminScope.tsx` (allowlist em `app/src/lib/adminScope.ts`) aplicado dentro do bloco `/admin`; o `AdminLayout` filtra a navegação pelo mesmo allowlist.
+No front, o gate é `app/src/guards/RequireAdminScope.tsx` (allowlist **por nível** em `app/src/lib/adminScope.ts`, via `isAdminPathAllowed(pathname, nivel)`) aplicado dentro do bloco `/admin`; o `AdminLayout` filtra a navegação pelo mesmo allowlist. O botão **"Nova proposta"** em `/admin/propostas` só aparece para `full` e `limitado` (`canCreateProposta`). Paridade no mobile: `mobile/lib/adminScope.ts` filtra o hub (`(admin)/index.tsx`), esconde o botão "Nova" (`(admin)/propostas.tsx`) e bloqueia deep link em `(admin)/propostas-nova.tsx`.
 
-**Fundos** (item 38) ficam restritos a **admin operacional** (`app_is_admin_operacional()` = `full|limitado`).
+**Fundos** (item 38) ficam restritos a **admin operacional** (`app_is_admin_operacional()` = `full|limitado`). A **criação de proposta** (`admin_create_proposta`) também exige **admin operacional** (guard `app_is_admin_operacional()` desde `20260723000001`), recusando chamada direta do admin jurídico com `forbidden`.
 
 ## 2.2 Admin jurídico (`admin_nivel='juridico'`)
 
-Perfil interno com leitura administrativa e permissão de escrita exclusiva para **upload de modelo de contrato**:
+Perfil interno com **leitura administrativa** (inclui Propostas e Relatórios) e permissão de escrita exclusiva para **upload de modelo de contrato**:
 
-- Pode: `proposta_contrato_modelo_add` (upload de modelo por proposta).
-- Não pode: remoção de modelo, alteração de status, validação de documento, fundos, registro, liberação, comissão e demais escritas operacionais.
-- Escopo de rota: segue o mesmo guard de escopo reduzido (`RequireAdminScope`) aplicado ao admin limitado.
+- Pode: navegar Propostas (listagem/detalhe) e Relatórios (leitura); `proposta_contrato_modelo_add` (upload de modelo por proposta).
+- Não pode: **criar proposta** (`admin_create_proposta` → `forbidden`), remoção de modelo, alteração de status, validação de documento, fundos, registro, liberação, comissão e demais escritas operacionais.
+- Escopo de rota: mesmo guard `RequireAdminScope`, mas a allowlist **por nível** bloqueia `/admin/propostas/nova` para jurídico (liberado para limitado).
 
 ## 2.3 Gate “aprovado” da aba Contrato
 

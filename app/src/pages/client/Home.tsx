@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth/AuthContext'
 import { brl } from '@/lib/utils'
 import { buildChecklist, countObrigatoriosPendentes, type DocRowLite, type RequisitoRow } from '@/lib/documentos'
+import loginBackground from '@/assets/fundo-login.jpg'
 
 const PRODUTO_LABEL: Record<string, string> = {
   home_equity: 'Home Equity',
@@ -86,7 +87,7 @@ export function ClientHome() {
   return (
     <>
       <div className=" -mb-2 rounded-lg bg-gradient-to-r from-slate-800 z-10 to-slate-950  text-white">
-        <img src="/src/assets/fundo-login.jpg" alt="Mercúrio Capital" className="h-56 rounded-t-xl w-full bg-" />
+        <img src={loginBackground} alt="Mercúrio Capital" className="h-56 rounded-t-xl w-full bg-" />
       </div>
       <div className="mb-6 rounded-lg bg-gradient-to-r from-slate-800 z-40 to-slate-950 p-6 text-white">
         <h1 className="text-2xl font-bold">Olá, {nome} 👋</h1>

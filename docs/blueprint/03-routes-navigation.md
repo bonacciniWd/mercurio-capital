@@ -75,6 +75,11 @@
 
 ### 2.4 Admin (`AdminLayout` — role `admin`)
 
+> **Escopo por `admin_nivel`** (guard `RequireAdminScope` + `isAdminPathAllowed` em `app/src/lib/adminScope.ts`):
+> - **full**: todas as rotas `/admin/*`.
+> - **limitado**: `/admin`, `/admin/aprovacoes`, `/admin/parceiros` (+ `/:id/equipes`), `/admin/rede`, `/admin/kanban`, `/admin/propostas`, `/admin/propostas/:id`, **`/admin/propostas/nova`** e `/admin/relatorios`. Demais rotas redirecionam para `/admin`.
+> - **juridico**: idem limitado, **exceto** `/admin/propostas/nova` (criação bloqueada). O botão "Nova proposta" só aparece para full/limitado (`canCreateProposta`).
+
 | Rota | Componente |
 |---|---|
 | `/admin` | `AdminHome` |

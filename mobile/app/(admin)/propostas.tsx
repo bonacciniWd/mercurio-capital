@@ -8,6 +8,8 @@ import { ArrowLeft, Clock, TrendingUp, Search, Plus } from 'lucide-react-native'
 import { brl } from '@/lib/utils'
 import { calcularLTV } from '@/lib/credito'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth'
+import { canCreateProposta } from '@/lib/adminScope'
 
 type Row = {
   id: string; protocolo: string | null; produto: string; status: string
@@ -40,6 +42,8 @@ function diasDesde(iso: string) {
 }
 
 export default function Propostas() {
+  const { session } = useAuth()
+  const podeCriar = canCreateProposta(session)
   const [q, setQ] = useState('')
   const { data, isLoading } = useQuery({
     queryKey: ['admin-propostas-mobile'],
@@ -79,10 +83,12 @@ export default function Propostas() {
           <Text style={s.headerEyebrow}>MODO ADMIN</Text>
           <Text style={s.headerTitle}>Propostas</Text>
         </View>
-        <Pressable onPress={() => router.push('/(admin)/propostas-nova' as any)} style={s.addBtn}>
-          <Plus size={16} color="#FFFFFF" />
-          <Text style={s.addBtnText}>Nova</Text>
-        </Pressable>
+        {podeCriar && (
+          <Pressable onPress={() => router.push('/(admin)/propostas-nova' as any)} style={s.addBtn}>
+            <Plus size={16} color="#FFFFFF" />
+            <Text style={s.addBtnText}>Nova</Text>
+          </Pressable>
+        )}
         <View style={s.countPill}>
           <Text style={s.countText}>{ativas.length} ativas</Text>
         </View>

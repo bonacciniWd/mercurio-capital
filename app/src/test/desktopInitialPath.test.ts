@@ -31,6 +31,6 @@ describe('desktop initial path bootstrap', () => {
     const applied = applyDesktopInitialPath(makeLocation(), historyLike)
 
     expect(applied).toBe(true)
-    expect(replaceState).toHaveBeenCalledWith(null, '', '/p/login')
+    expect(replaceState).toHaveBeenCalledWith(null, '', makeLocation().pathname + '#/p/login')
   })
 })

@@ -16,6 +16,14 @@
 | 5 | **Paridade mobile** (Expo) | documentos, contrato (gate + modelos) e fundos (admin) |
 | 6 | **Perfil admin jurídico** (upload-only) | `admin_nivel='juridico'`, hardening operacional (`app_is_admin_operacional`) e upload exclusivo de modelo |
 
+> **Atualização (2026-07-23 · release v0.1.1) — escopo revisto de Propostas/Relatórios:**
+> A política anterior (admin limitado/jurídico **sem** acesso a Propostas/Relatórios) foi **revista**. Agora:
+> - **Admin limitado**: acessa Propostas (listagem/detalhe) e Relatórios **e cria** proposta em `/admin/propostas/nova`.
+> - **Admin jurídico**: acessa Propostas (listagem/detalhe) e Relatórios (leitura), **sem** criação.
+> - Guard web por nível (`isAdminPathAllowed` em `app/src/lib/adminScope.ts`), botão "Nova proposta" via `canCreateProposta`; paridade mobile (`mobile/lib/adminScope.ts`).
+> - Backend endurecido: `admin_create_proposta` passa a exigir `app_is_admin_operacional()` (migração `20260723000001_admin_create_proposta_operacional.sql`) — jurídico recebe `forbidden` por chamada direta.
+> - Cobertura: `app/src/test/adminScope.test.ts` e `supabase/smoke-tests/fase-28-admin-nivel-proposta-permissao.sql`.
+
 ---
 
 ## 2. Migrations

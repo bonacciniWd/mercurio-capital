@@ -27,6 +27,6 @@ export function applyDesktopInitialPath(
     return false
   }
 
-  historyLike.replaceState(null, '', targetPath)
+  historyLike.replaceState(null, '', locationLike.pathname + '#' + targetPath)
   return true
 }

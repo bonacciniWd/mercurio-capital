@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Search, Eye, Loader2, Download, Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
+import { useAuth } from '@/auth/AuthContext'
+import { canCreateProposta } from '@/lib/adminScope'
 import { KPICard } from '@/components/KPICard'
 import { calcularLTV } from '@/lib/credito'
 import { PROPOSTA_STATUS_LABEL } from '@/lib/propostaStatus'
@@ -66,6 +68,8 @@ function diasDesde(iso: string) {
 }
 
 export function AdminPropostas() {
+  const { session } = useAuth()
+  const podeCriar = canCreateProposta(session)
   const [q, setQ] = useState('')
   const [statusF, setStatusF] = useState<string>('all')
   const [produtoF, setProdutoF] = useState<string>('all')
@@ -166,9 +170,11 @@ export function AdminPropostas() {
           <p className="text-sm text-silver-600">Lista completa em todas as etapas.</p>
         </div>
         <div className="flex gap-2">
-          <Link to="/admin/propostas/nova" className="btn-gold inline-flex items-center gap-2">
-            <Plus className="h-4 w-4" /> Nova proposta
-          </Link>
+          {podeCriar && (
+            <Link to="/admin/propostas/nova" className="btn-gold inline-flex items-center gap-2">
+              <Plus className="h-4 w-4" /> Nova proposta
+            </Link>
+          )}
           <Link to="/admin/kanban" className="btn-outline">Ver Kanban</Link>
           <button className="btn-gold inline-flex items-center gap-2" disabled>
             <Download className="h-4 w-4" /> Exportar

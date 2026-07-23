@@ -12,6 +12,7 @@ import {
 import { brl } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
+import { isRestrictedAdmin, restrictedAdminAllowsHref } from '@/lib/adminScope'
 import { NotificationsSheet } from '@/components/NotificationsSheet'
 
 const items = [
@@ -67,7 +68,8 @@ function tempoRelativo(iso: string): string {
 }
 
 export default function AdminHome() {
-  const { signOut } = useAuth()
+  const { session, signOut } = useAuth()
+  const restricted = isRestrictedAdmin(session)
 
   const kpiQuery = useQuery({
     queryKey: ['admin-mobile-kpis'],
@@ -162,9 +164,11 @@ export default function AdminHome() {
   const meta = metaQuery.data ?? 50_000_000_000
   const pctMeta = Math.min(100, Math.round((volumeMes / meta) * 100))
 
-  const itemsRender = items.map(it =>
-    it.href === '/(admin)/aprovacoes' && aprovCount > 0 ? { ...it, badge: aprovCount } : it
-  )
+  const itemsRender = items
+    .filter((it) => !restricted || restrictedAdminAllowsHref(it.href))
+    .map(it =>
+      it.href === '/(admin)/aprovacoes' && aprovCount > 0 ? { ...it, badge: aprovCount } : it
+    )
 
   function handleLogout() {
     Alert.alert('Sair do modo admin', 'Deseja encerrar a sessão?', [

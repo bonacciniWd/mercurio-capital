@@ -349,17 +349,46 @@ export function Landing() {
       )}
 
       {/* ============================== FOOTER ============================== */}
-      <footer className="relative overflow-hidden border-t border-white/10 bg-black text-black">
-        
-        <div className="relative mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-10 text-sm text-white sm:flex-row">
-          <div className="flex items-center gap-2.5">
-            <img src={logoDark} alt="Mercurio Capital" className="h-16 w-auto" />
-            <span className="text-white">© 2026</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Link to="/protocolo" className="transition hover:text-red-600">Consulta pública</Link>
-            <Link to="/download" className="transition hover:text-red-600">Download</Link>
-            <Link to="/login" className="transition hover:text-red-600">Entrar</Link>
+      <footer className="relative overflow-hidden border-t border-white/10 bg-black text-white">
+        <AtmosphereBackground variant="footer" />
+
+        <div className="relative mx-auto max-w-6xl px-6 py-10 text-sm">
+          <div className="flex flex-col gap-7 lg:gap-8">
+            <div className="flex flex-col items-center justify-between gap-4 border-b border-white/10 pb-6 sm:flex-row">
+              <div className="flex items-center gap-2.5">
+                <img src={logoDark} alt="Mercurio Capital" className="h-16 w-auto" />
+                <span className="text-white">© 2026</span>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 sm:justify-end">
+                <Link to="/protocolo" className="transition hover:text-red-600">Consulta pública</Link>
+                <Link to="/download" className="transition hover:text-red-600">Download</Link>
+                <Link to="/login" className="transition hover:text-red-600">Entrar</Link>
+              </div>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <div className="space-y-2 text-xs text-white/70 sm:text-sm">
+                <p>
+                  <span className="font-semibold text-white">CNPJ:</span> 57.051.836/0001-32
+                </p>
+                <p>
+                  <span className="font-semibold text-white">Endereço:</span> Rua 1301, 471 - Centro, Balneário Camboriú - SC, 88330-795.
+                </p>
+              </div>
+
+              <div className="flex w-full justify-end lg:w-auto">
+                <a
+                  href="https://visionerifatta.space"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="footer__credits"
+                  aria-label="Acessar site da Visione Rifatta"
+                >
+                  <small className="brand-credit">Powered by Visione Rifatta</small>
+                  <span className="build-version" aria-label="Build version">v0.1.1</span>
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </footer>

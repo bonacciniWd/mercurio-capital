@@ -374,6 +374,7 @@ O antigo passo 6 (Imóveis separado) foi removido e consolidado no passo 3; o an
 - **Passo 6 (Revisão)**: accordion editável por seção, sem voltar etapas.
 - **Pós-finalização**: bloco de consultas recomendadas por perfil (PF/PJ) com atalho para a aba Consultas do detalhe.
 - **Regra admin**: `admin_create_proposta` cria para parceiro `approved` **ou** `pending` (bloqueia `rejected`/`suspended`); `partner_create_proposta` permanece restrita ao próprio parceiro aprovado.
+- **Escopo por `admin_nivel` (v0.1.1)**: criação de proposta (rota `/admin/propostas/nova` e RPC `admin_create_proposta`) exige **admin operacional** (`full`/`limitado`). **Admin jurídico** tem leitura de Propostas/Relatórios, mas **não** cria proposta — `admin_create_proposta` retorna `forbidden` (guard `app_is_admin_operacional()`, migração `20260723000001`). Botão "Nova proposta" oculto para jurídico (`canCreateProposta`); paridade no mobile.
 
 ### Passo 5 (Proponentes) — composição de renda (2026-07-22)
 

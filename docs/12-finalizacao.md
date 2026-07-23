@@ -50,6 +50,7 @@ Smoke tests transacionais: Fase 3, 8, 10, 12, 13, 14, 21 (admin nível), 22 (fun
 ### Ciclo Fundos & Documentos (2026-07-18 a 2026-07-22)
 
 - Papel **admin limitado** (`admin_nivel`) com `app_is_admin_full()` e hardening das RPCs sensíveis; guard de rota `RequireAdminScope` + nav filtrada (`20260718000001`/`20260718000002`).
+- **Escopo revisto de Propostas/Relatórios (v0.1.1)**: admin **limitado**/**jurídico** ganham leitura de Propostas e Relatórios; **limitado** cria proposta (`/admin/propostas/nova`), **jurídico** não (`admin_create_proposta` exige `app_is_admin_operacional()` — `20260723000001`). Guard web por nível + paridade mobile; cobertura em `adminScope.test.ts` e `fase-28-admin-nivel-proposta-permissao.sql`.
 - **Fundos** internos por proposta (admin-only): `fundos`/`proposta_fundos`, RPCs, badges/filtro no Kanban e card no detalhe (`20260722000001`/`20260722000002`).
 - **Checklist real** de documentos: `documento_requisitos` + `proposta_documentos.status` + `proposta_documentos_seed` (placeholders PF/PJ + Imóvel); UI cliente/admin sem mock (`20260722000003`/`20260722000004`).
 - **Modelo de contrato** por proposta (`proposta_contrato_modelos`) + gate `isPropostaAprovada` na aba Contrato (`20260722000005`).
