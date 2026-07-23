@@ -4,6 +4,7 @@ import { CheckCircle2 } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { supabase } from '@/lib/supabase'
 import { getSenhaMinLength, validarSenha } from '@/lib/securityConfig'
+import renewalPassword from '@/assets/renewal-password.jpg'
 
 export function RedefinirSenha() {
   const navigate = useNavigate()
@@ -121,7 +122,7 @@ export function RedefinirSenha() {
       </div>
 
       <div className="relative col-span-3 hidden lg:block">
-        <img src="/renewal-password.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={renewalPassword} alt="" className="absolute inset-0 h-full w-full object-cover" />
          <div className="absolute inset-0 bg-black/40" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,0,55,0.25),transparent_60%)]" />
       </div>

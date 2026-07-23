@@ -4,6 +4,7 @@ import { MailCheck } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { supabase } from '@/lib/supabase'
 import { publicAppUrl } from '@/lib/publicUrl'
+import renewalPassword from '@/assets/renewal-password.jpg'
 
 export function RecuperarSenha() {
   const [email, setEmail] = useState('')
@@ -88,7 +89,7 @@ export function RecuperarSenha() {
 
 
       <div className="relative col-span-3 hidden bg-black lg:block">
-        <img src="/renewal-password.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={renewalPassword} alt="" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-black/50" />
         <div className="relative flex h-full flex-col justify-end p-16 text-white">
           <h2 className="max-w-xl text-4xl font-bold leading-tight">

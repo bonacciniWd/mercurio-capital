@@ -5,6 +5,7 @@ import { Logo } from '@/components/Logo'
 import { PartnerDocsUploader, type DocSlot } from '@/components/PartnerDocsUploader'
 import { supabase } from '@/lib/supabase'
 import { getSenhaMinLength, validarSenha } from '@/lib/securityConfig'
+import partnerRegister from '@/assets/partner-register.jpg'
 
 type Step = 1 | 2 | 3
 
@@ -291,7 +292,7 @@ export function Registro() {
       </div>
 
       <div className="relative col-span-3 hidden lg:block">
-        <img src="/partner-register.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={partnerRegister} alt="" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-black/70" />
         
         <div className="relative flex h-full flex-col justify-end p-16 text-white">
