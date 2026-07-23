@@ -212,7 +212,7 @@ export function AdminRelatorios() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gold" /></div>
+        <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-red-600" /></div>
       ) : (
         <>
           <div className="mb-6 grid gap-4 md:grid-cols-4">

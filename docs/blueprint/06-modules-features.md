@@ -98,7 +98,8 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - RPCs: `admin_fundo_upsert`, `admin_fundo_toggle_ativo`, `admin_proposta_fundo_set`, `admin_proposta_fundo_remove`.
 
 ### Modelo de contrato (por proposta)
-- Admin sobe N modelos de contrato por proposta (`proposta_contrato_modelos`, bucket `contratos` em `{proposta_id}/modelos/`); parceiro dono e cliente **baixam** via `signedUrl` curta. Distinto do PDF gerado pelo Clicksign.
+- Admin operacional e admin jurídico sobem N modelos de contrato por proposta (`proposta_contrato_modelos`, bucket `contratos` em `{proposta_id}/modelos/`); parceiro dono e cliente **baixam** via `signedUrl` curta. Distinto do PDF gerado pelo Clicksign.
+- Remoção de modelo e demais ações de contrato (gerar, envio assinatura, registro, liberação e comissão) ficam restritas ao admin operacional.
 - Aba Contrato liberada quando `isPropostaAprovada(status)` (ver §02.2).
 
 ### DoD
@@ -181,8 +182,8 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - Disparo manual de notificações (WhatsApp/push) com templates aprovados.
 - Edição de documentação central (substituir/anexar).
 - **Fundos**: badges coloridos + filtro por fundo no Kanban admin; card Fundos no detalhe da proposta com troca de `status_fundo`. Paridade mobile em `mobile/app/(admin)/kanban.tsx` e `mobile/app/(admin)/proposta/[id].tsx`.
-- **Modelo de contrato**: upload por admin no detalhe da proposta; download por admin/parceiro/cliente.
-- **Admin limitado** (`admin_nivel='limitado'`): acesso restrito a Dashboard, Aprovações, Parceiros, Rede, Kanban e Detalhe de proposta (ver §02.1).
+- **Modelo de contrato**: upload por admin operacional e admin jurídico no detalhe da proposta; download por admin/parceiro/cliente.
+- **Admin de escopo reduzido** (`admin_nivel in ('limitado','juridico')`): acesso restrito a Dashboard, Aprovações, Parceiros, Rede, Kanban e Detalhe de proposta (ver §02.1).
 
 ---
 
@@ -362,3 +363,20 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - [ ] Milestones migrar para tabela `milestone_config` (editável pelo admin).
 - [ ] Registro de entrega em tabela `milestone_entregas` (parceiro, milestone, data, admin responsável).
 - [ ] Notificação WhatsApp ao conquistar novo milestone.
+
+## Wizard Nova Proposta — fluxo de 6 passos (2026-07-22)
+
+Ordem oficial: 1 Produto · 2 Cliente · 3 Imóveis · 4 Valores · 5 Proponentes · 6 Revisão.
+O antigo passo 6 (Imóveis separado) foi removido e consolidado no passo 3; o antigo passo 7 tornou-se o passo 6 (Revisão editável).
+
+- **Step 2**: CPF/CNPJ como primeiro campo com formatação automática. PF captura composição de renda (por proponente), renda mensal (BRL), estado civil (casado/união exige cônjuge) e endereço; validação de CPF/CNPJ via Edge Function `documento-validar` (Invertexto). PJ exige CNPJ, razão social, e-mail do responsável, celular comercial, tipo de empresa, ramo de atuação, data de abertura e faturamento mensal (todos obrigatórios); consulta automática de CNPJ (`cnpj-consultar`) autopreenche os dados cadastrais. Suporta múltiplos proponentes e marcação de principal; sócios adicionais suportados.
+- **Step 3 (Imóveis)**: cadastro completo do imóvel de garantia e secundários, incluindo valor. Imóvel com endereço completo, CEP validado e mapa incorporado. Checkbox configurável de limite de 50% (empréstimo ≤ 50% da soma do valor dos imóveis) validado no frontend e backend.
+- **Passo 6 (Revisão)**: accordion editável por seção, sem voltar etapas.
+- **Pós-finalização**: bloco de consultas recomendadas por perfil (PF/PJ) com atalho para a aba Consultas do detalhe.
+- **Regra admin**: `admin_create_proposta` cria para parceiro `approved` **ou** `pending` (bloqueia `rejected`/`suspended`); `partner_create_proposta` permanece restrita ao próprio parceiro aprovado.
+
+### Passo 5 (Proponentes) — composição de renda (2026-07-22)
+
+- Todo co-proponente responde obrigatoriamente **"Compõe a renda mínima da proposta? (Sim/Não)"**, para qualquer relação (cônjuge, sócio ou outro).
+- Não é possível avançar sem responder. Se **Sim**, os campos de renda (composição + renda mensal) do co-proponente ficam obrigatórios; se **Não**, ficam ocultos/opcionais.
+- Persistido em `proponentes.compoe_renda` e exibido em revisão e no detalhe da proposta (web e mobile). Validado no frontend e no backend (`proposta_payload_validar`).

@@ -36,6 +36,8 @@ Esta pasta consolida o escopo da plataforma **Mercurio Capital** e as atualizaç
 - [Fase 8 → 9](./handoffs/13-handoff-fase8.md)
 - [Fase 9 → 10](./handoffs/14-handoff-fase9.md)
 - [Fase 10 → 11](./handoffs/15-handoff-fase10.md)
+- [Fundos/Docs/Contrato](./handoffs/16-handoff-fase-fundos-docs.md)
+- [Wizard Nova Proposta (Step 2/3 + composição de renda)](./handoffs/17-handoff-wizard-proposta.md)
 
 ## Convenções
 

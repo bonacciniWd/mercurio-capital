@@ -189,14 +189,15 @@ flowchart LR
 ```mermaid
 flowchart LR
   S1[1. Produto & Pessoa] --> S2[2. Dados do cliente]
-  S2 --> S3[3. Localização do imóvel]
+  S2 --> S3[3. Imóveis completos + valor da garantia]
   S3 --> S4[4. Valores e prazo]
-  S4 --> S5[5. Proponentes adicionais]
-  S5 --> S6[6. Cadastro de imóveis]
-  S6 --> S7[7. Revisão & envio]
-  S7 --> S8{{Magic link cliente}}
-  S7 -.salvar rascunho.-> S1
+  S4 --> S5[5. Proponentes]
+  S5 --> S6[6. Revisão editável & envio]
+  S6 --> S8{{Magic link cliente}}
+  S6 -.editar qualquer seção inline.-> S6
 ```
+
+> Atualização 2026-07-22: o antigo passo 6 (Cadastro de imóveis) foi consolidado no passo 3; o cadastro completo do imóvel (incluindo valor da garantia) ocorre no passo 3, ficando disponível para a simulação do passo 4. O antigo passo 7 tornou-se o passo 6, com accordion totalmente editável (Produto, Cliente, Localização/Imóveis, Valores, Proponentes) — substituindo a edição rápida só de valores.
 
 ## 7. Universidade (LMS)
 

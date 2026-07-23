@@ -81,7 +81,7 @@ export function ClientPropostaDetalhe() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-20">
-        <Loader2 className="h-8 w-8 animate-spin text-gold" />
+        <Loader2 className="h-8 w-8 animate-spin text-red-700" />
       </div>
     )
   }

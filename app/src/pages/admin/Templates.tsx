@@ -214,7 +214,7 @@ export function AdminTemplates() {
                 const critical = CRITICAL_EMAIL_TEMPLATES.has(template.codigo)
                 return (
                   <tr key={template.id} className="border-t border-silver-100 hover:bg-silver-50">
-                    <td className="px-5 py-3"><code className="text-xs">{template.codigo}</code>{critical && <span className="ml-2 rounded bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-gold-700">Sistema</span>}</td>
+                    <td className="px-5 py-3"><code className="text-xs">{template.codigo}</code>{critical && <span className="ml-2 rounded bg-gold/15 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">Sistema</span>}</td>
                     <td className="px-5 py-3"><span className="inline-flex items-center gap-1 rounded bg-silver-100 px-2 py-1 text-xs"><Icon className="h-3 w-3" />{CANAL_LABEL[template.canal]}</span></td>
                     <td className="px-5 py-3 font-medium">{template.nome}</td>
                     <td className="max-w-sm px-5 py-3 text-xs text-silver-600">{template.variaveis.length ? template.variaveis.map(variable => `{{${variable}}}`).join(' ') : '—'}</td>
@@ -249,7 +249,7 @@ export function AdminTemplates() {
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
           <div className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
             <div className="flex items-center justify-between border-b px-5 py-3">
-              <div><h2 className="font-semibold text-navy">{editing.id ? 'Editar template' : 'Novo template'}</h2>{isCritical && <p className="text-xs font-medium text-gold-700">Template usado por fluxo transacional. Código, canal, ativação e exclusão são protegidos.</p>}</div>
+              <div><h2 className="font-semibold text-navy">{editing.id ? 'Editar template' : 'Novo template'}</h2>{isCritical && <p className="text-xs font-medium text-red-700">Template usado por fluxo transacional. Código, canal, ativação e exclusão são protegidos.</p>}</div>
               <button onClick={() => setEditing(null)}><X className="h-5 w-5 text-silver-500" /></button>
             </div>
             <div className="grid flex-1 gap-5 overflow-y-auto p-5 lg:grid-cols-[1.1fr_0.9fr]">

@@ -99,7 +99,7 @@ export function ClientUniversidade() {
     <>
       <div className="mb-6 overflow-hidden rounded-lg bg-gradient-to-r from-navy to-navy-600 p-8 text-white">
         <div className="flex items-center gap-3">
-          <GraduationCap className="h-8 w-8 text-gold" />
+          <GraduationCap className="h-8 w-8 text-red-700" />
           <div>
             <h1 className="text-2xl font-bold">Universidade Mercurio</h1>
             <p className="text-sm text-white/80">Conteúdo exclusivo de finanças, mercado e planejamento patrimonial.</p>

@@ -95,7 +95,7 @@ export function AdminCarteiras() {
 
       <div className="card">
         {walletsQuery.isLoading ? (
-          <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>
+          <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-red-600" /></div>
         ) : rows.length === 0 ? (
           <p className="py-10 text-center text-sm text-silver-400">Nenhum parceiro encontrado.</p>
         ) : (

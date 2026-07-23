@@ -7,6 +7,7 @@ import { brl } from '@/lib/utils'
 import { KPICard } from '@/components/KPICard'
 import { calcularLTV } from '@/lib/credito'
 import { PROPOSTA_STATUS_LABEL } from '@/lib/propostaStatus'
+import { FUNDO_STATUS_COLOR, FUNDO_STATUS_LABEL, type FundoStatus } from '@/lib/fundoStatus'
 
 const PRODUTO_LABEL: Record<string, string> = {
   home_equity: 'Home Equity',
@@ -47,6 +48,19 @@ type Row = {
   cliente: { nome_completo: string; cpf: string | null } | null
 }
 
+type FundoRow = {
+  proposta_id: string
+  status_fundo: FundoStatus
+  fundos: { id: string; nome: string; cor_hex: string } | null
+}
+
+type FundoBadge = {
+  id: string
+  nome: string
+  cor_hex: string
+  status_fundo: FundoStatus
+}
+
 function diasDesde(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
 }
@@ -82,6 +96,32 @@ export function AdminPropostas() {
       }))
     },
   })
+
+  const { data: fundosRows = [] } = useQuery({
+    queryKey: ['admin-propostas-fundos'],
+    queryFn: async (): Promise<FundoRow[]> => {
+      const { data, error } = await supabase
+        .from('proposta_fundos')
+        .select('proposta_id, status_fundo, fundos(id, nome, cor_hex)')
+      if (error) throw error
+      return (data ?? []) as unknown as FundoRow[]
+    },
+  })
+
+  const fundosByProposta = useMemo<Record<string, FundoBadge[]>>(() => {
+    const map: Record<string, FundoBadge[]> = {}
+    for (const row of fundosRows) {
+      if (!row.fundos) continue
+      const list = map[row.proposta_id] ?? (map[row.proposta_id] = [])
+      list.push({
+        id: row.fundos.id,
+        nome: row.fundos.nome,
+        cor_hex: row.fundos.cor_hex,
+        status_fundo: row.status_fundo,
+      })
+    }
+    return map
+  }, [fundosRows])
 
   const filtradas = useMemo(() => {
     if (!propostas) return []
@@ -179,6 +219,7 @@ export function AdminPropostas() {
                 <th className="px-4 py-3">Protocolo</th>
                 <th className="px-4 py-3">Cliente</th>
                 <th className="px-4 py-3">Parceiro</th>
+                <th className="px-4 py-3">Fundos</th>
                 <th className="px-4 py-3">Produto</th>
                 <th className="px-4 py-3 text-right">Valor</th>
                 <th className="px-4 py-3 text-right">LTV</th>
@@ -201,6 +242,25 @@ export function AdminPropostas() {
                     </td>
                     <td className="px-4 py-3 text-silver-700">
                       {p.partner?.usuario?.nome_completo || '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      {(fundosByProposta[p.id]?.length ?? 0) === 0 ? (
+                        <span className="text-silver-400">—</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {fundosByProposta[p.id]!.map((f) => (
+                            <span
+                              key={f.id}
+                              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white"
+                              style={{ backgroundColor: f.cor_hex }}
+                              title={`${f.nome}: ${FUNDO_STATUS_LABEL[f.status_fundo]}`}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full ring-1 ring-white/70" style={{ backgroundColor: FUNDO_STATUS_COLOR[f.status_fundo] }} />
+                              {f.nome}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-silver-700">{PRODUTO_LABEL[p.produto] || p.produto}</td>
                     <td className="px-4 py-3 text-right font-bold text-navy">{brl(Number(p.valor_solicitado) * 100)}</td>

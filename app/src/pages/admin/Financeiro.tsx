@@ -146,7 +146,7 @@ export function AdminFinanceiro() {
           </div>
         </div>
         {comissoesQuery.isLoading ? (
-          <div className="p-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-gold" /></div>
+          <div className="p-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-red-700" /></div>
         ) : comissoes.length === 0 ? (
           <p className="p-10 text-center text-sm text-silver-500">Nenhuma comissão.</p>
         ) : (
@@ -206,7 +206,7 @@ function Kpi({ icon: Icon, label, value, sub }: { icon: typeof DollarSign; label
   return (
     <div className="card p-4">
       <div className="flex items-center gap-2 text-silver-500">
-        <Icon className="h-4 w-4 text-gold" />
+        <Icon className="h-4 w-4 text-red-700" />
         <p className="text-xs uppercase tracking-wide">{label}</p>
       </div>
       <p className="mt-2 text-xl font-bold text-navy">{value}</p>

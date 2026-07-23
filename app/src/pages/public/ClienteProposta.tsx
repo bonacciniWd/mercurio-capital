@@ -92,7 +92,7 @@ export function ClienteProposta() {
         <div className="w-full max-w-md">
           {loading ? (
             <div className="card flex flex-col items-center p-10 text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-gold" />
+              <Loader2 className="h-8 w-8 animate-spin text-red-700" />
               <p className="mt-4 text-sm text-silver-600">Validando link…</p>
             </div>
           ) : error ? (
@@ -109,7 +109,7 @@ export function ClienteProposta() {
           ) : peek ? (
             <div className="card p-8">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gold/15 text-gold-600">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gold/15 text-red-600">
                   <FileText className="h-5 w-5" />
                 </div>
                 <div>

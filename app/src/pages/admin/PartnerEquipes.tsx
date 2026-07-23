@@ -218,7 +218,7 @@ export function AdminPartnerEquipes() {
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-gold" />
+          <Loader2 className="h-8 w-8 animate-spin text-red-600" />
         </div>
       ) : !partner ? (
         <div className="card p-5">
@@ -333,7 +333,7 @@ export function AdminPartnerEquipes() {
                 {/* convites pendentes */}
                 {cs.length > 0 && (
                   <div className="border-t border-silver-100 bg-gold-50/30 px-5 py-3">
-                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gold-700">
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-red-600-700">
                       <Mail className="mr-1 inline h-3 w-3" /> Convites pendentes ({cs.length})
                     </p>
                     <ul className="space-y-1.5 text-sm">

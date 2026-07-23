@@ -503,7 +503,7 @@ export function AdminUniversidade() {
                               </div>
                             ))}
                             <button
-                              className="flex w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-silver-300 py-2 text-xs font-medium text-silver-600 hover:border-gold hover:text-gold-700"
+                              className="flex w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-silver-300 py-2 text-xs font-medium text-silver-600 hover:border-gold hover:text-red-700"
                               onClick={() => setEditAula({
                                 id: `new-${crypto.randomUUID()}`, modulo_id: m.id, titulo: '',
                                 descricao: '', ordem: aulasM.length, tipo: 'video',

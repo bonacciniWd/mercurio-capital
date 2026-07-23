@@ -4,6 +4,7 @@ import {
   Loader2, FileSignature, Send, AlertTriangle, CheckCircle2, Clock,
   FileText, Download, Eye, BadgeCheck, Coins, Upload, Trash2,
 } from 'lucide-react'
+import type { AdminNivel } from '@/auth/types'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { isPropostaAprovada } from '@/lib/propostaStatus'
@@ -13,6 +14,7 @@ type Role = 'partner' | 'admin' | 'client'
 interface Props {
   propostaId: string
   role: Role
+  adminNivel?: AdminNivel
 }
 
 interface PropostaInfo {
@@ -75,7 +77,7 @@ const STATUS_LABEL_ASSIN: Record<string, string> = {
   rejeitado: 'Rejeitado',
 }
 
-export function PropostaContrato({ propostaId, role }: Props) {
+export function PropostaContrato({ propostaId, role, adminNivel }: Props) {
   const qc = useQueryClient()
   const [erro, setErro] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -302,6 +304,11 @@ export function PropostaContrato({ propostaId, role }: Props) {
   const assinaturas = assinaturasQuery.data ?? []
   const liberacao = liberacaoQuery.data
   const comissao = comissaoQuery.data
+  const effectiveAdminNivel: AdminNivel = adminNivel ?? 'full'
+  const isAdminJuridico = role === 'admin' && effectiveAdminNivel === 'juridico'
+  const canOperateAsAdmin = role === 'admin' && !isAdminJuridico
+  const canUploadModelo = role === 'admin'
+  const canRemoveModelo = canOperateAsAdmin
 
   // Estágios anteriores à aprovação → mostra placeholder.
   // Aprovada libera a aba (inclui proposta_cliente em diante).
@@ -347,7 +354,7 @@ export function PropostaContrato({ propostaId, role }: Props) {
         </div>
 
         {/* Sem contrato — partner/admin pode gerar */}
-        {!contrato && status === 'emissao_contrato' && (role === 'partner' || role === 'admin') && (
+        {!contrato && status === 'emissao_contrato' && (role === 'partner' || canOperateAsAdmin) && (
           <div className="rounded-lg border border-dashed border-silver-300 p-5 text-center">
             <p className="mb-3 text-sm text-silver-600">Proposta aprovada — gere o contrato para enviar à assinatura.</p>
             <button className="btn-gold" disabled={gerarMut.isPending} onClick={() => gerarMut.mutate()}>
@@ -372,7 +379,7 @@ export function PropostaContrato({ propostaId, role }: Props) {
         )}
 
         {/* Ações de envio */}
-        {contrato && !contrato.provider_envelope_id && status === 'aguardando_assinatura' && (role === 'partner' || role === 'admin') && (
+        {contrato && !contrato.provider_envelope_id && status === 'aguardando_assinatura' && (role === 'partner' || canOperateAsAdmin) && (
           <div className="mt-4 flex justify-end">
             <button className="btn-gold" disabled={enviarMut.isPending} onClick={() => enviarMut.mutate()}>
               {enviarMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -381,7 +388,7 @@ export function PropostaContrato({ propostaId, role }: Props) {
           </div>
         )}
 
-        {contrato && (role === 'partner' || role === 'admin') && status === 'aguardando_assinatura' && contrato.provider_envelope_id && (
+        {contrato && (role === 'partner' || canOperateAsAdmin) && status === 'aguardando_assinatura' && contrato.provider_envelope_id && (
           <div className="mt-4 flex justify-end">
             <button className="btn-outline" disabled={enviarMut.isPending} onClick={() => enviarMut.mutate()}>
               {enviarMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -398,7 +405,7 @@ export function PropostaContrato({ propostaId, role }: Props) {
             <FileText className="h-5 w-5 text-navy" />
             <h3 className="text-sm font-semibold uppercase tracking-wide text-silver-500">Modelo de contrato</h3>
           </div>
-          {role === 'admin' && (
+          {canUploadModelo && (
             <label className={`btn-gold inline-flex cursor-pointer items-center gap-2 text-xs ${modeloUploadMut.isPending ? 'pointer-events-none opacity-60' : ''}`}>
               {modeloUploadMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
               {modeloUploadMut.isPending ? 'Enviando…' : 'Enviar modelo'}
@@ -419,6 +426,12 @@ export function PropostaContrato({ propostaId, role }: Props) {
         <p className="mb-3 text-xs text-silver-500">
           Documento de referência enviado pela equipe interna — distinto do PDF gerado para assinatura.
         </p>
+
+        {isAdminJuridico && (
+          <p className="mb-3 rounded-md border border-danger/20 bg-danger/5 px-3 py-2 text-xs text-danger">
+            Perfil jurídico: apenas envio de modelo de contrato.
+          </p>
+        )}
 
         {modelosQuery.isLoading ? (
           <div className="flex items-center justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-gold" /></div>
@@ -441,7 +454,7 @@ export function PropostaContrato({ propostaId, role }: Props) {
                   <button className="btn-outline text-xs" onClick={() => baixarModelo(m.storage_path)}>
                     <Download className="mr-1 inline h-3 w-3" /> Baixar
                   </button>
-                  {role === 'admin' && (
+                  {canRemoveModelo && (
                     <button
                       className="rounded-md p-1 text-silver-500 hover:bg-silver-50 hover:text-danger disabled:opacity-50"
                       disabled={modeloRemoveMut.isPending}
@@ -494,7 +507,7 @@ export function PropostaContrato({ propostaId, role }: Props) {
       )}
 
       {/* Registro (admin) */}
-      {contrato && contrato.assinado_em && status === 'em_registro' && role === 'admin' && (
+      {contrato && contrato.assinado_em && status === 'em_registro' && canOperateAsAdmin && (
         <div className="card p-5">
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-silver-500">Registro em cartório</h3>
           <p className="mb-4 text-sm text-silver-600">Confirme o registro do contrato para liberar o próximo passo (liberação de recurso).</p>
@@ -506,7 +519,7 @@ export function PropostaContrato({ propostaId, role }: Props) {
       )}
 
       {/* Liberação (admin) */}
-      {status === 'contrato_registrado' && role === 'admin' && (
+      {status === 'contrato_registrado' && canOperateAsAdmin && (
         <div className="card p-5">
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-silver-500">Liberação de recurso</h3>
           <p className="mb-4 text-sm text-silver-600">Registre o valor liberado para o tomador. Isto dispara o cálculo automático de comissão do parceiro.</p>

@@ -1,0 +1,23 @@
+# Contexto de deploy Vercel — projeto usa Root Directory = app.
+# Exclui binários/artefatos pesados e dependências (Vercel instala no build).
+
+.git
+**/node_modules
+
+# Artefatos desktop (electron) — não fazem parte do web
+app/desktop
+app/dist
+app/artifacts
+
+# Outras áreas do monorepo não usadas no build web
+mobile
+supabase
+docs
+
+# Binários grandes por segurança
+*.dmg
+*.zip
+*.AppImage
+*.exe
+*.deb
+*.asar

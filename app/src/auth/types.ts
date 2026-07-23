@@ -1,6 +1,6 @@
 export type AppRole = 'admin' | 'partner' | 'team_member' | 'client'
 
-export type AdminNivel = 'full' | 'limitado'
+export type AdminNivel = 'full' | 'limitado' | 'juridico'
 
 export type AuthProfile = {
   id: string

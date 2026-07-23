@@ -117,7 +117,7 @@ export function PartnerCarteiraRecarga() {
       <div className="card p-6 text-center">
         {phase === 'pending' && (
           <>
-            <Loader2 className="mx-auto h-12 w-12 animate-spin text-gold" />
+            <Loader2 className="mx-auto h-12 w-12 animate-spin text-red-700" />
             <h1 className="mt-4 text-xl font-bold text-navy">Confirmando seu pagamento…</h1>
             <p className="mt-2 text-sm text-silver-600">
               Aguardando confirmação do Stripe. Isso costuma levar de 2 a 10 segundos.
@@ -171,7 +171,7 @@ export function PartnerCarteiraRecarga() {
 
         {phase === 'cancel' && (
           <>
-            <AlertTriangle className="mx-auto h-14 w-14 text-gold" />
+            <AlertTriangle className="mx-auto h-14 w-14 text-red-700" />
             <h1 className="mt-4 text-xl font-bold text-navy">Recarga cancelada</h1>
             <p className="mt-2 text-sm text-silver-600">
               Você cancelou o pagamento. Nenhum valor foi debitado.
@@ -184,7 +184,7 @@ export function PartnerCarteiraRecarga() {
 
         {phase === 'timeout' && (
           <>
-            <AlertTriangle className="mx-auto h-14 w-14 text-gold" />
+            <AlertTriangle className="mx-auto h-14 w-14 text-red-700" />
             <h1 className="mt-4 text-xl font-bold text-navy">Confirmação demorando…</h1>
             <p className="mt-2 text-sm text-silver-600">
               O pagamento foi enviado ao Stripe mas ainda não recebemos a confirmação do webhook.

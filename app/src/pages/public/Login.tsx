@@ -25,7 +25,7 @@ const HERO_BY_ROLE: Record<'admin' | 'partner' | 'client', HeroContent> = {
     eyebrow: 'Operação interna',
     headline: (
       <>
-        Painel de <span className="text-gold">controle</span> da esteira de crédito.
+        Painel de <span className="text-red-600">controle</span> da esteira de crédito.
       </>
     ),
     subline: 'Aprovações, kanban global, financeiro e auditoria — tudo em um lugar.',
@@ -39,7 +39,7 @@ const HERO_BY_ROLE: Record<'admin' | 'partner' | 'client', HeroContent> = {
     eyebrow: 'Parceiro estratégico',
     headline: (
       <>
-        Crédito Imobiliário <span className="text-gold">para parceiros</span> estratégicos.
+        Crédito Imobiliário <span className="text-red-600">para parceiros</span> estratégicos.
       </>
     ),
     subline: 'Home Equity, Construção e Financiamento — esteira completa, do funil ao registro.',
@@ -53,7 +53,7 @@ const HERO_BY_ROLE: Record<'admin' | 'partner' | 'client', HeroContent> = {
     eyebrow: 'Portal do cliente',
     headline: (
       <>
-        Acompanhe sua <span className="text-gold">proposta</span> com transparência.
+        Acompanhe sua <span className="text-red-600">proposta</span> com transparência.
       </>
     ),
     subline: 'Documentos, pendências e status em tempo real — direto da nossa esteira.',
@@ -203,7 +203,7 @@ export function Login({
           <div className="mt-12 flex gap-6 text-sm">
             {hero.stats.map((stat) => (
               <div key={stat.label}>
-                <p className="text-3xl font-bold text-gold">{stat.value}</p>
+                <p className="text-3xl font-bold text-red-600">{stat.value}</p>
                 <p className="text-white/60">{stat.label}</p>
               </div>
             ))}

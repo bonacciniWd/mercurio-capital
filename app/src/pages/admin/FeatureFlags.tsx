@@ -177,7 +177,7 @@ export function AdminFeatureFlags() {
                     const on = (editing.regras?.roles ?? []).includes(r)
                     return (
                       <button key={r} type="button" onClick={() => toggleRole(r)}
-                        className={`rounded-lg border px-3 py-1.5 text-sm ${on ? 'border-gold bg-gold/10 text-gold-700' : 'border-silver-300 text-silver-600'}`}>
+                        className={`rounded-lg border px-3 py-1.5 text-sm ${on ? 'border-gold bg-gold/10 text-red-700' : 'border-silver-300 text-silver-600'}`}>
                         {r}
                       </button>
                     )

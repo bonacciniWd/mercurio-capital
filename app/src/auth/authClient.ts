@@ -178,7 +178,10 @@ function sanitizeRole(value: unknown): AppRole {
 }
 
 function sanitizeAdminNivel(value: unknown): AdminNivel {
-  return value === 'limitado' ? 'limitado' : 'full'
+  if (value === 'limitado' || value === 'juridico' || value === 'full') {
+    return value
+  }
+  return 'full'
 }
 
 function readAdminNivelFromMetadata(appMetadata: Record<string, unknown> | null | undefined): AdminNivel {

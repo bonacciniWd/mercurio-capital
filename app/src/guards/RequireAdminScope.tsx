@@ -1,13 +1,13 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthContext'
-import { isLimitedAdmin, isLimitedAdminPathAllowed } from '@/lib/adminScope'
+import { isRestrictedAdmin, isRestrictedAdminPathAllowed } from '@/lib/adminScope'
 
-// Restringe o admin limitado às telas do seu escopo. Admin full passa direto.
+// Restringe admin de escopo reduzido (limitado/juridico) às telas permitidas.
 export function RequireAdminScope() {
   const { session } = useAuth()
   const location = useLocation()
 
-  if (isLimitedAdmin(session) && !isLimitedAdminPathAllowed(location.pathname)) {
+  if (isRestrictedAdmin(session) && !isRestrictedAdminPathAllowed(location.pathname)) {
     return <Navigate to="/admin" replace />
   }
 

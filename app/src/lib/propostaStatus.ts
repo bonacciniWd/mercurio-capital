@@ -16,7 +16,7 @@ export const PROPOSTA_STATUS_LABEL: Record<string, string> = {
   protocolo_cartorio: 'Protocolo Cartório', exigencias_cartorio: 'Exigências Cartório',
   custas_cartorio: 'Custas Cartório', registro_af: 'Registro de AF',
   recurso_liberado: 'Recurso Liberado', pagamento_comissao: 'Pagamento de Comissão',
-  completo: 'Completo', cancelado: 'Cancelado',
+  completo: 'Concluído', cancelado: 'Cancelado',
   resolucao_pendencias: 'Diligência Jurídica (legado)',
   em_registro: 'Protocolo Cartório (legado)',
   contrato_registrado: 'Registro de AF (legado)',

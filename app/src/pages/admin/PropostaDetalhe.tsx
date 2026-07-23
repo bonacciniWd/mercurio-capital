@@ -23,6 +23,7 @@ import { PropostaPendencias } from '@/components/PropostaPendencias'
 import { PropostaConsultas } from '@/components/PropostaConsultas'
 import { PropostaContrato } from '@/components/PropostaContrato'
 import { PropostaFundos } from '@/components/PropostaFundos'
+import { useAuth } from '@/auth/AuthContext'
 import {
   buildChecklist,
   CATEGORIA_LABEL,
@@ -130,10 +131,40 @@ interface Proposta {
   amortizacao: 'price' | 'sac'
   correcao: string
   indexador: string
+  limite_50_aplicado: boolean
   created_at: string
   updated_at: string
   partner: { usuario: { nome_completo: string | null } | null } | null
-  cliente: { nome_completo: string; cpf: string | null; email: string | null; telefone: string | null } | null
+  cliente: {
+    nome_completo: string
+    cpf: string | null
+    cnpj: string | null
+    email: string | null
+    telefone: string | null
+    modelo_renda: string | null
+    renda_mensal: number | null
+    endereco_cep: string | null
+    endereco_logradouro: string | null
+    endereco_numero: string | null
+    endereco_bairro: string | null
+    endereco_cidade: string | null
+    endereco_estado: string | null
+    razao_social: string | null
+    email_responsavel: string | null
+    celular_comercial: string | null
+    tipo_empresa: string | null
+    ramo_atuacao: string | null
+    data_abertura: string | null
+    faturamento_mensal: number | null
+  } | null
+}
+
+const MODELO_RENDA_LABEL: Record<string, string> = {
+  assalariado_clt: 'Assalariado (CLT)',
+  empresario: 'Empresário',
+  autonomo: 'Autônomo',
+  aposentado_pensionista: 'Aposentado/Pensionista',
+  funcionario_publico: 'Funcionário Público',
 }
 
 interface Proponente {
@@ -144,11 +175,17 @@ interface Proponente {
   relacao: string | null
   estado_civil: string | null
   pessoa_tipo: string
+  compoe_renda: boolean | null
+  modelo_renda: string | null
+  renda_mensal: number | null
+  endereco_cidade: string | null
+  endereco_estado: string | null
 }
 
 interface Imovel {
   id: string
   tipo: string
+  principal: boolean
   cidade: string | null
   estado: string | null
   bairro: string | null
@@ -179,6 +216,8 @@ interface DocRow {
 export function AdminPropostaDetalhe() {
   const { id } = useParams()
   const qc = useQueryClient()
+  const { session } = useAuth()
+  const isAdminJuridico = session?.role === 'admin' && session.adminNivel === 'juridico'
   const [tab, setTab] = useState<typeof TABS[number]>('Resumo')
   const [novoStatus, setNovoStatus] = useState<string>('')
   const [motivo, setMotivo] = useState('')
@@ -190,7 +229,7 @@ export function AdminPropostaDetalhe() {
         .from('propostas')
         // partners tem 2 FKs para usuarios (usuario_id e aprovado_por),
         // por isso o embed precisa desambiguar com !usuario_id.
-        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, correcao, indexador, created_at, updated_at, partner:partners(usuario:usuarios!usuario_id(nome_completo)), cliente:clientes(nome_completo, cpf, email, telefone)')
+        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, correcao, indexador, limite_50_aplicado, created_at, updated_at, partner:partners(usuario:usuarios!usuario_id(nome_completo)), cliente:clientes(nome_completo, cpf, cnpj, email, telefone, modelo_renda, renda_mensal, endereco_cep, endereco_logradouro, endereco_numero, endereco_bairro, endereco_cidade, endereco_estado, razao_social, email_responsavel, celular_comercial, tipo_empresa, ramo_atuacao, data_abertura, faturamento_mensal)')
         .eq('id', id!)
         .single()
       if (error) throw error
@@ -204,7 +243,7 @@ export function AdminPropostaDetalhe() {
     queryFn: async (): Promise<Proponente[]> => {
       const { data, error } = await supabase
         .from('proponentes')
-        .select('id, nome, cpf_cnpj, principal, relacao, estado_civil, pessoa_tipo')
+        .select('id, nome, cpf_cnpj, principal, relacao, estado_civil, pessoa_tipo, compoe_renda, modelo_renda, renda_mensal, endereco_cidade, endereco_estado')
         .eq('proposta_id', id!)
         .order('principal', { ascending: false })
       if (error) throw error
@@ -218,7 +257,7 @@ export function AdminPropostaDetalhe() {
     queryFn: async (): Promise<Imovel[]> => {
       const { data, error } = await supabase
         .from('imoveis')
-        .select('id, tipo, cidade, estado, bairro, logradouro, numero, valor')
+        .select('id, tipo, principal, cidade, estado, bairro, logradouro, numero, valor')
         .eq('proposta_id', id!)
       if (error) throw error
       return data || []
@@ -300,7 +339,7 @@ export function AdminPropostaDetalhe() {
     },
   })
 
-  if (isLoading) return <div className="p-10 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-gold" /></div>
+  if (isLoading) return <div className="p-10 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-red-600" /></div>
   if (error) return <div className="p-10 text-center text-danger">Erro: {(error as Error).message}</div>
   if (!proposta) return <div className="p-10 text-center text-silver-500">Proposta não encontrada.</div>
 
@@ -339,41 +378,43 @@ export function AdminPropostaDetalhe() {
         </div>
 
         <div className="flex w-full flex-col gap-3 lg:w-96">
-          <div className="card p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-silver-500">Alterar status</p>
-            <div className="flex flex-wrap gap-2">
-              <select
-                className="input w-auto"
-                value={novoStatus}
-                onChange={(e) => setNovoStatus(e.target.value)}
-              >
-                <option value="">Selecione…</option>
-                {STATUS_ORDER.filter((s) => s !== proposta.status).map((s) => (
-                  <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-                ))}
-              </select>
-              <input
-                className="input"
-                placeholder="Motivo / observação"
-                value={motivo}
-                onChange={(e) => setMotivo(e.target.value)}
-              />
-              <button
-                className="btn-gold"
-                disabled={!novoStatus || statusMut.isPending}
-                onClick={() => statusMut.mutate({ status: novoStatus, motivo })}
-              >
-                {statusMut.isPending ? 'Aplicando…' : 'Aplicar'}
-              </button>
+          {!isAdminJuridico && (
+            <div className="card p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-silver-500">Alterar status</p>
+              <div className="flex flex-wrap gap-2">
+                <select
+                  className="input w-auto"
+                  value={novoStatus}
+                  onChange={(e) => setNovoStatus(e.target.value)}
+                >
+                  <option value="">Selecione…</option>
+                  {STATUS_ORDER.filter((s) => s !== proposta.status).map((s) => (
+                    <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+                  ))}
+                </select>
+                <input
+                  className="input"
+                  placeholder="Motivo / observação"
+                  value={motivo}
+                  onChange={(e) => setMotivo(e.target.value)}
+                />
+                <button
+                  className="btn-gold"
+                  disabled={!novoStatus || statusMut.isPending}
+                  onClick={() => statusMut.mutate({ status: novoStatus, motivo })}
+                >
+                  {statusMut.isPending ? 'Aplicando…' : 'Aplicar'}
+                </button>
+              </div>
+              {statusMut.error && (
+                <p className="mt-2 inline-flex items-center gap-1 text-xs text-danger">
+                  <AlertTriangle className="h-3 w-3" /> {(statusMut.error as Error).message}
+                </p>
+              )}
             </div>
-            {statusMut.error && (
-              <p className="mt-2 inline-flex items-center gap-1 text-xs text-danger">
-                <AlertTriangle className="h-3 w-3" /> {(statusMut.error as Error).message}
-              </p>
-            )}
-          </div>
+          )}
 
-          <PropostaFundos propostaId={id!} />
+          {!isAdminJuridico && <PropostaFundos propostaId={id!} />}
         </div>
       </div>
 
@@ -416,12 +457,35 @@ export function AdminPropostaDetalhe() {
             <Row k="Prazo" v={`${proposta.prazo_meses} meses`} />
             <Row k="Carência" v={`${proposta.carencia_meses} meses`} />
             <Row k="Sistema" v={`${proposta.amortizacao.toUpperCase()} · ${proposta.indexador} + ${Number(proposta.taxa_juros_mensal).toFixed(2)}% a.m.`} />
+            {proposta.limite_50_aplicado && (
+              <Row k="Limite 50%" v={<span className="badge bg-gold/15 text-red-600">Aplicado (máx. 50% do valor dos imóveis)</span>} />
+            )}
           </Section>
-          <Section title="Cliente">
-            <Row k="Nome" v={proposta.cliente?.nome_completo || '—'} />
-            <Row k="CPF/CNPJ" v={proposta.cliente?.cpf || '—'} />
-            <Row k="E-mail" v={proposta.cliente?.email || '—'} />
-            <Row k="Telefone" v={proposta.cliente?.telefone || '—'} />
+          <Section title={proposta.cliente?.cnpj ? 'Cliente (PJ)' : 'Cliente (PF)'}>
+            <Row k="Nome / Razão social" v={proposta.cliente?.razao_social || proposta.cliente?.nome_completo || '—'} />
+            <Row k="CPF/CNPJ" v={proposta.cliente?.cnpj || proposta.cliente?.cpf || '—'} />
+            <Row k="E-mail" v={proposta.cliente?.email || proposta.cliente?.email_responsavel || '—'} />
+            <Row k="Telefone" v={proposta.cliente?.telefone || proposta.cliente?.celular_comercial || '—'} />
+            {proposta.cliente?.cnpj ? (
+              <>
+                {proposta.cliente?.tipo_empresa && <Row k="Tipo de empresa" v={proposta.cliente.tipo_empresa} />}
+                {proposta.cliente?.ramo_atuacao && <Row k="Ramo de atuação" v={proposta.cliente.ramo_atuacao} />}
+                {proposta.cliente?.data_abertura && <Row k="Data de abertura" v={new Date(proposta.cliente.data_abertura).toLocaleDateString('pt-BR')} />}
+                {proposta.cliente?.faturamento_mensal != null && <Row k="Faturamento mensal" v={brl(Number(proposta.cliente.faturamento_mensal) * 100)} />}
+              </>
+            ) : (
+              <>
+                {proposta.cliente?.modelo_renda && <Row k="Composição de renda" v={MODELO_RENDA_LABEL[proposta.cliente.modelo_renda] ?? proposta.cliente.modelo_renda} />}
+                {proposta.cliente?.renda_mensal != null && <Row k="Renda mensal" v={brl(Number(proposta.cliente.renda_mensal) * 100)} />}
+              </>
+            )}
+            {(proposta.cliente?.endereco_cidade || proposta.cliente?.endereco_logradouro) && (
+              <Row k="Endereço" v={[
+                [proposta.cliente?.endereco_logradouro, proposta.cliente?.endereco_numero].filter(Boolean).join(', '),
+                proposta.cliente?.endereco_bairro,
+                [proposta.cliente?.endereco_cidade, proposta.cliente?.endereco_estado].filter(Boolean).join('/'),
+              ].filter(Boolean).join(' — ') || '—'} />
+            )}
           </Section>
           <Section title="Garantia">
             <Row k="Valor total dos imóveis" v={brl(valorImoveis * 100)} />
@@ -449,17 +513,22 @@ export function AdminPropostaDetalhe() {
           ) : (
             <table className="w-full text-sm">
               <thead className="bg-silver-50 text-left text-xs uppercase text-silver-500">
-                <tr><th className="px-4 py-3">Nome</th><th className="px-4 py-3">CPF/CNPJ</th><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Relação</th></tr>
+                <tr><th className="px-4 py-3">Nome</th><th className="px-4 py-3">CPF/CNPJ</th><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Relação</th><th className="px-4 py-3">Renda</th></tr>
               </thead>
               <tbody>
                 {proponentes.map((p) => (
                   <tr key={p.id} className="border-t border-silver-100">
                     <td className="px-4 py-3 font-medium text-silver-900">
-                      {p.nome} {p.principal && <span className="ml-1 badge bg-gold/15 text-gold-700">Principal</span>}
+                      {p.nome} {p.principal && <span className="ml-1 badge bg-gold/15 text-red-600">Principal</span>}
                     </td>
                     <td className="px-4 py-3">{p.cpf_cnpj || '—'}</td>
                     <td className="px-4 py-3">{p.pessoa_tipo}</td>
                     <td className="px-4 py-3">{p.relacao || '—'}</td>
+                    <td className="px-4 py-3">
+                      {p.modelo_renda ? (MODELO_RENDA_LABEL[p.modelo_renda] ?? p.modelo_renda) : '—'}
+                      {p.renda_mensal != null ? ` · ${brl(Number(p.renda_mensal) * 100)}` : ''}
+                      {!p.principal ? ` · ${p.compoe_renda === true ? 'compõe renda' : p.compoe_renda === false ? 'não compõe' : '—'}` : ''}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -482,7 +551,7 @@ export function AdminPropostaDetalhe() {
               <tbody>
                 {imoveis.map((i) => (
                   <tr key={i.id} className="border-t border-silver-100">
-                    <td className="px-4 py-3 capitalize">{i.tipo}</td>
+                    <td className="px-4 py-3 capitalize">{i.tipo} {i.principal && <span className="ml-1 badge bg-gold/15 text-red-600">Principal</span>}</td>
                     <td className="px-4 py-3">{[i.logradouro, i.numero, i.bairro].filter(Boolean).join(', ') || '—'}</td>
                     <td className="px-4 py-3">{[i.cidade, i.estado].filter(Boolean).join('/') || '—'}</td>
                     <td className="px-4 py-3 text-right font-medium">{brl(Number(i.valor) * 100)}</td>
@@ -553,25 +622,27 @@ export function AdminPropostaDetalhe() {
                         {d.categoria} · {d.origem || '—'} · {new Date(d.created_at).toLocaleString('pt-BR')}
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      {!d.validado ? (
-                        <button
-                          className="btn-gold inline-flex items-center gap-1"
-                          disabled={validarMut.isPending}
-                          onClick={() => validarMut.mutate({ docId: d.id, validado: true })}
-                        >
-                          <CheckCircle2 className="h-4 w-4" /> Aprovar
-                        </button>
-                      ) : (
-                        <button
-                          className="btn-outline inline-flex items-center gap-1"
-                          disabled={validarMut.isPending}
-                          onClick={() => validarMut.mutate({ docId: d.id, validado: false })}
-                        >
-                          <XCircle className="h-4 w-4" /> Reabrir
-                        </button>
-                      )}
-                    </div>
+                    {!isAdminJuridico && (
+                      <div className="flex gap-2">
+                        {!d.validado ? (
+                          <button
+                            className="btn-gold inline-flex items-center gap-1"
+                            disabled={validarMut.isPending}
+                            onClick={() => validarMut.mutate({ docId: d.id, validado: true })}
+                          >
+                            <CheckCircle2 className="h-4 w-4" /> Aprovar
+                          </button>
+                        ) : (
+                          <button
+                            className="btn-outline inline-flex items-center gap-1"
+                            disabled={validarMut.isPending}
+                            onClick={() => validarMut.mutate({ docId: d.id, validado: false })}
+                          >
+                            <XCircle className="h-4 w-4" /> Reabrir
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -592,7 +663,7 @@ export function AdminPropostaDetalhe() {
       )}
 
       {tab === 'Contrato' && id && (
-        <PropostaContrato propostaId={id} role="admin" />
+        <PropostaContrato propostaId={id} role="admin" adminNivel={session?.adminNivel} />
       )}
 
       {tab === 'Histórico' && (

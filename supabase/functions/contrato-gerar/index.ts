@@ -32,6 +32,16 @@ Deno.serve(async (req) => {
   const { data: ures, error: uerr } = await userClient.auth.getUser()
   if (uerr || !ures.user) return jsonResponse({ error: 'unauthorized' }, 401)
 
+  const appMetadata = (ures.user.app_metadata ?? {}) as Record<string, unknown>
+  const role = appMetadata.role
+  const adminNivel = appMetadata.admin_nivel
+  if (role !== 'admin' && role !== 'partner') {
+    return jsonResponse({ error: 'forbidden' }, 403)
+  }
+  if (role === 'admin' && adminNivel === 'juridico') {
+    return jsonResponse({ error: 'forbidden' }, 403)
+  }
+
   let body: { proposta_id?: string; signatarios?: Array<{ nome: string; email: string; cpf?: string; papel?: string }> } = {}
   try { body = await req.json() } catch { /* ignore */ }
   const propostaId = body.proposta_id

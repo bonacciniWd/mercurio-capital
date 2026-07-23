@@ -189,7 +189,7 @@ export function ConviteMembro() {
             </>
           ) : status === 'aceitando' ? (
             <>
-              <Loader2 className="mx-auto h-10 w-10 animate-spin text-gold" />
+              <Loader2 className="mx-auto h-10 w-10 animate-spin text-red-700" />
               <p className="mt-4 text-sm text-silver-600">Validando convite…</p>
             </>
           ) : status === 'ok' ? (

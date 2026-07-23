@@ -56,6 +56,7 @@ interface Proponente {
   relacao: string | null
   estado_civil: string | null
   pessoa_tipo: string
+  compoe_renda: boolean | null
 }
 
 interface Imovel {
@@ -105,7 +106,7 @@ export default function PropostaDetalhe() {
     queryFn: async (): Promise<Proponente[]> => {
       const { data, error } = await supabase
         .from('proponentes')
-        .select('id, nome, cpf_cnpj, principal, relacao, estado_civil, pessoa_tipo')
+        .select('id, nome, cpf_cnpj, principal, relacao, estado_civil, pessoa_tipo, compoe_renda')
         .eq('proposta_id', id!)
         .order('principal', { ascending: false })
       if (error) throw error
@@ -385,6 +386,7 @@ function Proponentes({ loading, data }: { loading: boolean; data: Proponente[] }
           <Row label="CPF/CNPJ" value={p.cpf_cnpj ?? '—'} />
           <Row label="Tipo" value={p.pessoa_tipo} />
           <Row label="Estado civil" value={p.estado_civil ?? '—'} />
+          {!p.principal && <Row label="Compõe renda" value={p.compoe_renda === true ? 'Sim' : p.compoe_renda === false ? 'Não' : '—'} />}
         </Card>
       ))}
     </>

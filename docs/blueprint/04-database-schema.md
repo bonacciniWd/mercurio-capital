@@ -872,3 +872,26 @@ Função análoga `wallet_credit(...)` para `recarga`, `estorno`, `ajuste_credit
 - `/admin/financeiro/carteiras/:partnerId` — extrato + ajustes manuais.
 - `/admin/financeiro/precos` — gestão da tabela `precos_consulta` (versionamento).
 - `/admin/financeiro/recargas` — recargas Stripe (status).
+
+## Evolução Wizard Nova Proposta (Step 2/3) — 2026-07-22
+
+Migrations aditivas (compatíveis com propostas legadas):
+- `20260722000008_wizard_proposta_evolucao_schema.sql`
+- `20260722000009_wizard_proposta_evolucao_rpcs.sql`
+
+Novo enum `modelo_renda_tipo`: `assalariado_clt`, `empresario`, `autonomo`, `aposentado_pensionista`, `funcionario_publico`.
+
+Colunas novas (todas nullable/default para retrocompat):
+- `clientes`: `modelo_renda`, `renda_mensal`, `endereco_cep/logradouro/numero/complemento/bairro/cidade/estado`, e dados PJ (`razao_social`, `email_responsavel`, `celular_comercial`, `tipo_empresa`, `ramo_atuacao`, `data_abertura`, `faturamento_mensal`).
+- `proponentes`: mesmos campos de renda/endereço + dados PJ (sócios adicionais).
+- `imoveis`: `principal boolean`, `latitude`, `longitude` (mapa incorporado).
+- `propostas`: `limite_50_aplicado boolean` (regra dos 50%, referência = soma do valor dos imóveis).
+
+Função `public.proposta_payload_validar(jsonb)`: valida cônjuge obrigatório (PF casado/união), obrigatoriedade total PJ e regra 50%. Chamada por `partner_create_proposta` e `admin_create_proposta`.
+
+### Co-proponente: composição de renda (2026-07-22)
+
+Migration `20260722000010_proponente_compoe_renda.sql` (aditiva):
+- `proponentes.compoe_renda boolean` (nullable; propostas legadas permanecem válidas).
+- Regra em `proposta_payload_validar`: todo co-proponente (principal=false) deve responder `compoe_renda` (Sim/Não). Se Sim, `renda_mensal` do co-proponente é obrigatória. O proponente principal (titular) sempre compõe (`compoe_renda=true`).
+- Contrato de payload: cada item de `proponentes` inclui `compoe_renda` (boolean). As RPCs persistem a flag.

@@ -1,6 +1,6 @@
 import type { AuthSession } from '@/auth/types'
 
-// Itens de menu (paths absolutos) visíveis para o admin limitado.
+// Itens de menu (paths absolutos) visíveis para admins de escopo reduzido.
 // Detalhe de proposta não tem item de menu próprio (é acessado via Kanban/Parceiros).
 export const LIMITED_ADMIN_NAV_ALLOWLIST = new Set<string>([
   '/admin',
@@ -10,18 +10,34 @@ export const LIMITED_ADMIN_NAV_ALLOWLIST = new Set<string>([
   '/admin/kanban',
 ])
 
-export function isLimitedAdmin(session: AuthSession | null | undefined): boolean {
-  return session?.role === 'admin' && session.adminNivel === 'limitado'
+function isRestrictedAdminNivel(session: AuthSession | null | undefined): boolean {
+  return session?.role === 'admin' && (session.adminNivel === 'limitado' || session.adminNivel === 'juridico')
 }
 
-export function isLimitedAdminNavPath(to: string): boolean {
+export function isRestrictedAdmin(session: AuthSession | null | undefined): boolean {
+  return isRestrictedAdminNivel(session)
+}
+
+export function isLimitedAdmin(session: AuthSession | null | undefined): boolean {
+  return isRestrictedAdminNivel(session)
+}
+
+export function isRestrictedAdminNavPath(to: string): boolean {
   return LIMITED_ADMIN_NAV_ALLOWLIST.has(to)
 }
 
-// Verifica se a rota (pathname absoluto) é permitida para o admin limitado.
+export function isLimitedAdminNavPath(to: string): boolean {
+  return isRestrictedAdminNavPath(to)
+}
+
+// Verifica se a rota (pathname absoluto) é permitida para admin de escopo reduzido.
 // Permitido: dashboard (index), aprovacoes, parceiros, parceiros/:id/equipes,
 // rede, kanban e propostas/:id (detalhe — exceto "nova").
 export function isLimitedAdminPathAllowed(pathname: string): boolean {
+  return isRestrictedAdminPathAllowed(pathname)
+}
+
+export function isRestrictedAdminPathAllowed(pathname: string): boolean {
   const normalized = pathname.replace(/\/+$/, '')
 
   if (normalized === '/admin' || normalized === '') {

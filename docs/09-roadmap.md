@@ -1,5 +1,7 @@
 # 09 — Roadmap de Entregas (Fases)
 
+> **Release 0.1.0 (2026-07-23)** publicada em produção (Vercel → `https://www.mercuriocapitalsa.com.br`). Todas as fases 0–14 e os incrementos de RBAC jurídico, Wizard de Nova Proposta e validação/consulta CPF-CNPJ (Invertexto) estão fechados. Mobile (Expo) segue em evolução.
+>
 > Objetivo: sequenciar entregas de valor priorizando o caminho crítico **originação → contrato**. Sem estimativas de tempo — o foco é ordem de dependência.
 
 ## Fase 0 — Fundações

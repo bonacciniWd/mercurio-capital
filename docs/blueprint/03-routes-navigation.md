@@ -201,3 +201,9 @@ Relatórios · Auditoria · Configurações
 - Magic link **membro de equipe**: token → cria conta mínima → redireciona para `/p`.
 - Magic link **parceiro pós-aprovação**: token → ativa conta → `/p`.
 - Notificação de status: `/c/propostas/:id?focus=timeline`.
+
+## Wizard Nova Proposta (2026-07-22)
+
+- Web: `/p/propostas/nova` (parceiro) e `/admin/propostas/nova` (admin) — mesmo componente `PartnerWizard` com `mode`.
+- Mobile: `propostas/nova` (parceiro) e `propostas/nova?mode=admin` (admin) — `PropostaWizardScreen`.
+- Pós-criação: tela de sucesso exibe magic link do cliente (30 min) + consultas recomendadas por perfil, com atalho para `/(admin|p)/propostas/:id` (aba Consultas).

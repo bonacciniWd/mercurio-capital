@@ -147,7 +147,7 @@ export function PartnerCarteira() {
   }
 
   if (resumoQuery.isLoading) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gold" /></div>
+    return <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-red-700" /></div>
   }
 
   return (
@@ -243,7 +243,7 @@ export function PartnerCarteira() {
           <h2 className="font-semibold text-navy">Extrato (últimas 50 movimentações)</h2>
         </div>
         {extratoQuery.isLoading ? (
-          <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>
+          <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-red-700" /></div>
         ) : (extratoQuery.data ?? []).length === 0 ? (
           <p className="py-10 text-center text-sm text-silver-400">Nenhuma movimentação ainda.</p>
         ) : (

@@ -200,3 +200,10 @@ Por isso, no app nativo iOS:
   com aviso para concluir pela **versão web**.
 - Android e web seguem usando o checkout Stripe normalmente.
 - A tela de Integrações sinaliza o Stripe com a marcação `ios_iap`.
+
+## Pendências — Validação CPF/CNPJ Invertexto (2026-07-22)
+
+Edge Function `documento-validar` implementada e deployada; falta provisionar o segredo no ambiente Supabase:
+- `INVERTEXTO_TOKEN` = token da conta Invertexto (https://api.invertexto.com/api-validador-cpf-cnpj).
+
+Sem o token, a função retorna `424 invertexto_nao_configurado` (seguro). A validação local (dígitos verificadores) continua funcionando no frontend independentemente da API.

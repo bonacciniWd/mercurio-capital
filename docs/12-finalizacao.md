@@ -1,6 +1,8 @@
 # 12 — Finalização do MVP
 
-> Snapshot-base do projeto em **2026-05-20** com consolidação de atualizações até **2026-07-08**. Este documento lista o que foi entregue, o que ficou pendente (e por quê) e os próximos passos operacionais.
+> **Release 0.1.0 (2026-07-23)** — produção web publicada na Vercel (alias `https://www.mercuriocapitalsa.com.br`). Consolida RBAC jurídico, evolução do Wizard de Nova Proposta (Step 2/3 + revisão editável + composição de renda por co-proponente) e validação/consulta de documentos (Invertexto CPF/CNPJ).
+>
+> Snapshot-base do projeto em **2026-05-20** com consolidação de atualizações até **2026-07-23**. Este documento lista o que foi entregue, o que ficou pendente (e por quê) e os próximos passos operacionais.
 
 ---
 
@@ -24,8 +26,11 @@
 | 13 | Analytics MVs + React Flow rede + feature flags + lazy + tour + a11y | ✅ |
 | 14 | LGPD (export/anonimização) + PII masking + runbooks + DR plan + pen test checklist | ✅ |
 | Fundos & Docs | Admin limitado + hardening · Fundos por proposta · Checklist real de documentos · Modelo de contrato · paridade mobile | ✅ |
+| RBAC Jurídico | `admin_nivel='juridico'` (upload-only de modelo) + hardening de escrita operacional | ✅ |
+| Wizard Nova Proposta | Step 2/3 consolidados · CPF/CNPJ-first · renda/endereço/PJ · regra 50% · revisão editável · composição de renda por co-proponente | ✅ |
+| Integração documentos | Edge `documento-validar` (CPF/CNPJ) + `cnpj-consultar` (autofill) via Invertexto, token server-side | ✅ |
 
-Smoke tests transacionais: Fase 3, 8, 10, 12, 13, 14, 21 (admin nível), 22 (fundos), 23 (documentos checklist), 24 (modelo de contrato) — todos verdes contra `bhagksfvszeogtjvjtpx`.
+Smoke tests transacionais: Fase 3, 8, 10, 12, 13, 14, 21 (admin nível), 22 (fundos), 23 (documentos checklist), 24 (modelo de contrato), 25 (admin jurídico), 26 (wizard proposta), 27 (composição de renda co-proponente) — todos verdes contra `bhagksfvszeogtjvjtpx`.
 
 ### Atualizações pós-snapshot (2026-07-06 a 2026-07-08)
 

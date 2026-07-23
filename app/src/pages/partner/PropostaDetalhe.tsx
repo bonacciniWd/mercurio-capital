@@ -87,7 +87,7 @@ interface Proposta {
   indexador: string
   created_at: string
   updated_at: string
-  cliente: { nome_completo: string; cpf: string | null; email: string | null; telefone: string | null } | null
+  cliente: { nome_completo: string; cpf: string | null; cnpj: string | null; email: string | null; telefone: string | null; modelo_renda: string | null; renda_mensal: number | null; endereco_cidade: string | null; endereco_estado: string | null; razao_social: string | null; faturamento_mensal: number | null } | null
 }
 
 interface Proponente {
@@ -98,6 +98,7 @@ interface Proponente {
   relacao: string | null
   estado_civil: string | null
   pessoa_tipo: string
+  compoe_renda: boolean | null
 }
 
 interface Imovel {
@@ -157,7 +158,7 @@ export function PartnerPropostaDetalhe() {
       if (!id) return null
       const { data, error } = await supabase
         .from('propostas')
-        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, correcao, indexador, created_at, updated_at, cliente:clientes(nome_completo, cpf, email, telefone)')
+        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, correcao, indexador, created_at, updated_at, cliente:clientes(nome_completo, cpf, cnpj, email, telefone, modelo_renda, renda_mensal, endereco_cidade, endereco_estado, razao_social, faturamento_mensal)')
         .eq('id', id)
         .single()
       if (error) throw error
@@ -171,7 +172,7 @@ export function PartnerPropostaDetalhe() {
     queryFn: async (): Promise<Proponente[]> => {
       const { data, error } = await supabase
         .from('proponentes')
-        .select('id, nome, cpf_cnpj, principal, relacao, estado_civil, pessoa_tipo')
+        .select('id, nome, cpf_cnpj, principal, relacao, estado_civil, pessoa_tipo, compoe_renda')
         .eq('proposta_id', id!)
         .order('principal', { ascending: false })
       if (error) throw error
@@ -311,10 +312,16 @@ export function PartnerPropostaDetalhe() {
             <Row k="Sistema" v={`${proposta.amortizacao.toUpperCase()} · ${proposta.indexador} + ${Number(proposta.taxa_juros_mensal).toFixed(2)}% a.m.`} />
           </Section>
           <Section title="Dados do cliente">
-            <Row k="Nome" v={proposta.cliente?.nome_completo || '—'} />
-            <Row k="CPF/CNPJ" v={proposta.cliente?.cpf || '—'} />
+            <Row k="Nome" v={proposta.cliente?.razao_social || proposta.cliente?.nome_completo || '—'} />
+            <Row k="CPF/CNPJ" v={proposta.cliente?.cnpj || proposta.cliente?.cpf || '—'} />
             <Row k="E-mail" v={proposta.cliente?.email || '—'} />
             <Row k="Telefone" v={proposta.cliente?.telefone || '—'} />
+            {proposta.cliente?.cnpj
+              ? (proposta.cliente?.faturamento_mensal != null && <Row k="Faturamento" v={brl(Number(proposta.cliente.faturamento_mensal) * 100)} />)
+              : (proposta.cliente?.renda_mensal != null && <Row k="Renda mensal" v={brl(Number(proposta.cliente.renda_mensal) * 100)} />)}
+            {(proposta.cliente?.endereco_cidade || proposta.cliente?.endereco_estado) && (
+              <Row k="Endereço" v={[proposta.cliente?.endereco_cidade, proposta.cliente?.endereco_estado].filter(Boolean).join('/')} />
+            )}
           </Section>
           <Section title="Imóveis (garantia)">
             <Row k="Valor total" v={brl(valorImoveis * 100)} />
@@ -339,7 +346,7 @@ export function PartnerPropostaDetalhe() {
             : proponentes.length === 0 ? <div className="p-10 text-center text-sm text-silver-500">Sem proponentes.</div>
             : <table className="w-full text-sm">
               <thead className="bg-silver-50 text-left text-xs uppercase text-silver-500">
-                <tr><th className="px-4 py-3">Nome</th><th className="px-4 py-3">CPF/CNPJ</th><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Relação</th><th className="px-4 py-3">Estado civil</th></tr>
+                <tr><th className="px-4 py-3">Nome</th><th className="px-4 py-3">CPF/CNPJ</th><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Relação</th><th className="px-4 py-3">Estado civil</th><th className="px-4 py-3">Compõe renda</th></tr>
               </thead>
               <tbody>
                 {proponentes.map(p => (
@@ -349,6 +356,7 @@ export function PartnerPropostaDetalhe() {
                     <td className="px-4 py-3">{p.pessoa_tipo}</td>
                     <td className="px-4 py-3">{p.relacao || '—'}</td>
                     <td className="px-4 py-3">{p.estado_civil || '—'}</td>
+                    <td className="px-4 py-3">{p.principal ? 'Titular' : p.compoe_renda === true ? 'Sim' : p.compoe_renda === false ? 'Não' : '—'}</td>
                   </tr>
                 ))}
               </tbody>

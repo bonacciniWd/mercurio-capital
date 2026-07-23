@@ -123,7 +123,7 @@ export function ClientHome() {
 
       {isLoading ? (
         <div className="card flex items-center justify-center p-10">
-          <Loader2 className="h-6 w-6 animate-spin text-gold" />
+          <Loader2 className="h-6 w-6 animate-spin text-red-700" />
         </div>
       ) : !propostas?.length ? (
         <div className="card p-10 text-center text-sm text-silver-600">

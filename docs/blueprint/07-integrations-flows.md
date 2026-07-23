@@ -166,3 +166,19 @@ sequenceDiagram
   ]
 }
 ```
+
+## Validação CPF/CNPJ — Invertexto (2026-07-22)
+
+Edge Function `documento-validar` (verify_jwt=true) valida CPF/CNPJ via API do Invertexto com token server-side (nunca no frontend).
+
+- Endpoint: `https://api.invertexto.com/v1/validator?value={digitos}` com `Authorization: Bearer {INVERTEXTO_TOKEN}`.
+- Body: `{ value }` → resposta `{ value, formatted, type, valid }`.
+- Credencial: `INVERTEXTO_TOKEN` (token da conta Invertexto). Referência: https://api.invertexto.com/api-validador-cpf-cnpj
+- RBAC: admin (qualquer nível) ou parceiro aprovado. É validação/formatação (não enriquece nome/nascimento). PII mascarada em logs.
+
+### Consulta CNPJ (autofill) — Invertexto
+
+Edge Function `cnpj-consultar` (verify_jwt=true) consulta dados cadastrais de CNPJ via Invertexto (`GET https://api.invertexto.com/v1/cnpj/{cnpj}`), mesma credencial `INVERTEXTO_TOKEN`.
+
+- Retorno normalizado: `razao_social`, `nome_fantasia`, `data_abertura` (campo `data_inicio` da API), `tipo_empresa` (natureza jurídica), `ramo_atuacao` (atividade principal), `situacao`, `email`, `telefone` e endereço (`endereco_*`).
+- Usado no Step 2 PJ (web e mobile) para autopreencher razão social, e-mail, telefone, tipo/ramo, data de abertura e endereço. `faturamento_mensal` permanece manual.

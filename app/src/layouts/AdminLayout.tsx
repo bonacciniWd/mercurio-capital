@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { NotificationBell } from '@/components/NotificationBell'
-import { isLimitedAdmin, isLimitedAdminNavPath } from '@/lib/adminScope'
+import { isRestrictedAdmin, isRestrictedAdminNavPath } from '@/lib/adminScope'
 
 const ITEMS = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -39,8 +39,8 @@ export function AdminLayout() {
   const { session, logout } = useAuth()
   const navigate = useNavigate()
 
-  const items = isLimitedAdmin(session)
-    ? ITEMS.filter((it) => isLimitedAdminNavPath(it.to))
+  const items = isRestrictedAdmin(session)
+    ? ITEMS.filter((it) => isRestrictedAdminNavPath(it.to))
     : ITEMS
 
   async function handleLogout() {

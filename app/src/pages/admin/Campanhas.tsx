@@ -270,7 +270,7 @@ export function AdminCampanhas() {
                     const Icon = CANAL_ICON[k]
                     return (
                       <button key={k} type="button" onClick={() => toggleCanal(k)}
-                        className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm ${on ? 'border-gold bg-gold/10 text-gold-700' : 'border-silver-300 text-silver-600'}`}>
+                        className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm ${on ? 'border-gold bg-gold/10 text-red-700' : 'border-silver-300 text-silver-600'}`}>
                         <Icon className="h-4 w-4" /> {k}
                       </button>
                     )
@@ -284,7 +284,7 @@ export function AdminCampanhas() {
                     const on = (editing.publico_alvo?.roles ?? []).includes(r)
                     return (
                       <button key={r} type="button" onClick={() => toggleRole(r)}
-                        className={`rounded-lg border px-3 py-1.5 text-sm ${on ? 'border-gold bg-gold/10 text-gold-700' : 'border-silver-300 text-silver-600'}`}>
+                        className={`rounded-lg border px-3 py-1.5 text-sm ${on ? 'border-gold bg-gold/10 text-red-700' : 'border-silver-300 text-silver-600'}`}>
                         {r}
                       </button>
                     )
@@ -316,7 +316,7 @@ export function AdminCampanhas() {
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <div className="flex items-start gap-3">
-              <Send className="h-6 w-6 text-gold mt-0.5" />
+              <Send className="h-6 w-6 text-red-600 mt-0.5" />
               <div className="flex-1">
                 <h3 className="font-semibold text-navy">Disparar "{confirmDispatch.nome}"?</h3>
                 <p className="mt-1 text-sm text-silver-600">

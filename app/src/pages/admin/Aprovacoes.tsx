@@ -305,7 +305,7 @@ export function AdminAprovacoes() {
                 )}
                 <div className="flex items-center gap-2">
                   {active.origem === 'convite' ? (
-                    <UserPlus className="h-3.5 w-3.5 text-gold" />
+                    <UserPlus className="h-3.5 w-3.5 text-red-700" />
                   ) : (
                     <UserCheck className="h-3.5 w-3.5 text-silver-400" />
                   )}

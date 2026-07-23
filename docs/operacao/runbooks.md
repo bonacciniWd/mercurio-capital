@@ -1,6 +1,8 @@
 # Runbooks Operacionais — Mercurio Capital
 
 > Procedimentos operacionais. Cada runbook tem: gatilho, diagnóstico, ação, validação, escalation.
+>
+> **Release 0.1.0 (2026-07-23)**: web em produção via Vercel (Root Directory = `app`; deploy a partir da raiz do repositório com `.vercelignore` excluindo `node_modules`/`app/desktop`). Migrations até `20260722000010` aplicadas em `bhagksfvszeogtjvjtpx`. Edge Functions `documento-validar` e `cnpj-consultar` deployadas (requer `INVERTEXTO_TOKEN`).
 
 ## Sumário
 
@@ -20,6 +22,7 @@
 14. [Incidente: credencial comprometida em documentação](#14-incidente-credencial-comprometida-em-documentação)
 15. [Pre-flight Apple para release desktop macOS](#15-pre-flight-apple-para-release-desktop-macos)
 16. [Governança de release desktop/mobile (go/no-go, rollback e pós-release)](#16-governança-de-release-desktopmobile-go-no-go-rollback-e-pós-release)
+17. [Provisionamento do perfil Admin Jurídico](#17-provisionamento-do-perfil-admin-juridico)
 
 ---
 
@@ -29,6 +32,7 @@
 - Resend e templates de e-mail estão operacionais (catálogo admin com preview/teste de enqueue).
 - Dispatcher de e-mail e cron `email-dispatcher-every-5-minutes` estão ativos em produção.
 - Links públicos canônicos padronizados para https://mercuriocapitalsa.com.br (`SITE_URL`, `APP_URL` e `VITE_PUBLIC_APP_URL`).
+- Perfil `admin_nivel='juridico'` ativo com hardening de escrita operacional e permissão exclusiva de upload de modelo de contrato.
 
 ---
 
@@ -662,3 +666,79 @@ xcrun notarytool store-credentials "mc-preflight" \
 1. Se falhar antes do publish: manter no-go, corrigir e reexecutar com nova tag semver.
 2. Se publicar artefato inconsistente: remover assets afetados da release e republicar somente após run verde.
 3. Registrar ocorrência e mitigação aplicada no changelog operacional da sprint.
+
+---
+
+## 17. Provisionamento do perfil Admin Jurídico
+
+**Gatilho**:
+- Novo usuário interno jurídico precisa acesso administrativo com escopo de escrita restrito.
+
+**Conta padrão deste ciclo**:
+- e-mail: `juridico@mercuriocapitalsa.com.br`
+- role: `admin`
+- admin_nivel: `juridico`
+
+**Passos (SQL transacional orientado a operação)**:
+```sql
+begin;
+
+-- 1) Confirmar espelho em public.usuarios
+select id, email, role from public.usuarios where lower(email) = 'juridico@mercuriocapitalsa.com.br';
+
+-- 2) Garantir role admin no espelho
+update public.usuarios
+   set role = 'admin', ativo = true
+ where lower(email) = 'juridico@mercuriocapitalsa.com.br';
+
+-- 3) Garantir claim admin no Auth e nivel juridico
+update auth.users
+   set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb)
+                           || jsonb_build_object('role', 'admin', 'admin_nivel', 'juridico')
+ where lower(email) = 'juridico@mercuriocapitalsa.com.br';
+
+commit;
+```
+
+**Quando precisar criar a conta no Auth**:
+- Usar Supabase Dashboard (`Authentication > Users > Invite user`) com o e-mail acima.
+- Definir senha inicial temporária e exigir troca imediata no primeiro acesso.
+- Após criação, executar o bloco SQL acima para assegurar claims e espelho consistentes.
+
+**Validação**:
+```sql
+select id, email, raw_app_meta_data ->> 'role' as role_claim,
+       raw_app_meta_data ->> 'admin_nivel' as admin_nivel_claim
+  from auth.users
+ where lower(email) = 'juridico@mercuriocapitalsa.com.br';
+
+select id, email, role, ativo
+  from public.usuarios
+ where lower(email) = 'juridico@mercuriocapitalsa.com.br';
+```
+
+Esperado:
+- `role_claim = 'admin'`
+- `admin_nivel_claim = 'juridico'`
+- `public.usuarios.role = 'admin'`
+
+**Teste funcional mínimo**:
+1. Login web/mobile com a conta jurídica.
+2. Em proposta aprovada, aba Contrato permite upload de modelo.
+3. Ações operacionais (status, fundos, registro, liberação, remoção de modelo) retornam bloqueio.
+4. Executar `supabase/smoke-tests/fase-25-admin-juridico.sql`.
+
+**Pós-provisionamento**:
+1. Forçar novo login para refresh de JWT/claims.
+2. Registrar no changelog operacional: responsável, data/hora e evidências de validação.
+
+## Runbook — Wizard Nova Proposta / Validação CPF-CNPJ (2026-07-22)
+
+**Deploy**:
+1. `supabase db push` aplica `20260722000008` e `20260722000009` (aditivas).
+2. `supabase functions deploy documento-validar` e configurar `INVERTEXTO_TOKEN`.
+3. Validar com `supabase/smoke-tests/fase-26-wizard-proposta.sql`.
+
+**Troubleshooting**:
+- Botão Validar falha com `invertexto_nao_configurado`: `INVERTEXTO_TOKEN` ausente.
+- Criação bloqueada com `conjuge_obrigatorio` / `pj_campos_obrigatorios` / `limite_50_excedido`: regras de negócio funcionando (não é bug).

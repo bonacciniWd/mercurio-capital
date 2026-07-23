@@ -14,6 +14,7 @@ import {
   User, Building2, Banknote, FileText, History as HistoryIcon, ListChecks,
   FileSignature, Send, Download, Award, Clock, Upload, Trash2, Tag,
 } from 'lucide-react-native'
+import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
@@ -104,15 +105,16 @@ interface Proposta {
   carencia_meses: number; taxa_juros_mensal: number; amortizacao: 'price' | 'sac'
   correcao: string; indexador: string; created_at: string; updated_at: string
   partner: { usuario: { nome_completo: string | null } | null } | null
-  cliente: { nome_completo: string; cpf: string | null; email: string | null; telefone: string | null } | null
+  cliente: { nome_completo: string; cpf: string | null; cnpj: string | null; email: string | null; telefone: string | null; modelo_renda: string | null; renda_mensal: number | null; endereco_cidade: string | null; endereco_estado: string | null; razao_social: string | null; faturamento_mensal: number | null } | null
 }
-interface Proponente { id: string; nome: string; cpf_cnpj: string | null; principal: boolean; relacao: string | null; pessoa_tipo: string }
+interface Proponente { id: string; nome: string; cpf_cnpj: string | null; principal: boolean; relacao: string | null; pessoa_tipo: string; compoe_renda: boolean | null }
 interface Imovel { id: string; tipo: string; cidade: string | null; estado: string | null; bairro: string | null; logradouro: string | null; numero: string | null; valor: number }
 interface HistoricoRow { id: string; status_anterior: string | null; status_novo: string; motivo: string | null; created_at: string }
 interface DocRow { id: string; tipo: string; categoria: string; storage_path: string; validado: boolean; origem: string | null; created_at: string }
 
 export default function PropostaDetalhe() {
   const { id } = useLocalSearchParams<{ id: string }>()
+  const { session } = useAuth()
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>('Resumo')
   const [statusModal, setStatusModal] = useState(false)
@@ -123,6 +125,8 @@ export default function PropostaDetalhe() {
   const [libData, setLibData] = useState(() => new Date().toISOString().slice(0, 10))
   const [libObs, setLibObs] = useState('')
   const [erro, setErro] = useState<string | null>(null)
+  const isAdminJuridico = session?.role === 'admin' && session.adminNivel === 'juridico'
+  const canOperateAsAdmin = !isAdminJuridico
 
   const propQuery = useQuery({
     queryKey: ['admin-proposta-mobile', id],
@@ -130,7 +134,7 @@ export default function PropostaDetalhe() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('propostas')
-        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, correcao, indexador, created_at, updated_at, partner:partners(usuario:usuarios(nome_completo)), cliente:clientes(nome_completo, cpf, email, telefone)')
+        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, correcao, indexador, created_at, updated_at, partner:partners(usuario:usuarios(nome_completo)), cliente:clientes(nome_completo, cpf, cnpj, email, telefone, modelo_renda, renda_mensal, endereco_cidade, endereco_estado, razao_social, faturamento_mensal)')
         .eq('id', id!).single()
       if (error) throw error
       return data as unknown as Proposta
@@ -142,7 +146,7 @@ export default function PropostaDetalhe() {
     enabled: !!id && tab === 'Proponentes',
     queryFn: async () => {
       const { data, error } = await supabase.from('proponentes')
-        .select('id, nome, cpf_cnpj, principal, relacao, pessoa_tipo')
+        .select('id, nome, cpf_cnpj, principal, relacao, pessoa_tipo, compoe_renda')
         .eq('proposta_id', id!).order('principal', { ascending: false })
       if (error) throw error
       return (data ?? []) as Proponente[]
@@ -330,6 +334,11 @@ export default function PropostaDetalhe() {
   })
 
   function onPickFundoStatus(fundoId: string) {
+    if (!canOperateAsAdmin) {
+      Alert.alert('Perfil jurídico', 'Este perfil pode apenas enviar modelo de contrato.')
+      return
+    }
+
     Alert.alert('Status do fundo', 'Selecione o novo status', [
       ...FUNDO_STATUS.map((st) => ({
         text: FUNDO_STATUS_LABEL[st],
@@ -455,10 +464,12 @@ export default function PropostaDetalhe() {
           <Text style={s.headerEyebrow}>MODO ADMIN · PROPOSTA</Text>
           <Text style={s.headerTitle} numberOfLines={1}>{p.protocolo ?? p.id.slice(0, 8)}</Text>
         </View>
-        <Pressable onPress={() => setStatusModal(true)} style={s.statusBtn}>
-          <RefreshCcw size={13} color="#fff" />
-          <Text style={s.statusBtnText}>Status</Text>
-        </Pressable>
+        {canOperateAsAdmin && (
+          <Pressable onPress={() => setStatusModal(true)} style={s.statusBtn}>
+            <RefreshCcw size={13} color="#fff" />
+            <Text style={s.statusBtnText}>Status</Text>
+          </Pressable>
+        )}
       </View>
 
       <View style={s.tabsWrap}>
@@ -499,10 +510,16 @@ export default function PropostaDetalhe() {
               <Row k="Sistema" v={`${p.amortizacao.toUpperCase()} · ${p.indexador} + ${Number(p.taxa_juros_mensal).toFixed(2)}% a.m.`} />
             </Card>
             <Card title="Cliente" Icon={User}>
-              <Row k="Nome" v={p.cliente?.nome_completo ?? '—'} />
-              <Row k="CPF/CNPJ" v={p.cliente?.cpf ?? '—'} />
+              <Row k="Nome" v={p.cliente?.razao_social ?? p.cliente?.nome_completo ?? '—'} />
+              <Row k="CPF/CNPJ" v={p.cliente?.cnpj ?? p.cliente?.cpf ?? '—'} />
               <Row k="E-mail" v={p.cliente?.email ?? '—'} />
               <Row k="Telefone" v={p.cliente?.telefone ?? '—'} />
+              {p.cliente?.cnpj
+                ? (p.cliente?.faturamento_mensal != null && <Row k="Faturamento" v={brl(Number(p.cliente.faturamento_mensal) * 100)} />)
+                : (p.cliente?.renda_mensal != null && <Row k="Renda mensal" v={brl(Number(p.cliente.renda_mensal) * 100)} />)}
+              {(p.cliente?.endereco_cidade || p.cliente?.endereco_estado) && (
+                <Row k="Endereço" v={[p.cliente?.endereco_cidade, p.cliente?.endereco_estado].filter(Boolean).join('/')} />
+              )}
             </Card>
             <Card title="Garantia" Icon={Building2}>
               <Row k="Imóveis (total)" v={brl(valorImoveis * 100)} />
@@ -527,7 +544,7 @@ export default function PropostaDetalhe() {
                    <Pressable
                      key={f.fundo_id}
                      onPress={() => onPickFundoStatus(f.fundo_id)}
-                     disabled={fundoStatusMut.isPending}
+                     disabled={fundoStatusMut.isPending || !canOperateAsAdmin}
                      style={{
                        flexDirection: 'row', alignItems: 'center', gap: 6,
                        borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6,
@@ -554,7 +571,7 @@ export default function PropostaDetalhe() {
                   <Text style={s.listName}>
                     {pr.nome} {pr.principal && <Text style={s.miniBadge}> · principal</Text>}
                   </Text>
-                  <Text style={s.listSub}>{pr.cpf_cnpj ?? '—'} · {pr.pessoa_tipo}{pr.relacao ? ` · ${pr.relacao}` : ''}</Text>
+                  <Text style={s.listSub}>{pr.cpf_cnpj ?? '—'} · {pr.pessoa_tipo}{pr.relacao ? ` · ${pr.relacao}` : ''}{!pr.principal ? ` · compõe renda: ${pr.compoe_renda === true ? 'Sim' : pr.compoe_renda === false ? 'Não' : '—'}` : ''}</Text>
                 </View>
               </View>
             ))}
@@ -592,18 +609,20 @@ export default function PropostaDetalhe() {
                     {d.categoria}{d.origem ? ` · ${d.origem}` : ''} · {new Date(d.created_at).toLocaleDateString('pt-BR')}
                   </Text>
                 </View>
-                <Pressable
-                  onPress={() => validarMut.mutate({ docId: d.id, validado: !d.validado })}
-                  disabled={validarMut.isPending}
-                  style={[s.docBtn, { backgroundColor: d.validado ? '#16A34A22' : '#F59E0B22' }]}
-                >
-                  {d.validado
-                    ? <CheckCircle2 size={13} color="#16A34A" />
-                    : <XCircle size={13} color="#F59E0B" />}
-                  <Text style={[s.docBtnText, { color: d.validado ? '#16A34A' : '#F59E0B' }]}>
-                    {d.validado ? 'Aprovado' : 'Aprovar'}
-                  </Text>
-                </Pressable>
+                {canOperateAsAdmin && (
+                  <Pressable
+                    onPress={() => validarMut.mutate({ docId: d.id, validado: !d.validado })}
+                    disabled={validarMut.isPending}
+                    style={[s.docBtn, { backgroundColor: d.validado ? '#16A34A22' : '#F59E0B22' }]}
+                  >
+                    {d.validado
+                      ? <CheckCircle2 size={13} color="#16A34A" />
+                      : <XCircle size={13} color="#F59E0B" />}
+                    <Text style={[s.docBtnText, { color: d.validado ? '#16A34A' : '#F59E0B' }]}>
+                      {d.validado ? 'Aprovado' : 'Aprovar'}
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             ))}
           </Card>
@@ -642,6 +661,13 @@ export default function PropostaDetalhe() {
                 </View>
               )}
 
+              {isAdminJuridico && (
+                <View style={s.errBox}>
+                  <AlertTriangle size={13} color="#DC2626" />
+                  <Text style={s.errText}>Perfil jurídico: apenas envio de modelo de contrato.</Text>
+                </View>
+              )}
+
               {/* Modelo de contrato (distinto do PDF Clicksign) */}
               <Card title="Modelo de contrato" Icon={FileText}>
                 <Text style={[s.contratoEmpty, { textAlign: 'left', marginBottom: 10 }]}>
@@ -671,9 +697,11 @@ export default function PropostaDetalhe() {
                         <Download size={13} color="#38BDF8" />
                         <Text style={[s.docBtnText, { color: '#38BDF8' }]}>Baixar</Text>
                       </Pressable>
-                      <Pressable onPress={() => modeloRemoveMut.mutate(m)} disabled={modeloRemoveMut.isPending} style={{ padding: 8 }}>
-                        <Trash2 size={16} color="#737373" />
-                      </Pressable>
+                      {canOperateAsAdmin && (
+                        <Pressable onPress={() => modeloRemoveMut.mutate(m)} disabled={modeloRemoveMut.isPending} style={{ padding: 8 }}>
+                          <Trash2 size={16} color="#737373" />
+                        </Pressable>
+                      )}
                     </View>
                   ))
                 )}
@@ -686,18 +714,20 @@ export default function PropostaDetalhe() {
                 ) : !c ? (
                   <>
                     <Text style={s.contratoEmpty}>Contrato ainda não foi gerado.</Text>
-                    <Pressable
-                      onPress={() => gerarContratoMut.mutate()}
-                      disabled={gerarContratoMut.isPending}
-                      style={[s.primaryBtn, { marginTop: 14 }]}
-                    >
-                      {gerarContratoMut.isPending
-                        ? <ActivityIndicator color="#fff" size="small" />
-                        : <>
-                            <FileSignature size={14} color="#fff" />
-                            <Text style={s.primaryBtnText}>Gerar contrato</Text>
-                          </>}
-                    </Pressable>
+                    {canOperateAsAdmin && (
+                      <Pressable
+                        onPress={() => gerarContratoMut.mutate()}
+                        disabled={gerarContratoMut.isPending}
+                        style={[s.primaryBtn, { marginTop: 14 }]}
+                      >
+                        {gerarContratoMut.isPending
+                          ? <ActivityIndicator color="#fff" size="small" />
+                          : <>
+                              <FileSignature size={14} color="#fff" />
+                              <Text style={s.primaryBtnText}>Gerar contrato</Text>
+                            </>}
+                      </Pressable>
+                    )}
                   </>
                 ) : (
                   <>
@@ -716,7 +746,7 @@ export default function PropostaDetalhe() {
                           <Text style={s.secondaryBtnText}>Abrir PDF</Text>
                         </Pressable>
                       )}
-                      {!c.assinado_em && (
+                      {!c.assinado_em && canOperateAsAdmin && (
                         <Pressable
                           onPress={() => enviarAssinaturaMut.mutate()}
                           disabled={enviarAssinaturaMut.isPending}
@@ -732,7 +762,7 @@ export default function PropostaDetalhe() {
                               </>}
                         </Pressable>
                       )}
-                      {c.assinado_em && !c.registrado_em && (
+                      {c.assinado_em && !c.registrado_em && canOperateAsAdmin && (
                         <Pressable
                           onPress={() => registrarMut.mutate()}
                           disabled={registrarMut.isPending}
@@ -805,20 +835,22 @@ export default function PropostaDetalhe() {
                   ) : (
                     <>
                       <Text style={s.contratoEmpty}>Recurso ainda não liberado.</Text>
-                      <Pressable
-                        onPress={() => setLibModal(true)}
-                        style={[s.primaryBtn, { marginTop: 12 }]}
-                      >
-                        <Banknote size={14} color="#fff" />
-                        <Text style={s.primaryBtnText}>Registrar liberação</Text>
-                      </Pressable>
+                      {canOperateAsAdmin && (
+                        <Pressable
+                          onPress={() => setLibModal(true)}
+                          style={[s.primaryBtn, { marginTop: 12 }]}
+                        >
+                          <Banknote size={14} color="#fff" />
+                          <Text style={s.primaryBtnText}>Registrar liberação</Text>
+                        </Pressable>
+                      )}
                     </>
                   )}
                 </Card>
               )}
 
               {/* Certificado */}
-              {p.status === 'recurso_liberado' && (
+              {p.status === 'recurso_liberado' && canOperateAsAdmin && (
                 <Card title="Certificado" Icon={Award}>
                   <Text style={s.contratoEmpty}>
                     Gere o certificado de conclusão da operação.

@@ -32,7 +32,7 @@ export function AdminConfiguracoes() {
               key={t.id}
               onClick={() => setTab(t.id)}
               className={`btn-no-liquid flex w-full items-center justify-start gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition ${
-                tab === t.id ? 'bg-gold/10 text-gold-700' : 'text-silver-700 hover:bg-silver-50'
+                tab === t.id ? 'bg-gold/10 text-red-700' : 'text-silver-700 hover:bg-silver-50'
               }`}
             >
               <t.icon className="h-4 w-4" />
@@ -181,7 +181,7 @@ function EmailTemplatesTab() {
         <p className="mt-1 text-xs text-silver-500">Cria um convite real pelo fluxo oficial. Use somente um endereço de teste autorizado.</p>
       </div>
 
-      <div className="mb-5 flex items-start gap-2 rounded-md border border-gold/30 bg-gold/10 p-3 text-xs text-gold-700">
+      <div className="mb-5 flex items-start gap-2 rounded-md border border-gold/30 bg-gold/10 p-3 text-xs text-red-700">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
         Um novo teste invalida convites pendentes anteriores para o mesmo e-mail e equipe. O link expira em até 30 minutos.
       </div>

@@ -5,12 +5,14 @@ import { supabase } from './supabase'
 import { getIdleConfig } from './securityConfig'
 
 type Role = 'admin' | 'partner' | 'team_member' | 'client' | null
+type AdminNivel = 'full' | 'limitado' | 'juridico'
 
 interface SessionExt {
   userId: string
   email: string | null
   nome: string | null
   role: Role
+  adminNivel: AdminNivel
 }
 
 interface AuthCtx {
@@ -29,6 +31,13 @@ const Ctx = createContext<AuthCtx>({
 
 async function loadProfile(s: Session | null): Promise<SessionExt | null> {
   if (!s?.user) return null
+
+  const rawAdminNivel = (s.user.app_metadata as { admin_nivel?: unknown } | undefined)?.admin_nivel
+  const adminNivel: AdminNivel =
+    rawAdminNivel === 'limitado' || rawAdminNivel === 'juridico' || rawAdminNivel === 'full'
+      ? rawAdminNivel
+      : 'full'
+
   const { data } = await supabase
     .from('usuarios')
     .select('id, nome_completo, email, role')
@@ -39,6 +48,7 @@ async function loadProfile(s: Session | null): Promise<SessionExt | null> {
     email: s.user.email ?? data?.email ?? null,
     nome: data?.nome_completo ?? null,
     role: (data?.role as Role) ?? null,
+    adminNivel,
   }
 }
 

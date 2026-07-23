@@ -58,6 +58,12 @@ verify_jwt = false
 [functions.consulta-executar]
 verify_jwt = true
 
+[functions.documento-validar]
+verify_jwt = true
+
+[functions.cnpj-consultar]
+verify_jwt = true
+
 [functions.contrato-gerar]
 verify_jwt = true
 

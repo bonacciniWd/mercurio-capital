@@ -423,7 +423,7 @@ export function AdminFluxos() {
                           const Icon = CANAL_ICON[c]
                           return (
                             <button key={c}
-                              className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${on ? 'border-gold bg-gold/10 text-gold-700' : 'border-silver-300 text-silver-600'}`}
+                              className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${on ? 'border-gold bg-gold/10 text-red-700' : 'border-silver-300 text-silver-600'}`}
                               onClick={() => {
                                 const next = on ? d.canais.filter(x => x !== c) : [...(d.canais ?? []), c]
                                 updateActionNode(n.id, { canais: next })

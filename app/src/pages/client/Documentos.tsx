@@ -140,7 +140,7 @@ export function ClientDocs() {
           </div>
 
           {isLoading ? (
-            <div className="card flex items-center justify-center p-10"><Loader2 className="h-6 w-6 animate-spin text-gold" /></div>
+            <div className="card flex items-center justify-center p-10"><Loader2 className="h-6 w-6 animate-spin text-red-700" /></div>
           ) : porCategoria.length === 0 ? (
             <div className="card p-8 text-center text-sm text-silver-500">Nenhum documento nesta aba.</div>
           ) : (
