@@ -315,7 +315,7 @@ export function PropostaContrato({ propostaId, role, adminNivel }: Props) {
   if (status === 'cancelado') {
     return <div className="card p-8 text-center text-sm text-silver-500">Proposta cancelada.</div>
   }
-  if (!isPropostaAprovada(status)) {
+  if (role !== 'admin' && !isPropostaAprovada(status)) {
     return (
       <div className="card p-8 text-center">
         <FileSignature className="mx-auto mb-3 h-10 w-10 text-silver-300" />

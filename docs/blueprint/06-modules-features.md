@@ -100,7 +100,7 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 ### Modelo de contrato (por proposta)
 - Admin operacional e admin jurídico sobem N modelos de contrato por proposta (`proposta_contrato_modelos`, bucket `contratos` em `{proposta_id}/modelos/`); parceiro dono e cliente **baixam** via `signedUrl` curta. Distinto do PDF gerado pelo Clicksign.
 - Remoção de modelo e demais ações de contrato (gerar, envio assinatura, registro, liberação e comissão) ficam restritas ao admin operacional.
-- Aba Contrato liberada quando `isPropostaAprovada(status)` (ver §02.2).
+- Aba Contrato: sempre liberada para `admin` (inclui `admin_nivel='juridico'`), mantendo upload-only jurídico e bloqueios operacionais; para partner/client permanece o gate `isPropostaAprovada(status)` (ver §02.2).
 
 ### DoD
 - [x] Criação de proposta gera protocolo único, magic link canônico e e-mail transacional quando há destinatário.
@@ -147,7 +147,7 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - Timeline visual baseada em `proposta_status_historico`.
 - Upload de documentos solicitados (pendências).
 - `/c/documentos` usa o **checklist real** (placeholders `pendente` + upload), agrupado por categoria com abas Pendentes/Enviados/Aprovados; sem mock. A home do cliente exibe card “Documentos obrigatórios pendentes” com deep-link. Paridade mobile em `mobile/app/(cliente)/documentos.tsx` e `mobile/app/(cliente)/index.tsx`.
-- Aba/tela de contrato exibe **modelos de contrato** para download (signed URL) e só aparece quando `isPropostaAprovada(status)`.
+- Aba/tela de contrato exibe **modelos de contrato** para download (signed URL); para `admin` permanece acessível mesmo em pré-aprovação, enquanto partner/client continuam condicionados a `isPropostaAprovada(status)`.
 
 ---
 

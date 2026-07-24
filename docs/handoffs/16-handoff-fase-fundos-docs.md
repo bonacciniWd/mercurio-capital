@@ -24,6 +24,12 @@
 > - Backend endurecido: `admin_create_proposta` passa a exigir `app_is_admin_operacional()` (migração `20260723000001_admin_create_proposta_operacional.sql`) — jurídico recebe `forbidden` por chamada direta.
 > - Cobertura: `app/src/test/adminScope.test.ts` e `supabase/smoke-tests/fase-28-admin-nivel-proposta-permissao.sql`.
 
+> **Atualização (2026-07-24 · release v0.1.3) — aba Contrato sempre acessível para admin:**
+> - Web (`app/src/components/PropostaContrato.tsx`) e mobile admin (`mobile/app/(admin)/proposta/[id].tsx`) passaram a ignorar o gate de pré-aprovação para `role='admin'`.
+> - `admin full`, `admin limitado` e `admin jurídico` acessam a aba Contrato mesmo antes de `proposta_cliente`.
+> - Partner/client continuam com gate por `isPropostaAprovada(status)`.
+> - Segurança operacional preservada: perfil jurídico segue upload-only de modelo; mutações sensíveis continuam restritas ao admin operacional/full conforme hardening vigente.
+
 ---
 
 ## 2. Migrations
@@ -77,12 +83,12 @@
 - Admin limitado: `app/src/lib/adminScope.ts`, `app/src/guards/RequireAdminScope.tsx`, `app/src/router.tsx`, `app/src/layouts/AdminLayout.tsx`, `app/src/auth/{types.ts,authClient.ts}`.
 - Fundos: `app/src/lib/fundoStatus.ts`, `app/src/components/PropostaFundos.tsx`, `app/src/components/PropostasKanban.tsx`, `app/src/pages/admin/PropostaDetalhe.tsx`.
 - Documentos: `app/src/lib/documentos.ts`, `app/src/components/PropostaDocsUploader.tsx`, `app/src/pages/client/{Documentos.tsx,Home.tsx}`, `app/src/pages/admin/PropostaDetalhe.tsx`.
-- Contrato: `app/src/lib/propostaStatus.ts` (`isPropostaAprovada`), `app/src/components/PropostaContrato.tsx`.
+- Contrato: `app/src/lib/propostaStatus.ts` (`isPropostaAprovada`, mantido para non-admin), `app/src/components/PropostaContrato.tsx` (bypass do gate para admin).
 
 **Mobile (`mobile/`):**
 - Libs portadas: `mobile/lib/{documentos.ts,fundoStatus.ts,propostaStatus.ts}`.
 - Cliente: `mobile/app/(cliente)/documentos.tsx`, `mobile/app/(cliente)/index.tsx`, `mobile/app/(cliente)/propostas/[id].tsx`.
-- Admin: `mobile/app/(admin)/proposta/[id].tsx` (fundos + modelo), `mobile/app/(admin)/kanban.tsx` (badges de fundos).
+- Admin: `mobile/app/(admin)/proposta/[id].tsx` (fundos + modelo + bypass do gate de pré-aprovação na aba Contrato), `mobile/app/(admin)/kanban.tsx` (badges de fundos).
 - Parceiro: `mobile/app/(parceiro)/propostas/[id].tsx` (download de modelo, gate).
 
 ---

@@ -629,7 +629,7 @@ export default function PropostaDetalhe() {
         )}
 
         {tab === 'Contrato' && (() => {
-          const isPre = !isPropostaAprovada(p.status)
+          const isPre = session?.role !== 'admin' && !isPropostaAprovada(p.status)
           const c = contratoQ.data
           const ass = assinaturasQ.data ?? []
           const lib = liberacaoQ.data

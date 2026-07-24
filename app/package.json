@@ -1,7 +1,7 @@
 {
   "name": "mercurio-capital-app",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Desktop foundation for Mercurio Capital web app",
   "homepage": "https://www.mercuriocapitalsa.com.br",
   "author": {

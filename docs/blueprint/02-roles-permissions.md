@@ -109,8 +109,11 @@ Perfil interno com **leitura administrativa** (inclui Propostas e Relatórios) e
 A aba Contrato (web e mobile) usa `isPropostaAprovada(status)` (`app/src/lib/propostaStatus.ts` / `mobile/lib/propostaStatus.ts`):
 
 - **Não aprovada** = status ∈ {`simulacao`, `pre_analise`, `analise_credito`, `analise_imovel`, `analise_juridica`, `comite`, `cancelado`} → placeholder.
-- **Aprovada** = qualquer outro status (a partir de `proposta_cliente`) → libera a aba para admin/partner/cliente.
+- **Admin (`role='admin'`)**: aba Contrato fica liberada mesmo em pré-aprovação (mantém placeholder apenas para `cancelado`).
+- **Partner/Client**: gate por aprovação continua igual (só libera quando `isPropostaAprovada(status)` for verdadeiro).
 - É gate **apenas de UI**: a geração Clicksign continua exigindo `emissao_contrato` no backend.
+
+No perfil jurídico, a aba permanece visível como para qualquer admin, mas as ações operacionais seguem bloqueadas (upload-only de modelo, sem afrouxar hardening backend/UI).
 
 Nota de implementação (branch atual): a criação de proposta via UI está ativa no web em `/p/propostas/nova` (partner e team_member) e `/admin/propostas/nova` (admin), e no mobile pelos fluxos `mobile/app/propostas/nova.tsx` (wizard compartilhado) e `mobile/app/(admin)/propostas-nova.tsx` (entrada admin). Em ambos os canais, criação admin aceita parceiro `approved` e `pending`; parceiros pendentes continuam sem acesso operacional e sem permissão de criar proposta por conta própria.
 

@@ -241,6 +241,7 @@
 - [x] **Fundos** por proposta (admin-only): enum `fundo_status`, tabelas `fundos`/`proposta_fundos`, RPCs (`20260722000001_fundos.sql`, `20260722000002_fundos_rpcs.sql`); badges/filtro no Kanban e card no detalhe.
 - [x] **Checklist real** de documentos: expansão isolada de `documento_tipo` (`20260722000003_documento_tipo_expand.sql`), `documento_requisitos` + seed, `proposta_documentos.status`, `proposta_documentos_seed` (`20260722000004_documentos_checklist.sql`); UI cliente/admin sem mock + obrigatórios pendentes no dashboard.
 - [x] **Modelo de contrato** por proposta (`proposta_contrato_modelos` + RPCs, `20260722000005_proposta_contrato_modelos.sql`) e gate `isPropostaAprovada` na aba Contrato.
+- [x] **Ajuste v0.1.3 — aba Contrato para admin sem gate de aprovação**: web (`PropostaContrato.tsx`) e mobile admin (`(admin)/proposta/[id].tsx`) liberam a aba para qualquer `role='admin'` (full/limitado/jurídico) em pré-aprovação; partner/client mantêm gate por `isPropostaAprovada(status)`.
 - [x] **Paridade mobile** (Expo): documentos, contrato (gate + modelos) e fundos (admin).
 - [x] Smoke tests transacionais: `fase-21-admin-nivel`, `fase-22-fundos`, `fase-23-documentos-checklist`, `fase-24-contrato-modelos`.
 

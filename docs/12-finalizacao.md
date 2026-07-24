@@ -54,6 +54,7 @@ Smoke tests transacionais: Fase 3, 8, 10, 12, 13, 14, 21 (admin nível), 22 (fun
 - **Fundos** internos por proposta (admin-only): `fundos`/`proposta_fundos`, RPCs, badges/filtro no Kanban e card no detalhe (`20260722000001`/`20260722000002`).
 - **Checklist real** de documentos: `documento_requisitos` + `proposta_documentos.status` + `proposta_documentos_seed` (placeholders PF/PJ + Imóvel); UI cliente/admin sem mock (`20260722000003`/`20260722000004`).
 - **Modelo de contrato** por proposta (`proposta_contrato_modelos`) + gate `isPropostaAprovada` na aba Contrato (`20260722000005`).
+- **Ajuste v0.1.3 — aba Contrato para admin sem gate de aprovação**: `admin full`, `admin limitado` e `admin jurídico` acessam Contrato em pré-aprovação no web/mobile admin; partner/client mantêm gate por `isPropostaAprovada(status)`. Segurança operacional preservada (jurídico upload-only de modelo).
 - Paridade mobile (Expo) para documentos, contrato e fundos. Detalhes em [docs/handoffs/16-handoff-fase-fundos-docs.md](handoffs/16-handoff-fase-fundos-docs.md).
 
 ---
