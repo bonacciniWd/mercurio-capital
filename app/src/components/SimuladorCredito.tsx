@@ -47,6 +47,8 @@ export function SimuladorCredito({
   resultRef,
   resultHeader,
   resultFooter,
+  correcaoOptions = [['pos_fixado', 'Pós (IPCA)'], ['pre_fixado', 'Pré-fixado']],
+  amortizacaoOptions = [['price', 'PRICE'], ['sac', 'SAC']],
 }: {
   values: SimuladorCreditoValues
   onChange: (patch: Partial<SimuladorCreditoValues>) => void
@@ -57,6 +59,8 @@ export function SimuladorCredito({
   resultRef?: Ref<HTMLDivElement>
   resultHeader?: ReactNode
   resultFooter?: ReactNode
+  correcaoOptions?: [string, string][]
+  amortizacaoOptions?: [string, string][]
 }) {
   const simulation = result ?? calcularSimulacao(values)
   const { calculo, ltv } = simulation
@@ -76,8 +80,8 @@ export function SimuladorCredito({
           <label className="label">Taxa de juros mensal (%)</label>
           <input className="label" type="number" min={0} step={0.01} value={values.taxa_juros_mensal} disabled />
         </div>
-        <Segmented label="Correção" value={values.correcao} options={[['pos_fixado', 'Pós (IPCA)'], ['pre_fixado', 'Pré-fixado']]} onChange={value => onChange({ correcao: value as SimuladorCreditoValues['correcao'] })} />
-        <Segmented label="Amortização" value={values.amortizacao} options={[['price', 'PRICE'], ['sac', 'SAC']]} onChange={value => onChange({ amortizacao: value as SimuladorCreditoValues['amortizacao'] })} />
+        <Segmented label="Correção" value={values.correcao} options={correcaoOptions} onChange={value => onChange({ correcao: value as SimuladorCreditoValues['correcao'] })} />
+        <Segmented label="Amortização" value={values.amortizacao} options={amortizacaoOptions} onChange={value => onChange({ amortizacao: value as SimuladorCreditoValues['amortizacao'] })} />
         <Range label={`Prazo: ${values.prazo_meses} meses`} min={PRAZO_MIN_MESES} max={PRAZO_MAX_MESES} value={values.prazo_meses} onChange={updatePrazo} />
         <Range label={`Carência: ${values.carencia_meses} meses`} min={CARENCIA_MIN_MESES} max={CARENCIA_MAX_MESES} value={values.carencia_meses} onChange={updateCarencia} />
       </div>

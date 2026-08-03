@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
+import { maskCpf, maskCnpj } from '@/lib/documentoBr'
 import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
 import { PropostaPendencias } from '@/components/PropostaPendencias'
 import { PropostaConsultas } from '@/components/PropostaConsultas'
@@ -313,7 +314,7 @@ export function PartnerPropostaDetalhe() {
           </Section>
           <Section title="Dados do cliente">
             <Row k="Nome" v={proposta.cliente?.razao_social || proposta.cliente?.nome_completo || '—'} />
-            <Row k="CPF/CNPJ" v={proposta.cliente?.cnpj || proposta.cliente?.cpf || '—'} />
+            <Row k="CPF/CNPJ" v={proposta.cliente?.cnpj ? maskCnpj(proposta.cliente.cnpj) : proposta.cliente?.cpf ? maskCpf(proposta.cliente.cpf) : '—'} />
             <Row k="E-mail" v={proposta.cliente?.email || '—'} />
             <Row k="Telefone" v={proposta.cliente?.telefone || '—'} />
             {proposta.cliente?.cnpj
@@ -352,7 +353,7 @@ export function PartnerPropostaDetalhe() {
                 {proponentes.map(p => (
                   <tr key={p.id} className="border-t border-silver-100">
                     <td className="px-4 py-3 font-medium text-silver-900">{p.nome} {p.principal && <span className="ml-1 badge bg-gold/15 text-gold-700">Principal</span>}</td>
-                    <td className="px-4 py-3">{p.cpf_cnpj || '—'}</td>
+                    <td className="px-4 py-3">{p.cpf_cnpj ? (p.pessoa_tipo === 'PJ' ? maskCnpj(p.cpf_cnpj) : maskCpf(p.cpf_cnpj)) : '—'}</td>
                     <td className="px-4 py-3">{p.pessoa_tipo}</td>
                     <td className="px-4 py-3">{p.relacao || '—'}</td>
                     <td className="px-4 py-3">{p.estado_civil || '—'}</td>

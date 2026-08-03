@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Search, Eye, Loader2, Download, Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
+import { maskCpf } from '@/lib/documentoBr'
 import { useAuth } from '@/auth/AuthContext'
 import { canCreateProposta } from '@/lib/adminScope'
 import { KPICard } from '@/components/KPICard'
@@ -244,7 +245,7 @@ export function AdminPropostas() {
                     <td className="px-4 py-3 font-mono text-xs text-silver-700">{p.protocolo || '—'}</td>
                     <td className="px-4 py-3">
                       <p className="font-medium text-silver-900">{p.cliente?.nome_completo || '—'}</p>
-                      <p className="font-mono text-xs text-silver-500">{p.cliente?.cpf || ''}</p>
+                      <p className="font-mono text-xs text-silver-500">{p.cliente?.cpf ? maskCpf(p.cliente.cpf) : ''}</p>
                     </td>
                     <td className="px-4 py-3 text-silver-700">
                       {p.partner?.usuario?.nome_completo || '—'}

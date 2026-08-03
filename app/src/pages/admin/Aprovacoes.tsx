@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Search, Eye, Check, X, FileText, Loader2, ExternalLink, AlertCircle,
-  Phone, MapPin, UserPlus, UserCheck, Info,
+  Phone, MapPin, UserPlus, UserCheck, Info, Send,
 } from 'lucide-react'
 import { StatusBadge } from '@/components/Badge'
 import { supabase } from '@/lib/supabase'
@@ -25,6 +25,7 @@ type AprovacaoRow = {
   motivo_rejeicao: string | null
   docs_count: number
   origem: 'convite' | 'auto_cadastro'
+  invite_id: string | null
   invite_observacoes: string | null
   invite_criado_por_nome: string | null
   invite_created_at: string | null
@@ -143,6 +144,18 @@ export function AdminAprovacoes() {
     onSuccess: () => {
       setRejectMode(false)
       setRejectMotivo('')
+      void qc.invalidateQueries({ queryKey: ['admin', 'aprovacoes'] })
+    },
+  })
+
+  const resendInvite = useMutation({
+    mutationFn: async (inviteId: string) => {
+      const { error } = await supabase.functions.invoke('admin-partner-invite-resend', {
+        body: { invite_id: inviteId },
+      })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['admin', 'aprovacoes'] })
     },
   })
@@ -326,6 +339,24 @@ export function AdminAprovacoes() {
                   <p className="mb-0.5 font-semibold text-silver-800">Observações do convite</p>
                   {active.invite_observacoes}
                 </div>
+              )}
+
+              {active.status === 'pending' && active.origem === 'convite' && active.invite_status === 'sent' && active.invite_id && (
+                <button
+                  type="button"
+                  onClick={() => resendInvite.mutate(active.invite_id!)}
+                  disabled={resendInvite.isPending}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-silver-300 px-3 py-1.5 text-xs font-medium text-silver-700 hover:bg-silver-50 disabled:opacity-50"
+                >
+                  {resendInvite.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  Reenviar convite
+                </button>
+              )}
+              {resendInvite.error && (
+                <p className="mt-2 text-xs text-danger">{(resendInvite.error as Error).message}</p>
+              )}
+              {resendInvite.isSuccess && (
+                <p className="mt-2 text-xs text-success">Convite reenviado com sucesso.</p>
               )}
 
               <h4 className="mt-5 mb-2 text-xs font-semibold uppercase tracking-wide text-silver-500">

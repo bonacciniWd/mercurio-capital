@@ -17,8 +17,10 @@ type Me = {
 
 const DOC_SLOTS: DocSlot[] = [
   { tipo: 'contrato_social',        label: 'Contrato social (ou requerimento de empresário)', required: true,  hint: 'PDF do contrato social atualizado.' },
-  { tipo: 'cpf',                    label: 'Cartão CNPJ',                                     required: true,  hint: 'Comprovante de inscrição/situação cadastral CNPJ.' },
+  { tipo: 'cnh_ou_rg',              label: 'CNH ou RG',                                       required: true,  hint: 'Documento de identidade com foto.' },
+  { tipo: 'certidao_estado_civil',  label: 'Certidão de estado civil',                        required: false, hint: 'Certidão de nascimento, casamento ou equivalente.' },
   { tipo: 'comprovante_residencia', label: 'Comprovante de endereço',                         required: false, hint: 'Conta de luz, água ou telefone — últimos 90 dias.' },
+  { tipo: 'dados_bancarios',        label: 'Comprovante de dados bancários',                  required: false, hint: 'Extrato ou comprovante com banco, agência e conta.' },
 ]
 
 export function AcessoPendente() {
@@ -29,6 +31,7 @@ export function AcessoPendente() {
   const [error, setError] = useState<string | null>(null)
   const [docsOk, setDocsOk] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [cpf, setCpf] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -59,6 +62,15 @@ export function AcessoPendente() {
         }
       }
       setMe(m)
+      if (m.partner_id) {
+        const { data: partnerRow } = await supabase
+          .from('partners')
+          .select('cpf')
+          .eq('id', m.partner_id)
+          .maybeSingle()
+        if (cancelled) return
+        setCpf(partnerRow?.cpf ?? null)
+      }
       if (m.approved && m.role === 'partner') navigate('/p', { replace: true })
       setLoading(false)
     }
@@ -154,13 +166,20 @@ export function AcessoPendente() {
               onComplete={() => setDocsOk(true)}
             />
 
+            {!cpf && (
+              <p className="rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-sm text-warning">
+                <AlertCircle className="mr-1 inline h-4 w-4" />
+                Informe seu CPF para prosseguir. Entre em contato com a equipe Mercurio para atualizar seu cadastro.
+              </p>
+            )}
+
             <button
               type="button"
               onClick={() => setSubmitted(true)}
-              disabled={!docsOk}
+              disabled={!docsOk || !cpf}
               className="btn-gold w-full disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {docsOk ? 'Enviar para análise' : 'Anexe os documentos obrigatórios'}
+              {!cpf ? 'CPF obrigatório para enviar' : docsOk ? 'Enviar para análise' : 'Anexe os documentos obrigatórios'}
             </button>
 
             <p className="text-center text-xs text-silver-500">

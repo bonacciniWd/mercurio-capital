@@ -18,7 +18,7 @@ const PRODUTO_LABEL: Record<string, string> = {
 const PRODUTO_COLORS: Record<string, string> = {
   home_equity: '#0A2B4E',
   credito_construcao: '#D4AF37',
-  financiamento_imobiliario: '#2C6B9E',
+  financiamento_imobiliario: '#9CA3AF',
 }
 
 // Etapas agregadas do funil (admin)
@@ -49,6 +49,8 @@ interface PropostaRow { produto: string; valor_solicitado: number }
 
 export function AdminRelatorios() {
   const [periodo, setPeriodo] = useState<'12m' | 'ytd' | 'trimestre'>('12m')
+  const [rangeFrom, setRangeFrom] = useState('')
+  const [rangeTo, setRangeTo] = useState('')
 
   const kpiQuery = useQuery({
     queryKey: ['admin-rel-kpis'],
@@ -115,16 +117,19 @@ export function AdminRelatorios() {
     const rows = mesQuery.data ?? []
     const map = new Map<string, { volume: number; propostas: number }>()
     const now = new Date()
-    const start = (() => {
+    const customStart = rangeFrom ? new Date(rangeFrom) : null
+    const customEnd = rangeTo ? new Date(rangeTo) : null
+    const start = customStart ?? (() => {
       if (periodo === 'ytd') return new Date(now.getFullYear(), 0, 1)
       if (periodo === 'trimestre') {
         const d = new Date(now); d.setMonth(d.getMonth() - 3); return d
       }
       const d = new Date(now); d.setMonth(d.getMonth() - 12); return d
     })()
+    const end = customEnd ?? now
     rows.forEach(r => {
       const d = new Date(r.mes)
-      if (d < start) return
+      if (d < start || d > end) return
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       const cur = map.get(key) ?? { volume: 0, propostas: 0 }
       cur.volume += Number(r.volume) || 0
@@ -142,7 +147,7 @@ export function AdminRelatorios() {
           propostas: v.propostas,
         }
       })
-  }, [mesQuery.data, periodo])
+  }, [mesQuery.data, periodo, rangeFrom, rangeTo])
 
   // Distribuição por produto
   const produtos = useMemo(() => {
@@ -196,16 +201,43 @@ export function AdminRelatorios() {
           <h1 className="text-2xl font-bold text-navy">Relatórios</h1>
           <p className="text-sm text-silver-600">Análise consolidada da operação.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             className="input w-auto"
             value={periodo}
+            disabled={Boolean(rangeFrom || rangeTo)}
             onChange={(e) => setPeriodo(e.target.value as '12m' | 'ytd' | 'trimestre')}
           >
             <option value="12m">Últimos 12 meses</option>
             <option value="ytd">YTD</option>
             <option value="trimestre">Trimestre</option>
           </select>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date"
+              className="input w-auto"
+              value={rangeFrom}
+              onChange={(e) => setRangeFrom(e.target.value)}
+              aria-label="Data inicial"
+            />
+            <span className="text-xs text-silver-500">até</span>
+            <input
+              type="date"
+              className="input w-auto"
+              value={rangeTo}
+              onChange={(e) => setRangeTo(e.target.value)}
+              aria-label="Data final"
+            />
+            {(rangeFrom || rangeTo) && (
+              <button
+                type="button"
+                className="text-xs text-silver-500 underline hover:text-navy"
+                onClick={() => { setRangeFrom(''); setRangeTo('') }}
+              >
+                Limpar
+              </button>
+            )}
+          </div>
           <button className="btn-outline" disabled><FileSpreadsheet className="h-4 w-4" /> Excel</button>
           <button className="btn-gold" disabled><Download className="h-4 w-4" /> PDF</button>
         </div>
@@ -287,7 +319,7 @@ export function AdminRelatorios() {
                     <XAxis dataKey="etapa" stroke="#9CA3AF" fontSize={11} />
                     <YAxis stroke="#9CA3AF" fontSize={11} allowDecimals={false} />
                     <Tooltip />
-                    <Bar dataKey="q" fill="#2C6B9E" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="q" fill="#9CA3AF" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}

@@ -13,11 +13,53 @@ import {
   maskCpf, maskCnpj, onlyDigits, isValidCpf, isValidCnpj, validarDocumento, consultarCnpj,
 } from '@/lib/documentoBr'
 
-const STEPS = ['Produto', 'Cliente', 'Imóveis', 'Valores', 'Proponentes', 'Revisão']
+const STEPS = ['Produto', 'Cliente', 'Imóveis', 'Valores', 'Revisão']
 const PRAZO_MIN_MESES = 12
 const PRAZO_MAX_MESES = 240
 const CARENCIA_MIN_MESES = 0
 const CARENCIA_MAX_MESES = 3
+
+const TIPO_EMPRESA_OPTIONS = ['MEI', 'ME', 'EPP', 'LTDA', 'S.A.'] as const
+
+const RAMO_ATUACAO_OPTIONS = [
+  'Comércio varejista',
+  'Comércio atacadista',
+  'Indústria',
+  'Construção civil',
+  'Serviços profissionais',
+  'Serviços de saúde',
+  'Tecnologia da informação',
+  'Alimentação e bebidas',
+  'Educação',
+  'Transporte e logística',
+  'Agronegócio',
+  'Imobiliário',
+  'Financeiro',
+  'Outros',
+] as const
+
+const FATURAMENTO_BANDS: Array<{ id: string; label: string; value: number }> = [
+  { id: 'ate_3000', label: 'Até R$ 3.000', value: 3_000 },
+  { id: '3001_25000', label: 'De R$ 3.001 a R$ 25.000', value: 25_000 },
+  { id: '25001_250000', label: 'De R$ 25.001 a R$ 250.000', value: 250_000 },
+  { id: '250001_1000000', label: 'De R$ 250.001 a R$ 1.000.000', value: 1_000_000 },
+  { id: 'acima_1000000', label: 'Acima de R$ 1.000.000', value: 1_000_001 },
+]
+
+// LTV máximo permitido por tipo de imóvel (fração 0..1). Replicado no backend em proposta_payload_validar.
+const LTV_MAX_BY_TIPO: Record<ImovelTipo, number> = {
+  apartamento: 0.6,
+  casa: 0.5,
+  comercial: 0.4,
+  terreno: 0.3,
+  vaga: 0.6,
+}
+
+// LTV máximo permitido para o conjunto de imóveis = o teto mais restritivo entre os tipos informados.
+function ltvMaxParaImoveis(imoveis: Array<{ tipo: ImovelTipo }>): number {
+  if (imoveis.length === 0) return 1
+  return Math.min(...imoveis.map(i => LTV_MAX_BY_TIPO[i.tipo] ?? 1))
+}
 
 type ProdutoTipo = 'home_equity' | 'credito_construcao' | 'financiamento_imobiliario'
 type PessoaTipo = 'PF' | 'PJ'
@@ -58,6 +100,8 @@ interface ProponenteForm {
   modelo_renda: ModeloRenda
   renda_mensal: number
   endereco: EnderecoForm
+  /** Cônjuge: copia automaticamente o endereço do proponente principal. */
+  usar_endereco_principal?: boolean
 }
 
 interface ImovelForm {
@@ -156,6 +200,38 @@ interface SubmitResult {
   magic_token: string
 }
 
+// Sincroniza o proponente principal com os dados do cliente e mant\u00e9m o(a)
+// c\u00f4njuge com endere\u00e7o espelhado quando usar_endereco_principal estiver ativo.
+// Chamada a cada patch/patchCliente para refletir mudan\u00e7as em tempo real
+// (o Step de Proponentes agora vive dentro do Step de Cliente).
+function computeSyncedProponentes(f: FormState): ProponenteForm[] {
+  const next = [...f.proponentes]
+  next[0] = {
+    ...next[0],
+    principal: true,
+    compoe_renda: true,
+    nome: f.pessoa_tipo === 'PJ' ? (f.cliente.razao_social || f.cliente.nome_completo) : f.cliente.nome_completo,
+    cpf_cnpj: f.pessoa_tipo === 'PJ' ? f.cliente.cnpj : f.cliente.cpf,
+    estado_civil: f.cliente.estado_civil,
+    modelo_renda: f.cliente.modelo_renda,
+    renda_mensal: f.cliente.renda_mensal,
+    endereco: { ...f.cliente.endereco },
+  }
+  // Cônjuge obrigatório se casado/união estável e ainda não existe
+  const casado = f.cliente.estado_civil === 'casado' || f.cliente.estado_civil === 'uniao_estavel'
+  if (f.pessoa_tipo === 'PF' && casado && !next.some(p => p.relacao === 'conjuge')) {
+    next.push({
+      nome: '', cpf_cnpj: '', principal: false, relacao: 'conjuge', estado_civil: f.cliente.estado_civil,
+      compoe_renda: null, modelo_renda: '', renda_mensal: 0, endereco: enderecoVazio(),
+    })
+  }
+  return next.map((p, i) => (
+    i > 0 && p.relacao === 'conjuge' && p.usar_endereco_principal
+      ? { ...p, endereco: { ...next[0].endereco } }
+      : p
+  ))
+}
+
 type WizardMode = 'partner' | 'admin'
 
 interface AdminPartnerOption {
@@ -213,36 +289,16 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
 
   const adminPartners = adminPartnersQ.data ?? []
 
-  const patch = (p: Partial<FormState>) => setForm(f => ({ ...f, ...p }))
-  const patchCliente = (p: Partial<FormState['cliente']>) =>
-    setForm(f => ({ ...f, cliente: { ...f.cliente, ...p } }))
-
-  // Sincroniza proponente principal com cliente
-  const syncProponente = () => {
+  const patch = (p: Partial<FormState>) =>
     setForm(f => {
-      const next = [...f.proponentes]
-      next[0] = {
-        ...next[0],
-        principal: true,
-        compoe_renda: true,
-        nome: f.pessoa_tipo === 'PJ' ? (f.cliente.razao_social || f.cliente.nome_completo) : f.cliente.nome_completo,
-        cpf_cnpj: f.pessoa_tipo === 'PJ' ? f.cliente.cnpj : f.cliente.cpf,
-        estado_civil: f.cliente.estado_civil,
-        modelo_renda: f.cliente.modelo_renda,
-        renda_mensal: f.cliente.renda_mensal,
-        endereco: { ...f.cliente.endereco },
-      }
-      // Cônjuge obrigatório se casado/união estável e ainda não existe
-      const casado = f.cliente.estado_civil === 'casado' || f.cliente.estado_civil === 'uniao_estavel'
-      if (f.pessoa_tipo === 'PF' && casado && !next.some(p => p.relacao === 'conjuge')) {
-        next.push({
-          nome: '', cpf_cnpj: '', principal: false, relacao: 'conjuge', estado_civil: f.cliente.estado_civil,
-          compoe_renda: null, modelo_renda: '', renda_mensal: 0, endereco: enderecoVazio(),
-        })
-      }
-      return { ...f, proponentes: next }
+      const merged = { ...f, ...p }
+      return { ...merged, proponentes: computeSyncedProponentes(merged) }
     })
-  }
+  const patchCliente = (p: Partial<FormState['cliente']>) =>
+    setForm(f => {
+      const merged = { ...f, cliente: { ...f.cliente, ...p } }
+      return { ...merged, proponentes: computeSyncedProponentes(merged) }
+    })
 
   const calc = useMemo(
     () => calcularFinanciamento({
@@ -367,15 +423,31 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
       return !!adminPartnerId && !adminPartnersQ.isLoading
     }
     if (s === 1) {
-      if (form.pessoa_tipo === 'PJ') {
-        const c = form.cliente
-        return isValidCnpj(c.cnpj)
+      const c = form.cliente
+      const clienteOk = form.pessoa_tipo === 'PJ'
+        ? isValidCnpj(c.cnpj)
           && !!c.razao_social && !!c.email_responsavel && !!c.celular_comercial
           && !!c.tipo_empresa && !!c.ramo_atuacao && !!c.data_abertura && c.faturamento_mensal > 0
-      }
-      return !!form.cliente.nome_completo && isValidCpf(form.cliente.cpf)
+          && !!c.email
+          && !!c.endereco.cep && !!c.endereco.logradouro && !!c.endereco.numero
+          && !!c.endereco.bairro && !!c.endereco.cidade && !!c.endereco.estado
+        : !!c.nome_completo && isValidCpf(c.cpf)
+
+      const casado = form.pessoa_tipo === 'PF' && (c.estado_civil === 'casado' || c.estado_civil === 'uniao_estavel')
+      const conjugeOk = !casado || form.proponentes.some(p => p.relacao === 'conjuge' && p.nome && p.cpf_cnpj)
+      const coRendaOk = form.proponentes.every(p =>
+        p.principal || (p.compoe_renda !== null && (p.compoe_renda === false || p.renda_mensal > 0)))
+      const proponentesOk = form.proponentes.every(p => p.nome && p.cpf_cnpj) && conjugeOk && coRendaOk
+
+      return clienteOk && proponentesOk
     }
-    if (s === 2) return form.imoveis.every(i => i.valor > 0) && !!form.imoveis[0].cidade && !!form.imoveis[0].estado
+    if (s === 2) {
+      const basicOk = form.imoveis.every(i => i.valor > 0 && i.vagas_garagem >= 0) && !!form.imoveis[0].cidade && !!form.imoveis[0].estado
+      const totalImoveis = form.imoveis.reduce((acc, i) => acc + (Number(i.valor) || 0), 0)
+      const maxLtv = ltvMaxParaImoveis(form.imoveis)
+      const ltvOk = totalImoveis <= 0 || form.valor_solicitado <= 0 || calcularLTV(form.valor_solicitado, totalImoveis) <= maxLtv
+      return basicOk && ltvOk
+    }
     if (s === 3) {
       const prazoValido = Number.isInteger(form.prazo_meses) && form.prazo_meses >= PRAZO_MIN_MESES && form.prazo_meses <= PRAZO_MAX_MESES
       const carenciaValida = Number.isInteger(form.carencia_meses) && form.carencia_meses >= CARENCIA_MIN_MESES && form.carencia_meses <= CARENCIA_MAX_MESES
@@ -383,21 +455,12 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
       const limite50Ok = !form.limite_50_aplicado || (valorImoveis > 0 && form.valor_solicitado <= valorImoveis * 0.5)
       return form.valor_solicitado > 0 && prazoValido && carenciaValida && limite50Ok
     }
-    if (s === 4) {
-      const conjugeOk = !(form.pessoa_tipo === 'PF'
-        && (form.cliente.estado_civil === 'casado' || form.cliente.estado_civil === 'uniao_estavel'))
-        || form.proponentes.some(p => p.relacao === 'conjuge' && p.nome && p.cpf_cnpj)
-      const coRendaOk = form.proponentes.every(p =>
-        p.principal || (p.compoe_renda !== null && (p.compoe_renda === false || p.renda_mensal > 0)))
-      return form.proponentes.every(p => p.nome && p.cpf_cnpj) && conjugeOk && coRendaOk
-    }
     return true
   }
 
   const next = () => {
     setError(null)
     if (!canAdvance(step)) { setError('Preencha os campos obrigatórios.'); return }
-    if (step === 1) syncProponente()
     setStep(s => Math.min(STEPS.length - 1, s + 1))
   }
 
@@ -462,8 +525,7 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
         {step === 1 && <Step2 form={form} patchCliente={patchCliente} setForm={setForm} />}
         {step === 2 && <StepImoveis form={form} setForm={setForm} />}
         {step === 3 && <Step4 form={form} patch={patch} valorImoveisTotal={valorImoveisTotal} />}
-        {step === 4 && <Step5 form={form} setForm={setForm} />}
-        {step === 5 && <StepRevisao form={form} setForm={setForm} patch={patch} patchCliente={patchCliente} calc={calc} ltv={ltv} valorImoveisTotal={valorImoveisTotal} />}
+        {step === 4 && <StepRevisao form={form} setForm={setForm} patch={patch} patchCliente={patchCliente} calc={calc} ltv={ltv} valorImoveisTotal={valorImoveisTotal} />}
       </div>
 
       {error && <div className="mt-4 rounded-md border border-danger/40 bg-danger/5 p-3 text-sm text-danger">{error}</div>}
@@ -545,6 +607,7 @@ function Step2({ form, patchCliente, setForm }: {
   const isPJ = form.pessoa_tipo === 'PJ'
   const [docLoading, setDocLoading] = useState(false)
   const [docMsg, setDocMsg] = useState<string | null>(null)
+  const hoje = new Date().toISOString().slice(0, 10)
 
   const patchEndereco = (p: Partial<EnderecoForm>) =>
     setForm(f => ({ ...f, cliente: { ...f.cliente, endereco: { ...f.cliente.endereco, ...p } } }))
@@ -689,11 +752,36 @@ function Step2({ form, patchCliente, setForm }: {
             <Field label="Razão social *" value={form.cliente.razao_social} onChange={v => patchCliente({ razao_social: v })} />
             <Field label="E-mail do responsável *" type="email" value={form.cliente.email_responsavel} onChange={v => patchCliente({ email_responsavel: v })} />
             <Field label="Celular comercial *" value={form.cliente.celular_comercial} onChange={v => patchCliente({ celular_comercial: v })} placeholder="+55 (11) 9XXXX-XXXX" />
-            <Field label="Tipo de empresa *" value={form.cliente.tipo_empresa} onChange={v => patchCliente({ tipo_empresa: v })} placeholder="Ex.: LTDA, S.A., MEI" />
-            <Field label="Ramo de atuação *" value={form.cliente.ramo_atuacao} onChange={v => patchCliente({ ramo_atuacao: v })} />
-            <Field label="Data de abertura *" type="date" value={form.cliente.data_abertura} onChange={v => patchCliente({ data_abertura: v })} />
-            <MoneyField label="Faturamento mensal *" value={form.cliente.faturamento_mensal} onChange={v => patchCliente({ faturamento_mensal: v })} />
-            <Field label="E-mail de contato" type="email" value={form.cliente.email} onChange={v => patchCliente({ email: v })} />
+            <div>
+              <label className="label">Tipo de empresa *</label>
+              <select className="input" value={form.cliente.tipo_empresa} onChange={e => patchCliente({ tipo_empresa: e.target.value })}>
+                <option value="">Selecione…</option>
+                {TIPO_EMPRESA_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Ramo de atuação *</label>
+              <select className="input" value={form.cliente.ramo_atuacao} onChange={e => patchCliente({ ramo_atuacao: e.target.value })}>
+                <option value="">Selecione…</option>
+                {RAMO_ATUACAO_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <Field label="Data de abertura *" type="date" value={form.cliente.data_abertura} onChange={v => patchCliente({ data_abertura: v })} max={hoje} />
+            <div>
+              <label className="label">Faturamento mensal *</label>
+              <select
+                className="input"
+                value={FATURAMENTO_BANDS.find(b => b.value === form.cliente.faturamento_mensal)?.id ?? ''}
+                onChange={e => {
+                  const band = FATURAMENTO_BANDS.find(b => b.id === e.target.value)
+                  patchCliente({ faturamento_mensal: band ? band.value : 0 })
+                }}
+              >
+                <option value="">Selecione…</option>
+                {FATURAMENTO_BANDS.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
+              </select>
+            </div>
+            <Field label="E-mail de contato *" type="email" value={form.cliente.email} onChange={v => patchCliente({ email: v })} />
           </>
         ) : (
           <>
@@ -735,6 +823,10 @@ function Step2({ form, patchCliente, setForm }: {
         {isPJ ? 'Endereço da empresa' : 'Endereço do cliente'}
       </h3>
       <EnderecoFields endereco={form.cliente.endereco} onChange={patchEndereco} />
+
+      <div className="mt-8 border-t border-silver-200 pt-6">
+        <ProponentesSection form={form} setForm={setForm} />
+      </div>
     </>
   )
 }
@@ -815,7 +907,14 @@ function Step4({
   return (
     <>
       <h2 className="mb-5 text-lg font-semibold text-navy">Valores e prazo</h2>
-      <SimuladorCredito values={values} garantiaEditavel={false} garantiaHint="Atualize na etapa Imóveis" onChange={next => patch(next as Partial<FormState>)} />
+      <SimuladorCredito
+        values={values}
+        garantiaEditavel={false}
+        garantiaHint="Atualize na etapa Imóveis"
+        onChange={next => patch(next as Partial<FormState>)}
+        correcaoOptions={[['pos_fixado', 'IPCA']]}
+        amortizacaoOptions={[['price', 'PRICE']]}
+      />
 
       <div className="mt-6 rounded-lg border border-silver-200 bg-silver-50 p-4">
         <label className="flex cursor-pointer items-start gap-3">
@@ -844,7 +943,7 @@ function Step4({
   )
 }
 
-function Step5({ form, setForm }: { form: FormState; setForm: React.Dispatch<React.SetStateAction<FormState>> }) {
+function ProponentesSection({ form, setForm }: { form: FormState; setForm: React.Dispatch<React.SetStateAction<FormState>> }) {
   const patchProp = (idx: number, p: Partial<ProponenteForm>) =>
     setForm(f => ({ ...f, proponentes: f.proponentes.map((x, i) => i === idx ? { ...x, ...p } : x) }))
   const patchPropEndereco = (idx: number, p: Partial<EnderecoForm>) =>
@@ -943,6 +1042,20 @@ function Step5({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
             </div>
             <div className="mt-3">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-silver-500">Endereço do proponente</p>
+              {p.relacao === 'conjuge' && (
+                <label className="mb-2 flex items-center gap-2 text-xs text-silver-600">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-red-600"
+                    checked={Boolean(p.usar_endereco_principal)}
+                    onChange={e => patchProp(idx, {
+                      usar_endereco_principal: e.target.checked,
+                      endereco: e.target.checked ? { ...form.proponentes[0].endereco } : p.endereco,
+                    })}
+                  />
+                  Usar mesmo endereço do proponente principal
+                </label>
+              )}
               <EnderecoFields endereco={p.endereco} onChange={pp => patchPropEndereco(idx, pp)} />
             </div>
           </div>
@@ -1083,6 +1196,20 @@ function StepImoveis({ form, setForm }: { form: FormState; setForm: React.Dispat
       <h2 className="text-lg font-semibold text-navy">Imóveis envolvidos</h2>
       <p className="mt-1 text-sm text-silver-600">O primeiro imóvel é o de garantia principal.</p>
 
+      {(() => {
+        const totalImoveis = form.imoveis.reduce((s, i) => s + (Number(i.valor) || 0), 0)
+        const maxLtv = ltvMaxParaImoveis(form.imoveis)
+        const ltvAtual = calcularLTV(form.valor_solicitado, totalImoveis)
+        const excedeu = totalImoveis > 0 && form.valor_solicitado > 0 && ltvAtual > maxLtv
+        return (
+          <div className={`mt-4 rounded-lg border p-3 text-xs ${excedeu ? 'border-danger/40 bg-danger/5 text-danger' : 'border-silver-200 bg-silver-50 text-silver-600'}`}>
+            LTV máximo permitido para os imóveis informados: <b>{(maxLtv * 100).toFixed(0)}%</b>
+            {totalImoveis > 0 && ` · LTV atual: ${(ltvAtual * 100).toFixed(1)}%`}
+            {excedeu && ' — reduza o valor solicitado ou aumente a garantia para avançar.'}
+          </div>
+        )
+      })()}
+
       <div className="mt-5 space-y-4">
         {form.imoveis.map((im, idx) => (
           <div key={idx} className="rounded-lg border border-silver-200 p-5">
@@ -1106,7 +1233,7 @@ function StepImoveis({ form, setForm }: { form: FormState; setForm: React.Dispat
                 </select>
               </div>
               <MoneyField label="Valor do imóvel *" value={im.valor} onChange={v => patchIm(idx, { valor: v })} />
-              <NumberField label="Vagas de garagem" value={im.vagas_garagem} onChange={v => patchIm(idx, { vagas_garagem: v })} />
+              <NumberField label="Vagas de garagem" value={im.vagas_garagem} min={0} onChange={v => patchIm(idx, { vagas_garagem: Math.max(0, v) })} />
             </div>
             <ImovelEndereco im={im} onPatch={p => patchIm(idx, p)} />
             <div className="mt-4 space-y-2">
@@ -1185,8 +1312,8 @@ function StepRevisao({
         </ReviewSection>
 
         <ReviewSection
-          title="Cliente"
-          summary={`${clienteNome || '—'} · ${clienteDoc || '—'} · ${form.cliente.telefone || form.cliente.celular_comercial || '—'}`}
+          title="Cliente e proponentes"
+          summary={`${clienteNome || '—'} · ${clienteDoc || '—'} · ${form.proponentes.map(p => p.nome).filter(Boolean).join(', ') || 'sem proponentes'}`}
         >
           <Step2 form={form} patchCliente={patchCliente} setForm={setForm} />
         </ReviewSection>
@@ -1203,13 +1330,6 @@ function StepRevisao({
           summary={`LTV ${(ltv * 100).toFixed(1)}% · 1ª parcela ${brl(calc.primeiraParcela * 100)} · Renda mín. ${brl(calc.rendaMinima * 100)}${form.limite_50_aplicado ? ' · limite 50% aplicado' : ''}`}
         >
           <Step4 form={form} patch={patch} valorImoveisTotal={valorImoveisTotal} />
-        </ReviewSection>
-
-        <ReviewSection
-          title="Proponentes"
-          summary={form.proponentes.map(p => `${p.nome}${p.principal ? ' (principal)' : p.relacao ? ` (${p.relacao})` : ''}`).join(' · ')}
-        >
-          <Step5 form={form} setForm={setForm} />
         </ReviewSection>
       </div>
 
@@ -1285,29 +1405,32 @@ function SuccessPanel({ result, pessoaTipo, onNew, onDetalhe }: { result: Submit
 // ============================================================
 
 function Field({
-  label, value, onChange, type = 'text', placeholder,
+  label, value, onChange, type = 'text', placeholder, max, min,
 }: {
   label: string
   value: string
   onChange?: (v: string) => void
   type?: string
   placeholder?: string
+  max?: string
+  min?: string
 }) {
   return (
     <div>
       <label className="label">{label}</label>
-      <input className="input" type={type} value={value} placeholder={placeholder} onChange={e => onChange?.(e.target.value)} />
+      <input className="input" type={type} value={value} placeholder={placeholder} max={max} min={min} onChange={e => onChange?.(e.target.value)} />
     </div>
   )
 }
 
 function NumberField({
-  label, value, onChange, step, disabled, hint,
+  label, value, onChange, step, min, disabled, hint,
 }: {
   label: string
   value: number
   onChange?: (v: number) => void
   step?: number
+  min?: number
   disabled?: boolean
   hint?: string
 }) {
@@ -1319,6 +1442,7 @@ function NumberField({
         type="number"
         value={value}
         step={step}
+        min={min}
         disabled={disabled}
         onChange={e => onChange?.(Number(e.target.value))}
       />

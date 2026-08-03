@@ -92,7 +92,7 @@ export function AdminDashboard() {
                     <YAxis type="category" dataKey="name" stroke="#9CA3AF" fontSize={11} width={120} />
                     <Tooltip formatter={(v: number) => brl(v * 100)} />
                     <Bar dataKey="volume" radius={[0, 6, 6, 0]}>
-                      {topChart.map((_, i) => <Cell key={i} fill="#DC2626" fillOpacity={0.6 + i * 0.04} />)}
+                      {topChart.map((_, i) => <Cell key={i} fill="#DC2626" fillOpacity={0.6 + (topChart.length - 1 - i) * 0.04} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>

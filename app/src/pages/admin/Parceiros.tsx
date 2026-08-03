@@ -1,14 +1,15 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, type ChangeEvent, type InputHTMLAttributes } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   Search, Lock, Unlock, Plus, Loader2, AlertCircle, X,
-  Mail, Copy, CheckCircle2, MailPlus, Phone, MapPin, Wallet,
+  Mail, Copy, CheckCircle2, MailPlus, Phone, MapPin, Wallet, Pencil,
 } from 'lucide-react'
 import { brl, formatNumber } from '@/lib/utils'
 import { KPICard } from '@/components/KPICard'
 import { Badge } from '@/components/Badge'
 import { supabase } from '@/lib/supabase'
+import { maskCpf, onlyDigits } from '@/lib/documentoBr'
 
 type PartnerStatus = 'pending' | 'approved' | 'rejected' | 'suspended'
 
@@ -100,6 +101,7 @@ export function AdminParceiros() {
   const [suspendMode, setSuspendMode] = useState(false)
   const [suspendMotivo, setSuspendMotivo] = useState('')
   const [showInvites, setShowInvites] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
   useEffect(() => {
     if (deepLinkPartnerId) {
@@ -177,6 +179,18 @@ export function AdminParceiros() {
   const revokeInvite = useMutation({
     mutationFn: async (inviteId: string) => {
       const { error } = await supabase.rpc('admin_revoke_partner_invite', { p_invite_id: inviteId })
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin', 'partner_invites'] })
+    },
+  })
+
+  const resendInvite = useMutation({
+    mutationFn: async (inviteId: string) => {
+      const { error } = await supabase.functions.invoke('admin-partner-invite-resend', {
+        body: { invite_id: inviteId },
+      })
       if (error) throw new Error(error.message)
     },
     onSuccess: () => {
@@ -318,7 +332,17 @@ export function AdminParceiros() {
                   <h3 className="font-semibold text-navy">{active.nome}</h3>
                   <p className="text-xs text-silver-500">{active.email}</p>
                 </div>
-                <Badge variant={STATUS_VARIANT[active.status]}>{STATUS_LABEL[active.status]}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant={STATUS_VARIANT[active.status]}>{STATUS_LABEL[active.status]}</Badge>
+                  <button
+                    type="button"
+                    onClick={() => setEditOpen(true)}
+                    className="rounded-md p-1.5 text-silver-500 hover:bg-silver-100 hover:text-navy"
+                    title="Editar parceiro"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
 
               <dl className="mt-4 space-y-2 text-xs text-silver-700">
@@ -501,12 +525,21 @@ export function AdminParceiros() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       {i.status === 'sent' && (
-                        <button
-                          className="text-xs text-danger hover:underline"
-                          onClick={() => revokeInvite.mutate(i.id)}
-                        >
-                          Revogar
-                        </button>
+                        <div className="flex justify-end gap-3">
+                          <button
+                            className="text-xs text-silver-600 hover:underline"
+                            disabled={resendInvite.isPending}
+                            onClick={() => resendInvite.mutate(i.id)}
+                          >
+                            Reenviar
+                          </button>
+                          <button
+                            className="text-xs text-danger hover:underline"
+                            onClick={() => revokeInvite.mutate(i.id)}
+                          >
+                            Revogar
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -524,6 +557,18 @@ export function AdminParceiros() {
             void qc.invalidateQueries({ queryKey: ['admin', 'partners'] })
             void qc.invalidateQueries({ queryKey: ['admin', 'partner_invites'] })
             void qc.invalidateQueries({ queryKey: ['admin', 'aprovacoes'] })
+          }}
+        />
+      )}
+
+      {editOpen && active && (
+        <EditPartnerDialog
+          partnerId={active.partner_id}
+          currentEmail={active.email}
+          onClose={() => setEditOpen(false)}
+          onSuccess={() => {
+            void qc.invalidateQueries({ queryKey: ['admin', 'partners'] })
+            setEditOpen(false)
           }}
         />
       )}
@@ -698,6 +743,302 @@ function InviteDialog({
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ============================================================
+// EditPartnerDialog — nome, CPF, telefone, endereço, e-mail de login, dados bancários
+// ============================================================
+
+type PartnerDetail = {
+  cpf: string | null
+  endereco_cep: string | null
+  endereco_logradouro: string | null
+  endereco_numero: string | null
+  endereco_complemento: string | null
+  endereco_bairro: string | null
+  endereco_cidade: string | null
+  endereco_estado: string | null
+  dados_bancarios: {
+    banco?: string
+    agencia?: string
+    conta?: string
+    tipo?: string
+    titular?: string
+  } | null
+}
+
+type UsuarioDetail = {
+  nome_completo: string
+  email: string
+  telefone: string | null
+  telefone_ddi: string | null
+}
+
+function formatPhone(raw: string): string {
+  const d = onlyDigits(raw).slice(0, 11)
+  if (d.length <= 2) return d
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+}
+
+function formatCep(raw: string): string {
+  const d = onlyDigits(raw).slice(0, 8)
+  return d.length <= 5 ? d : `${d.slice(0, 5)}-${d.slice(5)}`
+}
+
+type EditForm = {
+  nome: string
+  email: string
+  telefone: string
+  cpf: string
+  endereco_cep: string
+  endereco_logradouro: string
+  endereco_numero: string
+  endereco_complemento: string
+  endereco_bairro: string
+  endereco_cidade: string
+  endereco_estado: string
+  banco: string
+  agencia: string
+  conta: string
+  tipo_conta: string
+  titular: string
+}
+
+function emptyEditForm(): EditForm {
+  return {
+    nome: '', email: '', telefone: '', cpf: '',
+    endereco_cep: '', endereco_logradouro: '', endereco_numero: '', endereco_complemento: '',
+    endereco_bairro: '', endereco_cidade: '', endereco_estado: '',
+    banco: '', agencia: '', conta: '', tipo_conta: '', titular: '',
+  }
+}
+
+function EditPartnerDialog({
+  partnerId,
+  currentEmail,
+  onClose,
+  onSuccess,
+}: {
+  partnerId: string
+  currentEmail: string
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const [form, setForm] = useState<EditForm>(emptyEditForm)
+  const [error, setError] = useState<string | null>(null)
+
+  const detail = useQuery({
+    queryKey: ['admin', 'partner-detail', partnerId],
+    queryFn: async () => {
+      const partnerRes = await supabase
+        .from('partners')
+        .select('cpf, endereco_cep, endereco_logradouro, endereco_numero, endereco_complemento, endereco_bairro, endereco_cidade, endereco_estado, dados_bancarios, usuario_id')
+        .eq('id', partnerId)
+        .single()
+      if (partnerRes.error) throw new Error(partnerRes.error.message)
+
+      const usuarioRes = await supabase
+        .from('usuarios')
+        .select('nome_completo, email, telefone, telefone_ddi')
+        .eq('id', partnerRes.data.usuario_id)
+        .single()
+      if (usuarioRes.error) throw new Error(usuarioRes.error.message)
+
+      return { partner: partnerRes.data as PartnerDetail, usuario: usuarioRes.data as UsuarioDetail }
+    },
+  })
+
+  useEffect(() => {
+    if (!detail.data) return
+    const { partner, usuario } = detail.data
+    const banco = partner.dados_bancarios ?? {}
+    setForm({
+      nome: usuario.nome_completo ?? '',
+      email: usuario.email ?? '',
+      telefone: formatPhone(usuario.telefone ?? ''),
+      cpf: maskCpf(partner.cpf ?? ''),
+      endereco_cep: formatCep(partner.endereco_cep ?? ''),
+      endereco_logradouro: partner.endereco_logradouro ?? '',
+      endereco_numero: partner.endereco_numero ?? '',
+      endereco_complemento: partner.endereco_complemento ?? '',
+      endereco_bairro: partner.endereco_bairro ?? '',
+      endereco_cidade: partner.endereco_cidade ?? '',
+      endereco_estado: partner.endereco_estado ?? '',
+      banco: banco.banco ?? '',
+      agencia: banco.agencia ?? '',
+      conta: banco.conta ?? '',
+      tipo_conta: banco.tipo ?? '',
+      titular: banco.titular ?? '',
+    })
+  }, [detail.data])
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const emailChanged = form.email.trim().toLowerCase() !== currentEmail.trim().toLowerCase()
+      if (emailChanged) {
+        const { error: emailErr } = await supabase.functions.invoke('admin-partner-update-email', {
+          body: { partner_id: partnerId, new_email: form.email.trim() },
+        })
+        if (emailErr) throw new Error(emailErr.message)
+      }
+
+      const { error: perfilErr } = await supabase.rpc('admin_partner_update_perfil', {
+        p_partner_id: partnerId,
+        p_payload: {
+          nome: form.nome,
+          telefone: onlyDigits(form.telefone),
+          endereco_cep: onlyDigits(form.endereco_cep),
+          endereco_logradouro: form.endereco_logradouro,
+          endereco_numero: form.endereco_numero,
+          endereco_complemento: form.endereco_complemento,
+          endereco_bairro: form.endereco_bairro,
+          endereco_cidade: form.endereco_cidade,
+          endereco_estado: form.endereco_estado.toUpperCase().slice(0, 2),
+          ...(onlyDigits(form.cpf) ? { cpf: onlyDigits(form.cpf) } : {}),
+          dados_bancarios: {
+            banco: form.banco,
+            agencia: form.agencia,
+            conta: form.conta,
+            tipo: form.tipo_conta,
+            titular: form.titular,
+          },
+        },
+      })
+      if (perfilErr) throw new Error(perfilErr.message)
+    },
+    onSuccess: () => onSuccess(),
+    onError: (err: unknown) => setError(err instanceof Error ? err.message : 'Falha ao salvar.'),
+  })
+
+  function bind<K extends keyof EditForm>(key: K, formatter?: (s: string) => string) {
+    return {
+      value: form[key],
+      onChange: (e: ChangeEvent<HTMLInputElement>) => {
+        const v = formatter ? formatter(e.target.value) : e.target.value
+        setForm((f) => ({ ...f, [key]: v }))
+      },
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-navy">Editar parceiro</h3>
+          <button onClick={onClose} className="rounded-md p-1 hover:bg-silver-100">
+            <X className="h-4 w-4 text-silver-500" />
+          </button>
+        </div>
+
+        {detail.isLoading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="h-5 w-5 animate-spin text-silver-400" />
+          </div>
+        ) : detail.error ? (
+          <p className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger">
+            {(detail.error as Error).message}
+          </p>
+        ) : (
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              setError(null)
+              save.mutate()
+            }}
+          >
+            <div>
+              <label className="label">Nome completo</label>
+              <input className="input" {...bind('nome')} required minLength={3} />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label">CPF</label>
+                <input className="input" placeholder="000.000.000-00" {...bind('cpf', maskCpf)} />
+              </div>
+              <div>
+                <label className="label">Telefone</label>
+                <input className="input" placeholder="(11) 99999-9999" {...bind('telefone', formatPhone)} />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">E-mail de login</label>
+              <input className="input" type="email" {...bind('email')} required />
+              <p className="mt-1 text-xs text-silver-500">
+                Alterar o e-mail atualiza também o acesso do parceiro (auditado).
+              </p>
+            </div>
+
+            <fieldset className="rounded-md border border-silver-200 p-3">
+              <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-silver-500">Endereço</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="label">CEP</label>
+                  <input className="input" placeholder="00000-000" {...bind('endereco_cep', formatCep)} />
+                </div>
+                <Field label="Cidade" {...bind('endereco_cidade')} />
+                <Field label="Logradouro" {...bind('endereco_logradouro')} />
+                <Field label="Número" {...bind('endereco_numero')} />
+                <Field label="Complemento" {...bind('endereco_complemento')} />
+                <Field label="Bairro" {...bind('endereco_bairro')} />
+                <Field label="Estado (UF)" maxLength={2} {...bind('endereco_estado')} />
+              </div>
+            </fieldset>
+
+            <fieldset className="rounded-md border border-silver-200 p-3">
+              <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-silver-500">Dados bancários</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Banco" {...bind('banco')} />
+                <Field label="Agência" {...bind('agencia')} />
+                <Field label="Conta" {...bind('conta')} />
+                <Field label="Tipo de conta" placeholder="corrente/poupança" {...bind('tipo_conta')} />
+                <Field label="Titular" {...bind('titular')} />
+              </div>
+            </fieldset>
+
+            {error && (
+              <p className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">
+                {error}
+              </p>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 rounded-md border border-silver-300 px-3 py-2 text-sm text-silver-700 hover:bg-silver-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={save.isPending}
+                className="btn-gold flex-1 disabled:opacity-50"
+              >
+                {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar alterações'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Field({
+  label,
+  ...props
+}: { label: string } & InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <input className="input" {...props} />
     </div>
   )
 }

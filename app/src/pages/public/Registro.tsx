@@ -26,16 +26,28 @@ const DOC_SLOTS: DocSlot[] = [
     hint: 'PDF do contrato social atualizado.',
   },
   {
-    tipo: 'cpf',
-    label: 'Cartão CNPJ',
+    tipo: 'cnh_ou_rg',
+    label: 'CNH ou RG',
     required: true,
-    hint: 'Comprovante de inscrição/situação cadastral CNPJ.',
+    hint: 'Documento de identidade com foto.',
+  },
+  {
+    tipo: 'certidao_estado_civil',
+    label: 'Certidão de estado civil',
+    required: false,
+    hint: 'Certidão de nascimento, casamento ou equivalente.',
   },
   {
     tipo: 'comprovante_residencia',
     label: 'Comprovante de endereço',
     required: false,
     hint: 'Conta de luz, água ou telefone — últimos 90 dias.',
+  },
+  {
+    tipo: 'dados_bancarios',
+    label: 'Comprovante de dados bancários',
+    required: false,
+    hint: 'Extrato ou comprovante com banco, agência e conta.',
   },
 ]
 

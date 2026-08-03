@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, Loader2, AlertCircle, Users, ShieldOff,
-  UserMinus, MailX, Mail, Lock, Unlock, Clock, CheckCircle2,
+  UserMinus, MailX, Mail, Lock, Unlock, Clock, CheckCircle2, Send,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Badge } from '@/components/Badge'
@@ -154,6 +154,16 @@ export function AdminPartnerEquipes() {
   const revokeConvite = useMutation({
     mutationFn: async (magic_link_id: string) => {
       const { error } = await supabase.rpc('admin_revoke_equipe_membro_convite', {
+        p_magic_link_id: magic_link_id,
+      })
+      if (error) throw error
+    },
+    onSuccess: invalidateAll,
+  })
+
+  const resendConvite = useMutation({
+    mutationFn: async (magic_link_id: string) => {
+      const { error } = await supabase.rpc('equipe_membro_invite_resend', {
         p_magic_link_id: magic_link_id,
       })
       if (error) throw error
@@ -347,13 +357,22 @@ export function AdminPartnerEquipes() {
                               expira em {fmtDate(c.expires_at)} · papel: {c.papel_equipe ?? '—'}
                             </p>
                           </div>
-                          <button
-                            className="shrink-0 rounded border border-danger/40 px-2 py-1 text-xs text-danger hover:bg-danger/5 disabled:opacity-50"
-                            disabled={revokeConvite.isPending}
-                            onClick={() => revokeConvite.mutate(c.id)}
-                          >
-                            <MailX className="mr-1 inline h-3 w-3" /> Revogar
-                          </button>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <button
+                              className="rounded border border-silver-300 px-2 py-1 text-xs text-silver-700 hover:bg-silver-50 disabled:opacity-50"
+                              disabled={resendConvite.isPending}
+                              onClick={() => resendConvite.mutate(c.id)}
+                            >
+                              <Send className="mr-1 inline h-3 w-3" /> Reenviar
+                            </button>
+                            <button
+                              className="rounded border border-danger/40 px-2 py-1 text-xs text-danger hover:bg-danger/5 disabled:opacity-50"
+                              disabled={revokeConvite.isPending}
+                              onClick={() => revokeConvite.mutate(c.id)}
+                            >
+                              <MailX className="mr-1 inline h-3 w-3" /> Revogar
+                            </button>
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -372,10 +391,10 @@ export function AdminPartnerEquipes() {
       )}
 
       {/* erro global das mutations */}
-      {(suspendMembro.error || removeMembro.error || revokeConvite.error) && (
+      {(suspendMembro.error || removeMembro.error || revokeConvite.error || resendConvite.error) && (
         <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-md border border-danger bg-danger/10 px-4 py-3 text-sm text-danger shadow">
           <AlertCircle className="mr-1 inline h-4 w-4" />
-          {((suspendMembro.error || removeMembro.error || revokeConvite.error) as Error).message}
+          {((suspendMembro.error || removeMembro.error || revokeConvite.error || resendConvite.error) as Error).message}
         </div>
       )}
 

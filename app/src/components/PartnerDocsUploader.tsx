@@ -7,9 +7,12 @@ export type DocumentoTipo =
   | 'rg'
   | 'cpf'
   | 'cnh'
+  | 'cnh_ou_rg'
+  | 'certidao_estado_civil'
   | 'contrato_social'
   | 'comprovante_residencia'
   | 'comprovante_renda'
+  | 'dados_bancarios'
   | 'outros'
 
 export type DocSlot = {
