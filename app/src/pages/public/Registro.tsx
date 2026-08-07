@@ -54,6 +54,15 @@ const DOC_SLOTS: DocSlot[] = [
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// Mesmo padrão usado no admin (Parceiros.tsx) para evitar divergência visual.
+function formatPhone(raw: string): string {
+  const d = onlyDigits(raw).slice(0, 11)
+  if (d.length <= 2) return d
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+}
+
 export function Registro() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>(1)
@@ -87,6 +96,11 @@ export function Registro() {
       setError('Informe um CPF válido.')
       return
     }
+    const telefoneDigits = onlyDigits(form.telefone)
+    if (telefoneDigits.length < 10 || telefoneDigits.length > 11) {
+      setError('Informe um telefone válido com DDD.')
+      return
+    }
     if (form.password !== form.confirm) {
       setError('As senhas não conferem.')
       return
@@ -105,7 +119,7 @@ export function Registro() {
         options: {
           data: {
             nome_completo: form.nome.trim(),
-            telefone: onlyDigits(form.telefone),
+            telefone: telefoneDigits,
             telefone_ddi: '55',
             role: 'partner',
           },
@@ -190,14 +204,19 @@ export function Registro() {
                         placeholder="voce@empresa.com"
                         required
                       />
+                      {form.email && !EMAIL_REGEX.test(form.email.trim()) && (
+                        <p className="mt-1 text-xs text-danger">E-mail inválido.</p>
+                      )}
                     </div>
                     <div>
                       <label className="label">Telefone</label>
                       <input
                         className="input"
                         value={form.telefone}
-                        onChange={(e) => setField('telefone', e.target.value)}
-                        placeholder="(11) 9XXXX-XXXX"
+                        onChange={(e) => setField('telefone', formatPhone(e.target.value))}
+                        placeholder="(47) 98927-9037"
+                        inputMode="tel"
+                        maxLength={15}
                         required
                       />
                     </div>
