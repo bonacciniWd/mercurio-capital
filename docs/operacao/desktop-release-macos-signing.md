@@ -218,3 +218,44 @@ unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD
 - Certificado de tipo errado: validar explicitamente `Developer ID Application`.
 - Team incorreto em conta com varios teams: fixar `APPLE_TEAM_ID` de producao.
 - App-specific password revogada: gerar nova e atualizar secret imediatamente.
+
+## Fallback manual (GitHub Actions bloqueado por billing)
+
+Cenario: `gh run view <id>` retorna `The job was not started because your account is locked due to a billing issue.` em todos os jobs (linux/windows/macos) do workflow `Desktop Release`. Nesse caso nao ha job rodando para investigar logs — o pipeline nao chega a iniciar.
+
+Procedimento usado (macOS local, com certificado `Developer ID Application` ja instalado no Keychain do Mac de confianca):
+
+1. Nao usar env vars `APPLE_ID`/`APPLE_APP_SPECIFIC_PASSWORD`/`APPLE_TEAM_ID` diretamente. Preferir perfil de Keychain via App Store Connect API Key (mais seguro, nao expõe senha em texto):
+   ```bash
+   xcrun notarytool store-credentials "mercurio-notary"
+   # prompts interativos: path da API key (.p8), Key ID, Issuer ID
+   ```
+2. Build local (identidade already no Keychain, sem precisar de `.p12`/`CSC_LINK`):
+   ```bash
+   cd app
+   npm run build:desktop:web
+   CSC_NAME="Denis Bonaccini (29U8L34KC9)" APPLE_KEYCHAIN_PROFILE="mercurio-notary" npm run desktop:pack:mac
+   ```
+   Nota: `CSC_NAME` NAO deve incluir o prefixo `Developer ID Application:` (electron-builder detecta o tipo automaticamente).
+3. O build assina e notariza o `.app`, mas o `.dmg` gerado pelo electron-builder NAO fica assinado/notarizado/stapled automaticamente — repetir manualmente o mesmo passo que a CI faz (`Verify mac signature and notarization`) para cada `.dmg` (x64 e arm64):
+   ```bash
+   IDENTITY="$(security find-identity -v -p codesigning | awk -F '"' '/Developer ID Application/ {print $2; exit}')"
+   codesign --force --sign "$IDENTITY" --timestamp "<arquivo>.dmg"
+   xcrun notarytool submit "<arquivo>.dmg" --keychain-profile mercurio-notary --wait
+   xcrun stapler staple "<arquivo>.dmg"
+   xcrun stapler validate "<arquivo>.dmg"
+   spctl --assess --type open --context context:primary-signature --verbose=4 "<arquivo>.dmg"
+   ```
+4. Normalizar nomes de arquivo (espaco -> hifen, igual ao step "Normalize updater asset filenames" da CI) antes do upload, senão o `stable-mac.yml` fica com URLs que nao batem com os assets:
+   ```bash
+   sed 's/Mercurio Capital/Mercurio-Capital/g; s/ /-/g'
+   ```
+5. Upload manual dos assets na release ja existente (tag ja criada/pushada normalmente pelo fluxo de release):
+   ```bash
+   gh release upload vX.Y.Z Mercurio-Capital-*.dmg Mercurio-Capital-*.zip Mercurio-Capital-*.blockmap stable-mac.yml --clobber
+   ```
+
+Limitacoes conhecidas deste fallback:
+- Windows: requer Wine funcional no Mac (verificar `file $(which wine)` — se for symlink quebrado para um `.app` que nao existe mais, reinstalar `wine-stable` antes de tentar `desktop:pack:win`).
+- Linux: fica pendente ate a Actions voltar (nao ha necessidade de credenciais, mas nao foi priorizado no fallback manual).
+- O hash/tamanho do `.dmg` no `stable-mac.yml` referencia o arquivo pre-staple (o stapler altera o tamanho do arquivo); isso e inofensivo porque o auto-updater (Squirrel.Mac) usa o `.zip`, nao o `.dmg`, para verificar integridade.
