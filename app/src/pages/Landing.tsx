@@ -369,7 +369,7 @@ export function Landing() {
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
               <div className="space-y-2 text-xs text-white/70 sm:text-sm">
                 <p>
-                  <span className="font-semibold text-white">CNPJ:</span> 57.051.836/0001-32
+                  <span className="font-semibold text-white">CNPJ:</span> 62.382.034/0001-70
                 </p>
                 <p>
                   <span className="font-semibold text-white">Endereço:</span> Rua 1301, 471 - Centro, Balneário Camboriú - SC, 88330-795.
