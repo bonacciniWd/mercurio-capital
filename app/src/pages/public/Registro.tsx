@@ -5,6 +5,7 @@ import { Logo } from '@/components/Logo'
 import { PartnerDocsUploader, type DocSlot } from '@/components/PartnerDocsUploader'
 import { supabase } from '@/lib/supabase'
 import { getSenhaMinLength, validarSenha } from '@/lib/securityConfig'
+import { maskCpf, isValidCpf, onlyDigits } from '@/lib/documentoBr'
 import partnerRegister from '@/assets/partner-register.jpg'
 
 type Step = 1 | 2 | 3
@@ -51,9 +52,7 @@ const DOC_SLOTS: DocSlot[] = [
   },
 ]
 
-function onlyDigits(s: string) {
-  return s.replace(/\D/g, '')
-}
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function Registro() {
   const navigate = useNavigate()
@@ -79,6 +78,15 @@ export function Registro() {
     event.preventDefault()
     setError(null)
 
+    const emailNormalizado = form.email.trim().toLowerCase()
+    if (!EMAIL_REGEX.test(emailNormalizado)) {
+      setError('Informe um e-mail válido.')
+      return
+    }
+    if (!isValidCpf(form.cpf)) {
+      setError('Informe um CPF válido.')
+      return
+    }
     if (form.password !== form.confirm) {
       setError('As senhas não conferem.')
       return
@@ -92,7 +100,7 @@ export function Registro() {
     setLoading(true)
     try {
       const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-        email: form.email.trim(),
+        email: emailNormalizado,
         password: form.password,
         options: {
           data: {
@@ -200,10 +208,15 @@ export function Registro() {
                     <input
                       className="input"
                       value={form.cpf}
-                      onChange={(e) => setField('cpf', e.target.value)}
+                      onChange={(e) => setField('cpf', maskCpf(e.target.value))}
                       placeholder="000.000.000-00"
+                      inputMode="numeric"
+                      maxLength={14}
                       required
                     />
+                    {form.cpf && !isValidCpf(form.cpf) && (
+                      <p className="mt-1 text-xs text-danger">CPF inválido.</p>
+                    )}
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">

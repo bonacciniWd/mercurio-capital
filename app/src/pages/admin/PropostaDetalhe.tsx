@@ -11,6 +11,7 @@ import {
   History,
   Loader2,
   Pencil,
+  Plus,
   Save,
   Search,
   Sparkles,
@@ -318,7 +319,8 @@ export function AdminPropostaDetalhe() {
   const [editProponentes, setEditProponentes] = useState(false)
   const [proponentesForm, setProponentesForm] = useState<Proponente[]>([])
   const [editImoveis, setEditImoveis] = useState(false)
-  const [imoveisForm, setImoveisForm] = useState<Imovel[]>([])
+  const [imoveisForm, setImoveisForm] = useState<Array<Imovel & { _novo?: boolean }>>([])
+  const [imoveisError, setImoveisError] = useState<string | null>(null)
 
   const { data: proposta, isLoading, error } = useQuery({
     queryKey: ['admin-proposta', id],
@@ -507,11 +509,41 @@ export function AdminPropostaDetalhe() {
     )
   }
 
+  function addImovelNovo() {
+    setImoveisForm((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        tipo: 'apartamento',
+        principal: false,
+        cidade: '',
+        estado: '',
+        bairro: '',
+        logradouro: '',
+        numero: '',
+        valor: 0,
+        _novo: true,
+      },
+    ])
+  }
+
+  function removeImovelNovo(idx: number) {
+    setImoveisForm((prev) => prev.filter((_, i) => i !== idx))
+  }
+
   function saveImoveis() {
+    setImoveisError(null)
+    const invalido = imoveisForm.find((i) =>
+      i._novo && (!i.tipo || !i.cidade?.trim() || !i.estado?.trim() || !(Number(i.valor) > 0)),
+    )
+    if (invalido) {
+      setImoveisError('Preencha tipo, cidade, estado e valor (maior que zero) para o novo imóvel.')
+      return
+    }
     updateCamposMut.mutate(
       {
         imoveis: imoveisForm.map((i) => ({
-          id: i.id,
+          ...(i._novo ? {} : { id: i.id }),
           tipo: i.tipo,
           cidade: i.cidade ?? '',
           estado: i.estado ?? '',
@@ -992,7 +1024,10 @@ export function AdminPropostaDetalhe() {
             <div className="flex justify-end gap-2">
               {editImoveis ? (
                 <>
-                  <button className="btn-outline text-xs" onClick={() => setEditImoveis(false)} disabled={updateCamposMut.isPending}>
+                  <button className="btn-outline text-xs" onClick={addImovelNovo} disabled={updateCamposMut.isPending}>
+                    <Plus className="mr-1 inline h-3.5 w-3.5" /> Adicionar imóvel
+                  </button>
+                  <button className="btn-outline text-xs" onClick={() => { setEditImoveis(false); setImoveisError(null) }} disabled={updateCamposMut.isPending}>
                     <X className="mr-1 inline h-3.5 w-3.5" /> Cancelar
                   </button>
                   <button className="btn-gold text-xs" onClick={saveImoveis} disabled={updateCamposMut.isPending}>
@@ -1010,6 +1045,11 @@ export function AdminPropostaDetalhe() {
               )}
             </div>
           )}
+          {imoveisError && (
+            <p className="inline-flex items-center gap-1 text-xs text-danger">
+              <AlertTriangle className="h-3 w-3" /> {imoveisError}
+            </p>
+          )}
           {updateCamposMut.error && (
             <p className="inline-flex items-center gap-1 text-xs text-danger">
               <AlertTriangle className="h-3 w-3" /> {(updateCamposMut.error as Error).message}
@@ -1023,7 +1063,7 @@ export function AdminPropostaDetalhe() {
           ) : editImoveis ? (
             <table className="w-full text-sm">
               <thead className="bg-silver-50 text-left text-xs uppercase text-silver-500">
-                <tr><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Logradouro</th><th className="px-4 py-3">Número</th><th className="px-4 py-3">Bairro</th><th className="px-4 py-3">Cidade</th><th className="px-4 py-3">UF</th><th className="px-4 py-3 text-right">Valor</th></tr>
+                <tr><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Logradouro</th><th className="px-4 py-3">Número</th><th className="px-4 py-3">Bairro</th><th className="px-4 py-3">Cidade</th><th className="px-4 py-3">UF</th><th className="px-4 py-3 text-right">Valor</th><th className="px-4 py-3"></th></tr>
               </thead>
               <tbody>
                 {imoveisForm.map((i, idx) => (
@@ -1054,6 +1094,13 @@ export function AdminPropostaDetalhe() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <input className="input text-right" type="number" step="0.01" value={i.valor} onChange={(e) => setImoveisForm(imoveisForm.map((x, j) => j === idx ? { ...x, valor: Number(e.target.value) } : x))} />
+                    </td>
+                    <td className="px-4 py-3">
+                      {i._novo && (
+                        <button type="button" className="text-xs text-danger hover:underline" onClick={() => removeImovelNovo(idx)}>
+                          Remover
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
