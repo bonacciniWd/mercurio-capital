@@ -19,3 +19,6 @@ supabase/.temp/
 supabase/.branches/
 .vercel
 .env*
+
+# Certificados/credenciais locais (nunca versionar)
+certificates_LOCAL/
