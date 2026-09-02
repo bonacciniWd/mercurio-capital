@@ -86,8 +86,8 @@ export function ClientHome() {
 
   return (
     <>
-      <div className=" -mb-2 rounded-lg bg-gradient-to-r from-slate-800 z-10 to-slate-950  text-white">
-        <img src={loginBackground} alt="Mercúrio Capital" className="h-56 rounded-t-xl w-full bg-" />
+      <div className=" -mb-2 rounded-lg bg-gradient-to-r w-[100%] h-28  from-slate-800 z-10 to-slate-950  text-white">
+      
       </div>
       <div className="mb-6 rounded-lg bg-gradient-to-r from-slate-800 z-40 to-slate-950 p-6 text-white">
         <h1 className="text-2xl font-bold">Olá, {nome} 👋</h1>

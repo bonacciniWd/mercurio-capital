@@ -16,9 +16,9 @@ const PRODUTO_LABEL: Record<string, string> = {
 }
 
 const PRODUTO_COLORS: Record<string, string> = {
-  home_equity: '#0A2B4E',
-  credito_construcao: '#D4AF37',
-  financiamento_imobiliario: '#9CA3AF',
+  home_equity: '#D10000',
+  credito_construcao: '#3A3A3A',
+  financiamento_imobiliario: '#98A3AF',
 }
 
 // Etapas agregadas do funil (admin)
@@ -268,8 +268,8 @@ export function AdminRelatorios() {
                     <YAxis yAxisId="r" orientation="right" stroke="#D4AF37" fontSize={12} />
                     <Tooltip />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Line yAxisId="l" type="monotone" dataKey="volume" stroke="#0A2B4E" strokeWidth={2.5} name="Volume (Mi)" />
-                    <Line yAxisId="r" type="monotone" dataKey="propostas" stroke="#D4AF37" strokeWidth={2.5} name="Propostas" />
+                    <Line yAxisId="l" type="monotone" dataKey="volume" stroke="#D10000" strokeWidth={2.5} name="Volume (Mi)" />
+                    <Line yAxisId="r" type="monotone" dataKey="propostas" stroke="#3A3A3A" strokeWidth={2.5} name="Propostas" />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -302,7 +302,7 @@ export function AdminRelatorios() {
                     <XAxis type="number" stroke="#9CA3AF" fontSize={11} />
                     <YAxis type="category" dataKey="p" stroke="#9CA3AF" fontSize={11} width={120} />
                     <Tooltip />
-                    <Bar dataKey="v" fill="#D4AF37" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="v" fill="#D10000" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -319,7 +319,7 @@ export function AdminRelatorios() {
                     <XAxis dataKey="etapa" stroke="#9CA3AF" fontSize={11} />
                     <YAxis stroke="#9CA3AF" fontSize={11} allowDecimals={false} />
                     <Tooltip />
-                    <Bar dataKey="q" fill="#9CA3AF" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="q" fill="#D10000" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}

@@ -385,7 +385,7 @@ export function Landing() {
                   aria-label="Acessar site da Visione Rifatta"
                 >
                   <small className="brand-credit">Powered by Visione Rifatta</small>
-                  <span className="build-version" aria-label="Build version">v0.1.4</span>
+                  <span className="build-version" aria-label="Build version">v0.1.5</span>
                 </a>
               </div>
             </div>

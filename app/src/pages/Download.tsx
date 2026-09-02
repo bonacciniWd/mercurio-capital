@@ -237,7 +237,7 @@ export function Download() {
       {/* Especificações */}
       <section className="relative z-10 border-t border-white/5 bg-black/20">
         <div className="mx-auto grid max-w-6xl gap-6 px-6 py-12 sm:grid-cols-3">
-          <Spec Icon={ShieldCheck} title="Seguro" desc="Assinado digitalmente e auto-atualizável." />
+          <Spec Icon={ShieldCheck} title="Seguro" desc="Assinado digitalmente e com atualização automática onde disponível." />
           <Spec Icon={Cpu}         title="Leve"   desc="Otimizado para Apple Silicon, Intel e ARM." />
           <Spec Icon={Monitor}     title="Nativo" desc="Atalhos do sistema, badges e notificações." />
         </div>
