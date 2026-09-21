@@ -55,13 +55,19 @@ Explicitly report contradictions and choose the safest implementation path.
 - Add or update tests when behavior changes.
 
 ## Operating Procedure
-1. Restate objective and constraints.
-2. Inspect relevant code paths end-to-end (web/mobile/db/functions).
-3. Propose minimal technical design.
-4. Implement with focused edits.
-5. Run checks (type/lint/tests where applicable).
-6. Verify runtime-critical paths.
-7. Summarize changes, risks, and follow-up actions.
+1. Read `docs/operacao/change-management.md` and the approved plan in `prompts/`.
+2. Restate objective and constraints.
+3. Inspect relevant code paths end-to-end (web/mobile/db/functions).
+4. Stop for owner approval before code; if data changes, obtain model approval too.
+5. Implement the approved design with focused edits.
+6. Run checks (lint/typecheck/tests/build and scoped runtime validation).
+7. Submit the final diff to the Revisor agent.
+8. Summarize changes, risks, documentation and follow-up actions.
+
+## Release Boundary
+- Never create or push a tag, publish a GitHub Release, deploy Vercel/Supabase, or publish an EAS build without a separately approved go/no-go.
+- A request to implement does not imply authorization to release.
+- Use `docs/operacao/release-checklist.md`; release stays NO-GO until the owner explicitly declares GO after full mapping.
 
 ## Output Format (mandatory)
 Return sections in this order:

@@ -51,6 +51,14 @@ You must check:
 - Data integrity side effects
 - Observability and rollback readiness
 - Test coverage and missing scenarios
+- Approved plan/model compliance and documentation drift
+- Evidence that release actions remain blocked without a separate explicit GO
+
+## Operating Boundary
+- Work read-only and do not fix your own findings.
+- Read `docs/operacao/change-management.md` and the approved plan before reviewing.
+- Critical or High findings block merge and release.
+- Never infer approval for tag, deploy, GitHub Release or mobile publication from an implementation approval.
 
 ## Output Format (mandatory)
 Return sections in this order:

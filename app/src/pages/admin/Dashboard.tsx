@@ -1,134 +1,79 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, CartesianGrid } from 'recharts'
-import { Loader2, Users, FileText, TrendingUp, Banknote, CheckCircle2 } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { AlertCircle, ArrowDownRight, Banknote, CheckCircle2, CircleDollarSign, FileText, Info, Loader2, Settings2, TrendingUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
+import { compactNumber, localDateISO } from '@/lib/financeiro'
+import { Button } from '@/components/ui/button'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { FunilParceirosCard } from '@/components/FunilParceirosCard'
 
-interface KpiRow {
-  total_propostas: number
-  propostas_mes: number
-  ativas: number
-  ganhas: number
-  canceladas: number
-  taxa_conversao: number
-  volume_ganho: number
-  volume_total: number
-  parceiros_ativos: number
+interface GlobalSummary { total_propostas: number; ativas: number; ganhas: number; standby: number; canceladas: number; parceiros_ativos: number }
+interface SeriesRow { periodo: string; propostas: number; ganhas: number; volume_solicitado: number; volume_ganho: number }
+interface PartnerRow { partner_id: string; partner_nome: string; total: number; ganhas: number; volume_ganho: number; volume_liberado: number }
+interface Analytics {
+  total_propostas: number; ativas: number; ganhas: number; standby: number; canceladas: number; taxa_conversao: number
+  liberadas_sem_data?: number; volume_liberado_sem_data?: number; volume_solicitado: number; volume_ganho: number; volume_liberado: number; volume_operacional: number; parceiros_ativos: number
+  granularidade: 'day' | 'week' | 'month'; resumo_global: GlobalSummary; serie: SeriesRow[]; top_parceiros: PartnerRow[]
 }
-interface TopRow { partner_id: string; partner_nome: string; total: number; ganhas: number; volume: number }
+interface Finance { entradas_realizadas: number; saidas_realizadas: number; entradas_previstas: number; saidas_previstas: number; custos_operacionais: number; custos_pessoal: number; pendencias: number }
+interface Option { id: string; nome: string }
+
+const iso = localDateISO
+const initialRange = () => { const d = new Date(); return { inicio: iso(new Date(d.getFullYear(), 0, 1)), fim: iso(d) } }
+const money = (v: number | string | undefined) => brl(Math.round(Number(v ?? 0) * 100))
+const compactMoney = (v: number | string | undefined) => `R$ ${compactNumber(Number(v ?? 0))}`
+const wonStatuses = 'contrato registrado, recurso liberado, pagamento de comissão ou completo'
 
 export function AdminDashboard() {
-  const kpiQuery = useQuery({
-    queryKey: ['admin-kpis'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_admin_dashboard_kpis')
-        .select('*')
-        .maybeSingle()
-      if (error) throw error
-      return data as KpiRow | null
-    },
-  })
+  const [params, setParams] = useSearchParams(); const defaults = initialRange(); const inicio = params.get('inicio') ?? defaults.inicio; const fim = params.get('fim') ?? defaults.fim
+  const fundo = params.get('fundo') ?? ''; const partner = params.get('parceiro') ?? ''
+  const rangeValid = /^\d{4}-\d{2}-\d{2}$/.test(inicio) && /^\d{4}-\d{2}-\d{2}$/.test(fim) && inicio <= fim
+  const set = (key: string, value: string) => { const next = new URLSearchParams(params); if (value) next.set(key, value); else next.delete(key); setParams(next, { replace: true }) }
+  const setRange = (start: string, end: string) => { const next = new URLSearchParams(params); next.set('inicio', start); next.set('fim', end); setParams(next, { replace: true }) }
+  const applyPreset = (preset: 'mes' | '30d' | 'trimestre' | 'ano' | 'historico') => { const now = new Date(); let start: Date; if (preset === 'historico') start = new Date(2020, 0, 1); else if (preset === '30d') start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29); else if (preset === 'trimestre') start = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1); else if (preset === 'ano') start = new Date(now.getFullYear(), 0, 1); else start = new Date(now.getFullYear(), now.getMonth(), 1); setRange(iso(start), iso(preset === 'mes' ? new Date(now.getFullYear(), now.getMonth() + 1, 0) : now)) }
+  const preset = activePreset(inicio, fim)
+  const analyticsQuery = useQuery({ queryKey: ['admin-dashboard-v2', inicio, fim, fundo, partner], enabled: rangeValid, queryFn: async () => { const { data, error } = await supabase.rpc('admin_dashboard_analytics', { p_inicio: inicio, p_fim: fim, p_fundo: fundo || null, p_partner: partner || null, p_equipe: null }); if (error) throw error; return data as Analytics } })
+  const financeQuery = useQuery({ queryKey: ['admin-dashboard-finance', inicio, fim, fundo, partner], enabled: rangeValid, queryFn: async () => { const { data, error } = await supabase.rpc('admin_financeiro_resumo', { p_inicio: inicio, p_fim: fim, p_visao: 'competencia', p_fundo: fundo || null, p_partner: partner || null, p_equipe: null }); if (error) throw error; return data as Finance } })
+  const fundosQuery = useQuery({ queryKey: ['dashboard-fundos'], queryFn: async () => { const { data, error } = await supabase.from('fundos').select('id,nome').eq('ativo', true).order('nome'); if (error) throw error; return (data ?? []) as Option[] } })
+  const partnersQuery = useQuery({ queryKey: ['dashboard-partners'], queryFn: async () => { const { data, error } = await supabase.from('partners').select('id,usuario:usuarios(nome_completo)').eq('status', 'approved'); if (error) throw error; return (data ?? []).map(row => ({ id: row.id, nome: (row.usuario as unknown as { nome_completo: string } | null)?.nome_completo ?? 'Parceiro' })).sort((a, b) => a.nome.localeCompare(b.nome)) } })
+  const data = analyticsQuery.data; const finance = financeQuery.data; const global = data?.resumo_global; const loading = analyticsQuery.isLoading || financeQuery.isLoading
+  const chart = (data?.top_parceiros ?? []).filter(row => Number(row.volume_ganho) > 0).map(row => ({ name: row.partner_nome, volume: Number(row.volume_ganho), propostas: Number(row.ganhas) }))
+  const series = (data?.serie ?? []).map(row => ({ ...row, volume_solicitado: Number(row.volume_solicitado), volume_ganho: Number(row.volume_ganho), label: formatPeriod(row.periodo, data?.granularidade) }))
+  const filterCount = Number(Boolean(fundo)) + Number(Boolean(partner))
+  return <div className="space-y-5">
+    <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-red-700">Operação</p><h1 className="text-2xl font-bold text-navy">Dashboard global</h1><p className="text-sm text-silver-500">Indicadores comerciais e financeiros com fontes separadas.</p></div><Link to={`/admin/financeiro?inicio=${inicio}&fim=${fim}`} className="btn-no-liquid inline-flex h-9 items-center gap-2 rounded-md border border-silver-300 bg-white px-3 text-sm font-medium text-navy hover:bg-silver-50"><CircleDollarSign className="h-4 w-4" />Abrir financeiro</Link></header>
 
-  const topQuery = useQuery({
-    queryKey: ['admin-top-partners'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_admin_top_partners')
-        .select('partner_id, partner_nome, total, ganhas, volume')
-      if (error) throw error
-      return (data ?? []) as TopRow[]
-    },
-  })
+    <section className="rounded-xl border border-silver-200 bg-white p-4 shadow-card" aria-label="Filtros do dashboard">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap gap-1 rounded-lg bg-silver-50 p-1">{([['mes', 'Mês'], ['30d', '30 dias'], ['trimestre', 'Trimestre'], ['ano', 'Ano'], ['historico', 'Todo histórico']] as const).map(([id, label]) => <Button key={id} size="sm" variant={preset === id ? 'primary' : 'ghost'} aria-pressed={preset === id} onClick={() => applyPreset(id)}>{label}</Button>)}</div><DateRangePicker start={inicio} end={fim} onChange={setRange} /></div>
+      <div className="mt-4 grid gap-3 border-t border-silver-100 pt-4 md:grid-cols-[1fr_1fr_auto]"><Filter label="Fundo"><select className="input h-9" value={fundo} onChange={e => set('fundo', e.target.value)}><option value="">Todos os fundos</option>{fundosQuery.data?.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}</select></Filter><Filter label="Parceiro"><select className="input h-9" value={partner} onChange={e => set('parceiro', e.target.value)}><option value="">Todos os parceiros</option>{partnersQuery.data?.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}</select></Filter><div className="flex items-end"><Button variant="outline" disabled={!filterCount} onClick={() => { const next = new URLSearchParams(params); next.delete('fundo'); next.delete('parceiro'); setParams(next, { replace: true }) }}><Settings2 className="h-4 w-4" />Limpar filtros{filterCount ? ` (${filterCount})` : ''}</Button></div></div>
+      <p className="mt-3 flex items-center gap-1.5 text-xs text-silver-500"><Info className="h-3.5 w-3.5" />O filtro Rede foi retirado temporariamente porque nenhuma proposta possui equipe atribuída. Ele volta quando essa origem estiver registrada.</p>
+    </section>
 
-  const kpi = kpiQuery.data
-  const top = topQuery.data ?? []
-  const loading = kpiQuery.isLoading || topQuery.isLoading
+    {!rangeValid && <Notice>Selecione um intervalo válido: a data inicial deve ser anterior ou igual à final.</Notice>}
+    {(analyticsQuery.error || financeQuery.error) && <Notice>Não foi possível carregar todas as métricas. A migration analítica v2 precisa estar aplicada neste ambiente.</Notice>}
+    {loading ? <Loading /> : <>
+      <section><SectionTitle title="Resumo global" description="Estes números representam todo o histórico e não mudam com o período." /><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6"><SmallKpi label="Propostas" value={global?.total_propostas ?? 0} /><SmallKpi label="Ativas" value={global?.ativas ?? 0} /><SmallKpi label="Standby" value={global?.standby ?? 0} /><SmallKpi label="Ganhas" value={global?.ganhas ?? 0} /><SmallKpi label="Canceladas" value={global?.canceladas ?? 0} danger /><SmallKpi label="Parceiros" value={global?.parceiros_ativos ?? 0} /></div></section>
+      <section><SectionTitle title="Desempenho do período" description="Produção usa a data de criação; volume liberado usa a primeira entrada em Pagamento de Comissão." /><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Kpi icon={FileText} label="Propostas criadas" value={String(data?.total_propostas ?? 0)} hint={`${data?.ativas ?? 0} ativas · ${data?.standby ?? 0} em standby`} /><Kpi icon={TrendingUp} label="Conversão" value={`${data?.taxa_conversao ?? 0}%`} hint={`${data?.ganhas ?? 0} em estados de ganho`} tone="success" /><Kpi icon={Banknote} label="Volume ganho" value={compactMoney(data?.volume_ganho)} full={money(data?.volume_ganho)} hint="Valor solicitado em Registro de AF ou posterior" /><Kpi icon={CheckCircle2} label="Volume liberado" value={compactMoney(data?.volume_liberado)} full={money(data?.volume_liberado)} hint="Valor solicitado por entrada em Pagamento de Comissão" tone="danger" /></div></section>
 
-  const topChart = top.slice(0, 10).map(t => ({
-    name: t.partner_nome,
-    volume: Number(t.volume) || 0,
-    propostas: t.total,
-  }))
+      {Boolean(data?.liberadas_sem_data) && <Notice>{data?.liberadas_sem_data} propostas em Pagamento de Comissão ou Concluído, totalizando {money(data?.volume_liberado_sem_data)}, não possuem data de entrada em Pagamento de Comissão no histórico. Esses valores não entram no volume liberado do período.</Notice>}
+      <section className="grid gap-5 xl:grid-cols-3"><div className="card p-5 xl:col-span-2"><SectionTitle title="Evolução do volume" description="Solicitado e ganho por data de criação da proposta." />{series.length ? <ResponsiveContainer width="100%" height={300}><AreaChart data={series} margin={{ left: 8, right: 8, top: 12 }}><defs><linearGradient id="requested" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8FAACB" stopOpacity={.28} /><stop offset="95%" stopColor="#8FAACB" stopOpacity={0} /></linearGradient><linearGradient id="won" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#D9534F" stopOpacity={.24} /><stop offset="95%" stopColor="#D9534F" stopOpacity={0} /></linearGradient></defs><CartesianGrid vertical={false} stroke="#E9ECEF" /><XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={11} /><YAxis tickLine={false} axisLine={false} width={72} fontSize={11} tickFormatter={v => `R$ ${compactNumber(Number(v))}`} /><Tooltip formatter={(v: number | string, name: string) => [money(Number(v)), name === 'volume_ganho' ? 'Volume ganho' : 'Volume solicitado']} /><Area type="monotone" dataKey="volume_solicitado" stroke="#5A80B2" strokeWidth={2} fill="url(#requested)" /><Area type="monotone" dataKey="volume_ganho" stroke="#D9534F" strokeWidth={2} fill="url(#won)" /></AreaChart></ResponsiveContainer> : <Empty title="Sem propostas neste período" text="Altere o intervalo para visualizar a evolução histórica." />}</div><div className="card p-5"><SectionTitle title="Financeiro do período" description="Lançamentos do livro financeiro administrativo." /><Stat label="Entradas realizadas" value={money(finance?.entradas_realizadas)} success /><Stat label="Saídas realizadas" value={money(finance?.saidas_realizadas)} danger /><Stat label="Entradas previstas" value={money(finance?.entradas_previstas)} /><Stat label="Saídas previstas" value={money(finance?.saidas_previstas)} /><Stat label="Custos operacionais" value={money(finance?.custos_operacionais)} />{!Number(finance?.entradas_realizadas) && !Number(finance?.saidas_realizadas) && <p className="mt-4 rounded-lg bg-silver-50 p-3 text-xs leading-relaxed text-silver-600">O livro financeiro ainda não possui lançamentos históricos. Cadastre entradas, despesas e recorrências em Financeiro.</p>}</div></section>
 
-  return (
-    <>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-navy">Dashboard global</h1>
-        <p className="text-sm text-silver-500">Visão macro da operação Mercurio.</p>
-      </div>
+      <FunilParceirosCard />
 
-      {loading ? (
-        <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-red-600" /></div>
-      ) : (
-        <>
-          <div className="mb-6 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
-            <Kpi icon={<FileText className="h-4 w-4" />} label="Propostas no mês" value={String(kpi?.propostas_mes ?? 0)} accent="#0F172A" />
-            <Kpi icon={<TrendingUp className="h-4 w-4" />} label="Conversão" value={`${kpi?.taxa_conversao ?? 0}%`} accent="#16A34A" />
-            <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label="Ganhas" value={String(kpi?.ganhas ?? 0)} accent="#0EA5E9" />
-            <Kpi icon={<Banknote className="h-4 w-4" />} label="Volume ganho" value={brl(Number(kpi?.volume_ganho ?? 0) * 100)} accent="#DC2626" />
-            <Kpi icon={<Users className="h-4 w-4" />} label="Parceiros ativos" value={String(kpi?.parceiros_ativos ?? 0)} accent="#F59E0B" />
-          </div>
-
-          <div className="mb-6">
-            <FunilParceirosCard />
-          </div>
-
-          <div className="mb-6 grid gap-4 lg:grid-cols-3">
-            <div className="card p-5 lg:col-span-2">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-semibold text-navy">Top 10 parceiros · volume</h2>
-                <Link to="/admin/parceiros" className="text-xs font-medium text-red-600 hover:underline">Ver todos →</Link>
-              </div>
-              {topChart.length === 0 ? (
-                <p className="py-12 text-center text-sm text-silver-400">Sem dados.</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={topChart} layout="vertical" margin={{ left: 60 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                    <XAxis type="number" stroke="#9CA3AF" fontSize={11} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                    <YAxis type="category" dataKey="name" stroke="#9CA3AF" fontSize={11} width={120} />
-                    <Tooltip formatter={(v: number) => brl(v * 100)} />
-                    <Bar dataKey="volume" radius={[0, 6, 6, 0]}>
-                      {topChart.map((_, i) => <Cell key={i} fill="#DC2626" fillOpacity={0.6 + (topChart.length - 1 - i) * 0.04} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-
-            <div className="card p-5">
-              <h2 className="mb-4 font-semibold text-navy">Resumo</h2>
-              <ul className="space-y-3 text-sm">
-                <Stat label="Total propostas" value={String(kpi?.total_propostas ?? 0)} />
-                <Stat label="Ativas" value={String(kpi?.ativas ?? 0)} />
-                <Stat label="Canceladas" value={String(kpi?.canceladas ?? 0)} highlight="text-danger" />
-                <Stat label="Volume total" value={brl(Number(kpi?.volume_total ?? 0) * 100)} />
-              </ul>
-            </div>
-          </div>
-        </>
-      )}
-    </>
-  )
+      <section className="grid gap-5 xl:grid-cols-3"><div className="card p-5 xl:col-span-2"><SectionTitle title="Top parceiros · volume ganho" description={`Valor solicitado das propostas em ${wonStatuses}.`} />{chart.length ? <ResponsiveContainer width="100%" height={Math.max(280, chart.length * 38)}><BarChart data={chart} layout="vertical" margin={{ left: 50, right: 20 }}><CartesianGrid horizontal={false} stroke="#E9ECEF" /><XAxis type="number" tickLine={false} axisLine={false} fontSize={11} tickFormatter={v => `R$ ${compactNumber(Number(v))}`} /><YAxis type="category" dataKey="name" width={135} tickLine={false} axisLine={false} fontSize={11} /><Tooltip formatter={(v: number | string) => money(Number(v))} /><Bar dataKey="volume" fill="#D9534F" radius={[0, 4, 4, 0]} /></BarChart></ResponsiveContainer> : <Empty title="Sem volume ganho no período" text="Use Ano ou Todo histórico para ampliar a análise." />}</div><div className="card p-5"><SectionTitle title="Comissão do parceiro" description="A regra é definida individualmente em cada proposta." /><div className="mt-4 rounded-xl border border-navy-100 bg-navy-50 p-4"><p className="text-sm font-semibold text-navy">Onde configurar</p><ol className="mt-3 space-y-2 text-sm text-silver-700"><li><strong>1.</strong> Abra a proposta.</li><li><strong>2.</strong> Acesse a aba <strong>Financeiro</strong>.</li><li><strong>3.</strong> Clique em <strong>Nova versão</strong>.</li><li><strong>4.</strong> Defina base e percentual, salve e aprove.</li></ol></div><Link to="/admin/propostas" className="btn-no-liquid mt-4 inline-flex h-9 w-full items-center justify-center rounded-md border border-navy bg-navy px-3 text-sm font-medium text-white hover:bg-navy-600">Abrir propostas</Link><p className="mt-3 text-xs leading-relaxed text-silver-500">Nenhuma comissão é calculada sem uma condição comercial aprovada e uma liberação registrada.</p></div></section>
+    </>}
+  </div>
 }
 
-function Kpi({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent: string }) {
-  return (
-    <div className="rounded-xl border border-silver-200 bg-white p-4" style={{ borderTopWidth: 2, borderTopColor: accent }}>
-      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-silver-500">{icon} {label}</p>
-      <p className="mt-1.5 text-2xl font-bold text-navy">{value}</p>
-    </div>
-  )
-}
-
-function Stat({ label, value, highlight }: { label: string; value: string; highlight?: string }) {
-  return (
-    <li className="flex items-center justify-between border-b border-silver-100 pb-2 last:border-0 last:pb-0">
-      <span className="text-silver-600">{label}</span>
-      <span className={`font-bold ${highlight ?? 'text-navy'}`}>{value}</span>
-    </li>
-  )
-}
+function activePreset(start: string, end: string) { const now = new Date(); const today = iso(now); const values = { mes: [iso(new Date(now.getFullYear(), now.getMonth(), 1)), iso(new Date(now.getFullYear(), now.getMonth() + 1, 0))], '30d': [iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)), today], trimestre: [iso(new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)), today], ano: [iso(new Date(now.getFullYear(), 0, 1)), today], historico: ['2020-01-01', today] } as const; return Object.entries(values).find(([, range]) => range[0] === start && range[1] === end)?.[0] ?? 'custom' }
+function formatPeriod(value: string, granularity?: string) { const date = new Date(`${value}T12:00:00`); return date.toLocaleDateString('pt-BR', granularity === 'day' ? { day: '2-digit', month: 'short' } : { month: 'short', year: '2-digit' }) }
+function Filter({ label, children }: { label: string; children: React.ReactNode }) { return <label className="text-xs font-medium text-silver-600"><span className="mb-1.5 block">{label}</span>{children}</label> }
+function SectionTitle({ title, description }: { title: string; description: string }) { return <div className="mb-4"><h2 className="font-semibold text-navy">{title}</h2><p className="mt-0.5 text-xs text-silver-500">{description}</p></div> }
+function SmallKpi({ label, value, danger }: { label: string; value: number; danger?: boolean }) { return <div className="rounded-xl border border-silver-200 bg-white px-4 py-3 shadow-card"><p className="text-xs text-silver-500">{label}</p><p className={`mt-1 text-xl font-bold tabular-nums ${danger ? 'text-danger' : 'text-navy'}`}>{value}</p></div> }
+function Kpi({ icon: Icon, label, value, full, hint, tone }: { icon: typeof FileText; label: string; value: string; full?: string; hint: string; tone?: 'success' | 'danger' }) { return <div className="card p-4" title={full}><div className="flex items-start justify-between"><p className="text-xs font-semibold uppercase tracking-wide text-silver-500">{label}</p><div className={`rounded-lg p-2 ${tone === 'success' ? 'bg-success/10 text-success' : tone === 'danger' ? 'bg-danger/10 text-danger' : 'bg-navy-50 text-navy'}`}><Icon className="h-4 w-4" /></div></div><p className="mt-3 text-2xl font-bold text-navy tabular-nums">{value}</p>{full && <p className="mt-0.5 text-xs font-medium text-silver-600">{full}</p>}<p className="mt-2 text-xs text-silver-500">{hint}</p></div> }
+function Stat({ label, value, danger, success }: { label: string; value: string; danger?: boolean; success?: boolean }) { return <div className="flex items-center justify-between border-b border-silver-100 py-3 text-sm"><span className="text-silver-600">{label}</span><strong className={danger ? 'text-danger' : success ? 'text-success' : 'text-navy'}>{value}</strong></div> }
+function Notice({ children }: { children: React.ReactNode }) { return <div className="flex gap-2 rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{children}</div> }
+function Empty({ title, text }: { title: string; text: string }) { return <div className="py-16 text-center"><ArrowDownRight className="mx-auto h-9 w-9 text-silver-300" /><p className="mt-3 text-sm font-medium text-navy">{title}</p><p className="mt-1 text-xs text-silver-500">{text}</p></div> }
+function Loading() { return <div className="flex justify-center py-24"><Loader2 className="h-7 w-7 animate-spin text-red-700" /></div> }

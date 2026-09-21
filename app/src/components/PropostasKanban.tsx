@@ -9,7 +9,7 @@ import { PRODUTO_LABEL, PROPOSTA_KANBAN_STATUS, PROPOSTA_STATUS_LABEL, toKanbanS
 import { FUNDO_STATUS, FUNDO_STATUS_COLOR, FUNDO_STATUS_LABEL, type FundoStatus } from '@/lib/fundoStatus'
 
 type KanbanScope = 'admin' | 'partner'
-type ViewMode = 'todos' | 'operacional' | 'rascunhos' | 'canceladas'
+type ViewMode = 'todos' | 'operacional' | 'standby' | 'rascunhos' | 'canceladas'
 type OrdenacaoTab = 'recentes' | 'antigos'
 
 type OptionItem = {
@@ -45,6 +45,7 @@ function diasDesde(iso: string) {
 function labelViewMode(mode: ViewMode) {
   if (mode === 'todos') return 'Todos'
   if (mode === 'operacional') return 'Operacional'
+  if (mode === 'standby') return 'Standby'
   if (mode === 'rascunhos') return 'Rascunhos'
   return 'Canceladas'
 }
@@ -214,7 +215,8 @@ export function PropostasKanban({ scope }: { scope: KanbanScope }) {
   }, [viewMode, operacaoFiltro, scope, responsavelFiltro, fundoFiltro, operacoesDisponiveis, responsaveisDisponiveis, fundosDisponiveis])
 
   const filtradas = useMemo(() => propostas.filter(card => {
-    if (viewMode === 'operacional' && (card.status === 'simulacao' || card.status === 'cancelado')) return false
+    if (viewMode === 'operacional' && (card.status === 'simulacao' || card.status === 'cancelado' || card.status === 'standby')) return false
+    if (viewMode === 'standby' && card.status !== 'standby') return false
     if (viewMode === 'rascunhos' && card.status !== 'simulacao') return false
     if (viewMode === 'canceladas' && card.status !== 'cancelado') return false
     if (operacaoFiltro && card.partner_id !== operacaoFiltro) return false
@@ -573,7 +575,7 @@ function KanbanFiltrosModal({
           <div>
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-silver-500">Pipeline</p>
             <div className="flex flex-wrap gap-2">
-              {(['operacional', 'todos', 'rascunhos', 'canceladas'] as ViewMode[]).map(mode => (
+              {(['operacional', 'standby', 'todos', 'rascunhos', 'canceladas'] as ViewMode[]).map(mode => (
                 <button
                   key={mode}
                   type="button"

@@ -1,7 +1,7 @@
 {
   "name": "mercurio-capital-app",
   "private": true,
-  "version": "0.1.6",
+  "version": "0.2.1",
   "description": "Desktop foundation for Mercurio Capital web app",
   "homepage": "https://www.mercuriocapitalsa.com.br",
   "author": {
@@ -10,6 +10,9 @@
   },
   "type": "module",
   "main": "desktop/electron/main.cjs",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "vite --host",
     "build": "tsc -b && vite build",
@@ -20,6 +23,7 @@
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "test": "vitest run",
     "test:watch": "vitest",
+    "validate:release": "node scripts/validate-release-consistency.mjs",
     "desktop:dev:web": "vite --host 127.0.0.1 --port 5173",
     "desktop:dev:app": "wait-on tcp:5173 && cross-env ELECTRON_START_URL=http://127.0.0.1:5173 electron .",
     "desktop:dev": "concurrently -k -n WEB,DESKTOP \"npm:desktop:dev:web\" \"npm:desktop:dev:app\"",
@@ -31,6 +35,7 @@
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
+    "@radix-ui/react-popover": "^1.1.23",
     "@sentry/react": "^8.40.0",
     "@supabase/supabase-js": "^2.105.4",
     "@tanstack/react-query": "^5.59.20",
@@ -38,6 +43,7 @@
     "@xyflow/react": "^12.10.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
     "electron-updater": "^6.3.9",
     "framer-motion": "^12.42.2",
     "gsap": "^3.15.0",
@@ -46,6 +52,7 @@
     "posthog-js": "^1.181.0",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
+    "react-day-picker": "^9.14.0",
     "react-dom": "^18.3.1",
     "react-google-recaptcha": "^3.1.0",
     "react-router-dom": "^6.26.2",
@@ -63,22 +70,22 @@
     "@types/react-google-recaptcha": "^2.1.9",
     "@typescript-eslint/eslint-plugin": "^8.13.0",
     "@typescript-eslint/parser": "^8.13.0",
-    "@vitejs/plugin-react": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.4.20",
-    "concurrently": "^9.1.2",
+    "concurrently": "^10.0.5",
     "cross-env": "^7.0.3",
-    "electron": "^32.3.3",
-    "electron-builder": "^25.1.8",
+    "electron": "^44.1.1",
+    "electron-builder": "^26.15.3",
     "eslint": "^9.14.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
     "jsdom": "^25.0.1",
-    "postcss": "^8.4.49",
+    "postcss": "^8.5.28",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.13.0",
-    "vite": "^5.4.10",
-    "vitest": "^2.1.4",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0",
     "wait-on": "^8.0.3"
   }
 }

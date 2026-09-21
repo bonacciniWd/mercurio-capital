@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Building2, Bell, Shield, Globe, Users, Save, TrendingUp, CheckCircle2, XCircle, Upload, Trash2, MailCheck, Loader2, Copy, Check, AlertTriangle } from 'lucide-react'
+import { Building2, Bell, Shield, Globe, Users, Save, TrendingUp, CheckCircle2, XCircle, Upload, Trash2, MailCheck, Loader2, Copy, Check, AlertTriangle, Workflow, Megaphone, FileText, Flag, Plug, ScrollText, Settings, Tags } from 'lucide-react'
 import { Badge } from '@/components/Badge'
 import { TwoFactorManager } from '@/components/TwoFactorManager'
 import { supabase } from '@/lib/supabase'
@@ -14,6 +14,7 @@ const TABS = [
   { id: 'emails', icon: MailCheck, label: 'Templates de e-mail' },
   { id: 'dominio', icon: Globe, label: 'Domínio & marca' },
   { id: 'metas', icon: TrendingUp, label: 'Metas' },
+  { id: 'operacao', icon: Settings, label: 'Módulos operacionais' },
 ]
 
 export function AdminConfiguracoes() {
@@ -49,10 +50,32 @@ export function AdminConfiguracoes() {
           {tab === 'emails' && <EmailTemplatesTab />}
           {tab === 'dominio' && <DominioTab />}
           {tab === 'metas' && <MetasTab />}
+          {tab === 'operacao' && <ModulosOperacionaisTab />}
         </div>
       </div>
     </>
   )
+}
+
+function ModulosOperacionaisTab() {
+  const items = [
+    { to: '/admin/auditoria', icon: ScrollText, label: 'Auditoria', text: 'Histórico de ações administrativas.' },
+    { to: '/admin/campanhas', icon: Megaphone, label: 'Campanhas', text: 'Disparos e agendamentos de comunicação.' },
+    { to: '/admin/feature-flags', icon: Flag, label: 'Feature flags', text: 'Liberação gradual de funcionalidades.' },
+    { to: '/admin/fluxos', icon: Workflow, label: 'Fluxos', text: 'Automação de eventos e notificações.' },
+    { to: '/admin/integracoes', icon: Plug, label: 'Integrações', text: 'Conexões e saúde dos provedores.' },
+    { to: '/admin/financeiro/precos', icon: Tags, label: 'Preços', text: 'Tabelas de preços e parâmetros de consulta.' },
+    { to: '/admin/templates', icon: FileText, label: 'Templates', text: 'Catálogo de mensagens e testes.' },
+  ]
+  return <div>
+    <h2 className="text-lg font-semibold text-navy">Módulos operacionais</h2>
+    <p className="mt-1 text-sm text-silver-600">Acesse os módulos administrativos relacionados à operação da plataforma.</p>
+    <div className="mt-5 grid gap-3 sm:grid-cols-2">
+      {items.map(item => <Link key={item.to} to={item.to} className="group rounded-xl border border-silver-200 p-4 transition hover:border-red-300 hover:bg-red-50/30">
+        <div className="flex items-start gap-3"><item.icon className="mt-0.5 h-5 w-5 text-red-700" /><div><h3 className="font-semibold text-navy group-hover:text-red-700">{item.label}</h3><p className="mt-1 text-xs text-silver-600">{item.text}</p></div></div>
+      </Link>)}
+    </div>
+  </div>
 }
 
 type EquipeTesteEmail = {

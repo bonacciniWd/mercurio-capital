@@ -1,5 +1,7 @@
 # 12 — Finalização do MVP
 
+> **Estado atual de versionamento (2026-09-02): `v0.1.6`.** O snapshot `0.1.0` abaixo permanece como registro histórico. Nenhuma versão posterior deve ser publicada sem o mapeamento e o go/no-go de `docs/operacao/release-checklist.md`.
+
 > **Release 0.1.0 (2026-07-23)** — produção web publicada na Vercel (alias `https://www.mercuriocapitalsa.com.br`). Consolida RBAC jurídico, evolução do Wizard de Nova Proposta (Step 2/3 + revisão editável + composição de renda por co-proponente) e validação/consulta de documentos (Invertexto CPF/CNPJ).
 >
 > Snapshot-base do projeto em **2026-05-20** com consolidação de atualizações até **2026-07-23**. Este documento lista o que foi entregue, o que ficou pendente (e por quê) e os próximos passos operacionais.

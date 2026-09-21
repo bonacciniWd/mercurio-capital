@@ -1,217 +1,83 @@
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, DollarSign, TrendingUp, CheckCircle2, BadgeCheck, AlertTriangle } from 'lucide-react'
+import { FormEvent, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, CalendarCheck, CheckCircle2, CircleDollarSign, Clock3, Loader2, Plus, RefreshCw, Repeat2, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
+import { localDateISO } from '@/lib/financeiro'
+import { Button } from '@/components/ui/button'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
+import { MoneyInput } from '@/components/MoneyInput'
+import { ReasonDialog } from '@/components/ui/reason-dialog'
 
-interface FinSummary {
-  volume_mes: number | string
-  volume_total: number | string
-  ticket_medio: number | string
-  liberacoes_total: number
-  comissoes_previstas: number | string
-  comissoes_aprovadas: number | string
-  comissoes_pagas: number | string
-  comissoes_qtd_prevista: number
-  historico_mensal: Array<{ mes: string; qtd: number; volume: number }> | null
+type Tab = 'resumo' | 'lancamentos' | 'recorrencias' | 'comissoes' | 'fechamento'
+type Tipo = 'entrada' | 'saida'
+type StatusLancamento = 'previsto' | 'realizado' | 'vencido' | 'cancelado'
+interface Categoria { id:string; nome:string; tipo:Tipo; grupo:string; ativo:boolean }
+interface Lancamento { id:string; tipo:Tipo; descricao:string; contraparte:string|null; competencia:string; vencimento_em:string; valor_previsto:number; valor_realizado:number|null; realizado_em:string|null; status:StatusLancamento; categoria_id:string; categoria:{nome:string;grupo:string}|null }
+interface Recorrencia { id:string; tipo:Tipo; descricao:string; valor_previsto:number; dia_vencimento:number; inicio_em:string; fim_em:string|null; ativo:boolean; categoria:{nome:string}|null }
+interface Comissao { id:string; proposta_id:string; percentual:number; valor:number; status:'prevista'|'aprovada'|'paga'; paga_em:string|null; aprovada_em:string|null; created_at:string; partner_nome:string|null; protocolo:string|null }
+interface Fechamento { id:string; competencia:string; status:'aberto'|'pendente'|'fechado'|'reaberto'; prazo_fechamento:string; fechado_em:string|null }
+interface Resumo { entradas_realizadas:number; saidas_realizadas:number; entradas_previstas:number; saidas_previstas:number; custos_operacionais:number; custos_pessoal:number; pendencias:number; serie:Array<{mes:string;entradas:number;saidas:number;entradas_previstas:number;saidas_previstas:number}> }
+
+const tabs:Array<{id:Tab;label:string}>=[{id:'resumo',label:'Resumo'},{id:'lancamentos',label:'Lançamentos'},{id:'recorrencias',label:'Recorrências'},{id:'comissoes',label:'Comissões'},{id:'fechamento',label:'Fechamento e conciliação'}]
+const iso=localDateISO
+const monthStart=()=>{const d=new Date();return iso(new Date(d.getFullYear(),d.getMonth(),1))}
+const monthEnd=()=>{const d=new Date();return iso(new Date(d.getFullYear(),d.getMonth()+1,0))}
+const money=(value:number|string|null|undefined)=>brl(Math.round(Number(value??0)*100))
+const monthLabel=(value:string)=>new Date(`${value.slice(0,10)}T12:00:00`).toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
+
+export function AdminFinanceiro(){
+  const qc=useQueryClient();const[params,setParams]=useSearchParams();const tab=(tabs.some(t=>t.id===params.get('tab'))?params.get('tab'):'resumo') as Tab
+  const inicio=params.get('inicio')??monthStart();const fim=params.get('fim')??monthEnd();const visao=params.get('visao')==='caixa'?'caixa':'competencia'
+  const[drawer,setDrawer]=useState<'lancamento'|'recorrencia'|null>(null);const[feedback,setFeedback]=useState<string|null>(null)
+  const setFilter=(key:string,value:string)=>{const next=new URLSearchParams(params);next.set(key,value);setParams(next,{replace:true})}
+  const invalidate=async()=>{await Promise.all([qc.invalidateQueries({queryKey:['financeiro-resumo']}),qc.invalidateQueries({queryKey:['financeiro-lancamentos']}),qc.invalidateQueries({queryKey:['financeiro-recorrencias']}),qc.invalidateQueries({queryKey:['admin-comissoes']}),qc.invalidateQueries({queryKey:['financeiro-fechamentos']})])}
+  const categoriasQuery=useQuery({queryKey:['financeiro-categorias'],queryFn:async()=>{const{data,error}=await supabase.from('financeiro_categorias').select('id,nome,tipo,grupo,ativo').eq('ativo',true).order('ordem');if(error)throw error;return(data??[])as Categoria[]}})
+  const resumoQuery=useQuery({queryKey:['financeiro-resumo',inicio,fim,visao],queryFn:async()=>{const{data,error}=await supabase.rpc('admin_financeiro_resumo',{p_inicio:inicio,p_fim:fim,p_visao:visao,p_fundo:null,p_partner:null,p_equipe:null});if(error)throw error;return data as Resumo}})
+  const lancamentosQuery=useQuery({queryKey:['financeiro-lancamentos',inicio,fim],enabled:tab==='lancamentos'||tab==='fechamento',queryFn:async()=>{const{data,error}=await supabase.from('financeiro_lancamentos').select('id,tipo,descricao,contraparte,competencia,vencimento_em,valor_previsto,valor_realizado,realizado_em,status,categoria_id,categoria:financeiro_categorias(nome,grupo)').gte('competencia',`${inicio.slice(0,7)}-01`).lte('competencia',`${fim.slice(0,7)}-01`).order('vencimento_em',{ascending:false}).limit(500);if(error)throw error;return(data??[])as unknown as Lancamento[]}})
+  const recorrenciasQuery=useQuery({queryKey:['financeiro-recorrencias'],enabled:tab==='recorrencias',queryFn:async()=>{const{data,error}=await supabase.from('financeiro_recorrencias').select('id,tipo,descricao,valor_previsto,dia_vencimento,inicio_em,fim_em,ativo,categoria:financeiro_categorias(nome)').order('created_at',{ascending:false});if(error)throw error;return(data??[])as unknown as Recorrencia[]}})
+  const comissoesQuery=useQuery({queryKey:['admin-comissoes'],enabled:tab==='comissoes',queryFn:async()=>{const{data,error}=await supabase.from('v_comissoes_admin').select('id,proposta_id,percentual,valor,status,paga_em,aprovada_em,created_at,partner_nome,protocolo').order('created_at',{ascending:false}).limit(300);if(error)throw error;return(data??[])as Comissao[]}})
+  const fechamentosQuery=useQuery({queryKey:['financeiro-fechamentos'],enabled:tab==='fechamento',queryFn:async()=>{const{data,error}=await supabase.from('financeiro_fechamentos').select('id,competencia,status,prazo_fechamento,fechado_em').order('competencia',{ascending:false}).limit(24);if(error)throw error;return(data??[])as Fechamento[]}})
+  const previousMonth=useMemo(()=>{const d=new Date();return iso(new Date(d.getFullYear(),d.getMonth()-1,1))},[])
+  const pendingPrevious=(lancamentosQuery.data??[]).filter(l=>l.competencia===previousMonth&&['previsto','vencido'].includes(l.status))
+  return <div className="admin-financeiro-v2">
+    <header className="mb-5 border-b border-silver-200"><div className="flex flex-wrap items-end justify-between gap-4 pb-4"><div><p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-red-700">Administração</p><h1 className="text-2xl font-bold text-silver-900">Gestão financeira</h1><p className="text-sm text-silver-500">Planejamento, caixa, comissões e fechamento mensal.</p></div><Button variant="primary" onClick={()=>setDrawer('lancamento')}><Plus className="h-4 w-4"/> Novo lançamento</Button></div><nav className="flex gap-1 overflow-x-auto rounded-lg bg-silver-50 p-1" aria-label="Seções financeiras">{tabs.map(item=><Button key={item.id} size="sm" variant={tab===item.id?'primary':'ghost'} aria-current={tab===item.id?'page':undefined} onClick={()=>setFilter('tab',item.id)} className="whitespace-nowrap">{item.label}</Button>)}</nav></header>
+    <div className="mb-5 flex flex-wrap items-end gap-3 rounded-xl border border-silver-200 bg-white p-4"><div><span className="mb-1 block text-xs font-medium text-silver-600">Período</span><DateRangePicker start={inicio} end={fim} onChange={(start,end)=>{const next=new URLSearchParams(params);next.set('inicio',start);next.set('fim',end);setParams(next,{replace:true})}}/></div><Field label="Visão"><select className="input h-9" value={visao} onChange={e=>setFilter('visao',e.target.value)}><option value="competencia">Competência</option><option value="caixa">Caixa realizado</option></select></Field><Button variant="outline" className="ml-auto" onClick={()=>void invalidate()}><RefreshCw className="h-4 w-4"/> Atualizar</Button></div>
+    {(feedback||resumoQuery.error)&&<Notice danger={Boolean(resumoQuery.error)}>{feedback??errorMessage(resumoQuery.error)}</Notice>}
+    {tab==='resumo'&&<ResumoTab resumo={resumoQuery.data} loading={resumoQuery.isLoading}/>}
+    {tab==='lancamentos'&&<LancamentosTab rows={lancamentosQuery.data??[]} loading={lancamentosQuery.isLoading} onChanged={invalidate}/>}
+    {tab==='recorrencias'&&<RecorrenciasTab rows={recorrenciasQuery.data??[]} loading={recorrenciasQuery.isLoading} onNew={()=>setDrawer('recorrencia')} onChanged={invalidate}/>}
+    {tab==='comissoes'&&<ComissoesTab rows={comissoesQuery.data??[]} loading={comissoesQuery.isLoading} onChanged={invalidate} setFeedback={setFeedback}/>}
+    {tab==='fechamento'&&<FechamentoTab previousMonth={previousMonth} pending={pendingPrevious} rows={fechamentosQuery.data??[]} onChanged={invalidate} setFeedback={setFeedback}/>}
+    {drawer==='lancamento'&&<LancamentoDrawer categorias={categoriasQuery.data??[]} onClose={()=>setDrawer(null)} onSaved={async()=>{setDrawer(null);setFeedback('Lançamento salvo.');await invalidate()}}/>}{drawer==='recorrencia'&&<RecorrenciaDrawer categorias={categoriasQuery.data??[]} onClose={()=>setDrawer(null)} onSaved={async()=>{setDrawer(null);setFeedback('Recorrência salva.');await invalidate()}}/>}
+  </div>
 }
 
-interface ComissaoRow {
-  id: string
-  proposta_id: string
-  partner_id: string
-  percentual: number
-  valor: number
-  status: 'prevista' | 'aprovada' | 'paga'
-  paga_em: string | null
-  aprovada_em: string | null
-  created_at: string
-  observacao: string | null
-  partner_nome: string | null
-  partner_email: string | null
-  protocolo: string | null
-}
+function ResumoTab({resumo,loading}:{resumo?:Resumo;loading:boolean}){if(loading)return <Loading/>;if(!resumo)return <Empty title="Dados financeiros não configurados" text="Cadastre o primeiro lançamento para iniciar o acompanhamento."/>;const resultado=Number(resumo.entradas_realizadas)-Number(resumo.saidas_realizadas);return <div className="space-y-5"><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi icon={ArrowUpRight} label="Entradas realizadas" value={money(resumo.entradas_realizadas)} tone="success"/><Kpi icon={ArrowDownRight} label="Saídas realizadas" value={money(resumo.saidas_realizadas)} tone="danger"/><Kpi icon={Clock3} label="Saldo previsto" value={money(Number(resumo.entradas_previstas)-Number(resumo.saidas_previstas))}/><Kpi icon={CircleDollarSign} label="Resultado realizado" value={money(resultado)} tone={resultado>=0?'success':'danger'}/></div><div className="grid gap-5 lg:grid-cols-3"><section className="card p-5 lg:col-span-2"><h2 className="font-semibold text-navy">Fluxo por período</h2><p className="mb-5 text-xs text-silver-500">Realizado e previsto permanecem separados.</p>{resumo.serie?.length?<div className="space-y-3">{resumo.serie.map(row=>{const max=Math.max(Number(row.entradas),Number(row.saidas),1);return <div key={row.mes}><div className="mb-1 flex justify-between text-xs"><span className="capitalize text-silver-600">{monthLabel(row.mes)}</span><span className="text-silver-500">Entradas {money(row.entradas)} · Saídas {money(row.saidas)}</span></div><div className="grid gap-1"><div className="h-2 rounded bg-success/15"><div className="h-2 rounded bg-success" style={{width:`${Number(row.entradas)/max*100}%`}}/></div><div className="h-2 rounded bg-danger/15"><div className="h-2 rounded bg-danger" style={{width:`${Number(row.saidas)/max*100}%`}}/></div></div></div>})}</div>:<Empty title="Sem movimentações no período" text="Os totais aparecerão quando houver lançamentos compatíveis com os filtros." compact/>}</section><section className="card p-5"><h2 className="mb-4 font-semibold text-navy">Composição de custos</h2><Metric label="Operacionais realizados" value={money(resumo.custos_operacionais)}/><Metric label="Pessoal realizado" value={money(resumo.custos_pessoal)}/><Metric label="Pendências" value={String(resumo.pendencias)} danger={resumo.pendencias>0}/></section></div></div>}
 
-const cents = (v: number | string) => Math.round(Number(v ?? 0) * 100)
+function LancamentosTab({rows,loading,onChanged}:{rows:Lancamento[];loading:boolean;onChanged:()=>Promise<void>}){const[status,setStatus]=useState('todos');const visible=status==='todos'?rows:rows.filter(r=>r.status===status);const realize=useMutation({mutationFn:async(row:Lancamento)=>{const{error}=await supabase.from('financeiro_lancamentos').update({status:'realizado',valor_realizado:row.valor_previsto,realizado_em:iso(new Date())}).eq('id',row.id);if(error)throw error},onSuccess:onChanged});const cancel=useMutation({mutationFn:async(row:Lancamento)=>{const reason=window.prompt('Informe o motivo do cancelamento:');if(!reason||reason.trim().length<3)return;const{error}=await supabase.from('financeiro_lancamentos').update({status:'cancelado',motivo_cancelamento:reason.trim()}).eq('id',row.id);if(error)throw error},onSuccess:onChanged});if(loading)return <Loading/>;return <section className="card overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-silver-100 p-4"><div><h2 className="font-semibold text-navy">Lançamentos</h2><p className="text-xs text-silver-500">Previstos e realizados por competência.</p></div><select className="input w-auto" value={status} onChange={e=>setStatus(e.target.value)}><option value="todos">Todos os status</option><option value="previsto">Previstos</option><option value="realizado">Realizados</option><option value="vencido">Vencidos</option><option value="cancelado">Cancelados</option></select></div>{!visible.length?<Empty title="Nenhum lançamento" text="Cadastre uma entrada ou saída para este período."/>:<div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-silver-50 text-left text-xs uppercase text-silver-500"><tr><th className="px-4 py-3">Descrição</th><th className="px-4 py-3">Vencimento</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Previsto</th><th className="px-4 py-3 text-right">Realizado</th><th className="px-4 py-3 text-right">Ação</th></tr></thead><tbody>{visible.map(row=><tr key={row.id} className="border-t border-silver-100"><td className="px-4 py-3"><p className="font-medium text-navy">{row.descricao}</p><p className="text-xs text-silver-500">{row.categoria?.nome??'Sem categoria'}{row.contraparte?` · ${row.contraparte}`:''}</p></td><td className="px-4 py-3">{formatDate(row.vencimento_em)}</td><td className="px-4 py-3"><StatusBadge status={row.status}/></td><td className={`px-4 py-3 text-right ${row.tipo==='entrada'?'text-success':'text-danger'}`}>{money(row.valor_previsto)}</td><td className="px-4 py-3 text-right font-medium">{row.valor_realizado?money(row.valor_realizado):'—'}</td><td className="px-4 py-3 text-right">{['previsto','vencido'].includes(row.status)&&<div className="inline-flex gap-2"><button className="btn-outline text-xs" disabled={realize.isPending} onClick={()=>realize.mutate(row)}>Realizar</button><button className="text-xs text-danger" disabled={cancel.isPending} onClick={()=>cancel.mutate(row)}>Cancelar</button></div>}</td></tr>)}</tbody></table></div>}</section>}
 
-export function AdminFinanceiro() {
-  const qc = useQueryClient()
-  const [erro, setErro] = useState<string | null>(null)
-  const [statusFiltro, setStatusFiltro] = useState<'prevista' | 'aprovada' | 'paga' | 'todas'>('prevista')
+function RecorrenciasTab({rows,loading,onNew,onChanged}:{rows:Recorrencia[];loading:boolean;onNew:()=>void;onChanged:()=>Promise<void>}){const toggle=useMutation({mutationFn:async(row:Recorrencia)=>{const{error}=await supabase.from('financeiro_recorrencias').update({ativo:!row.ativo}).eq('id',row.id);if(error)throw error},onSuccess:onChanged});if(loading)return <Loading/>;return <section className="card overflow-hidden"><div className="flex items-center justify-between border-b border-silver-100 p-4"><div><h2 className="font-semibold text-navy">Recorrências mensais</h2><p className="text-xs text-silver-500">Alterações não reescrevem competências já geradas.</p></div><button className="btn-outline" onClick={onNew}><Plus className="h-4 w-4"/> Nova recorrência</button></div>{!rows.length?<Empty title="Nenhuma recorrência" text="Cadastre salários, aluguel, energia ou outras obrigações mensais."/>:<div className="divide-y divide-silver-100">{rows.map(row=><div key={row.id} className="flex flex-wrap items-center gap-4 p-4"><Repeat2 className="h-5 w-5 text-red-700"/><div className="min-w-48 flex-1"><p className="font-medium text-navy">{row.descricao}</p><p className="text-xs text-silver-500">{row.categoria?.nome} · vence dia {row.dia_vencimento}</p></div><p className={row.tipo==='entrada'?'font-bold text-success':'font-bold text-danger'}>{money(row.valor_previsto)}</p><button className="btn-outline text-xs" disabled={toggle.isPending} onClick={()=>toggle.mutate(row)}>{row.ativo?'Pausar':'Reativar'}</button></div>)}</div>}</section>}
 
-  const sumQuery = useQuery({
-    queryKey: ['admin-financeiro-sum'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('v_financeiro_admin').select('*').single()
-      if (error) throw error
-      return data as FinSummary
-    },
-  })
+function ComissoesTab({rows,loading,onChanged,setFeedback}:{rows:Comissao[];loading:boolean;onChanged:()=>Promise<void>;setFeedback:(v:string)=>void}){const approve=useMutation({mutationFn:async(id:string)=>{const{error}=await supabase.rpc('comissao_aprovar',{p_comissao_id:id,p_observacao:null});if(error)throw error},onSuccess:onChanged});const pay=useMutation({mutationFn:async(id:string)=>{let{error}=await supabase.rpc('financeiro_comissao_marcar_paga',{p_comissao_id:id,p_data:null,p_justificativa_excecao:null});if(error?.message.includes('fechamento_anterior_pendente')){const reason=window.prompt('Fechamento anterior pendente. Justifique a exceção para continuar:');if(!reason)return;({error}=await supabase.rpc('financeiro_comissao_marcar_paga',{p_comissao_id:id,p_data:null,p_justificativa_excecao:reason}))}if(error)throw error},onSuccess:async()=>{setFeedback('Comissão marcada como paga.');await onChanged()}});if(loading)return <Loading/>;return <section className="card overflow-hidden"><div className="border-b border-silver-100 p-4"><h2 className="font-semibold text-navy">Comissões de parceiros</h2><p className="text-xs text-silver-500">Receita bruta da Mercúrio e repasse ao parceiro são grandezas separadas.</p></div>{!rows.length?<Empty title="Nenhuma comissão calculada" text="Uma condição comercial aprovada e uma liberação real são necessárias."/>:<div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-silver-50 text-left text-xs uppercase text-silver-500"><tr><th className="px-4 py-3">Parceiro</th><th className="px-4 py-3">Protocolo</th><th className="px-4 py-3 text-right">Percentual</th><th className="px-4 py-3 text-right">Valor</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Ações</th></tr></thead><tbody>{rows.map(row=><tr key={row.id} className="border-t border-silver-100"><td className="px-4 py-3 font-medium text-navy">{row.partner_nome??'—'}</td><td className="px-4 py-3 font-mono text-xs">{row.protocolo??'—'}</td><td className="px-4 py-3 text-right">{Number(row.percentual).toFixed(2)}%</td><td className="px-4 py-3 text-right font-bold">{money(row.valor)}</td><td className="px-4 py-3"><StatusBadge status={row.status}/></td><td className="px-4 py-3 text-right"><div className="inline-flex gap-2">{row.status==='prevista'&&<button className="btn-outline text-xs" onClick={()=>approve.mutate(row.id)}>Aprovar</button>}{row.status!=='paga'&&<button className="btn-gold text-xs" onClick={()=>pay.mutate(row.id)}>Marcar paga</button>}</div></td></tr>)}</tbody></table></div>}</section>}
 
-  const comissoesQuery = useQuery({
-    queryKey: ['admin-comissoes', statusFiltro],
-    queryFn: async () => {
-      let q = supabase.from('v_comissoes_admin')
-        .select('id, proposta_id, partner_id, percentual, valor, status, paga_em, aprovada_em, created_at, observacao, partner_nome, partner_email, protocolo')
-        .order('created_at', { ascending: false })
-        .limit(200)
-      if (statusFiltro !== 'todas') q = q.eq('status', statusFiltro)
-      const { data, error } = await q
-      if (error) throw error
-      return (data ?? []) as ComissaoRow[]
-    },
-  })
+function FechamentoTab({previousMonth,pending,rows,onChanged,setFeedback}:{previousMonth:string;pending:Lancamento[];rows:Fechamento[];onChanged:()=>Promise<void>;setFeedback:(v:string)=>void}){const[reopenOpen,setReopenOpen]=useState(false);const current=rows.find(r=>r.competencia===previousMonth);const close=useMutation({mutationFn:async()=>{const{error}=await supabase.rpc('financeiro_fechar_competencia',{p_competencia:previousMonth,p_observacao:null});if(error)throw error},onSuccess:async()=>{setFeedback('Competência fechada e protegida contra alterações.');await onChanged()},onError:e=>setFeedback(errorMessage(e))});const reopen=useMutation({mutationFn:async(reason:string)=>{const{error}=await supabase.rpc('financeiro_reabrir_competencia',{p_competencia:previousMonth,p_motivo:reason});if(error)throw error},onSuccess:async()=>{setReopenOpen(false);setFeedback('Competência reaberta com justificativa registrada na auditoria.');await onChanged()}});const materialize=useMutation({mutationFn:async()=>{const{data,error}=await supabase.rpc('financeiro_materializar_recorrencias',{p_competencia:previousMonth});if(error)throw error;return Number(data)},onSuccess:async n=>{setFeedback(`${n} lançamento(s) recorrente(s) gerado(s).`);await onChanged()}});const closeReopen=()=>{if(reopen.isPending)return;reopen.reset();setReopenOpen(false)};return <><div className="grid gap-5 lg:grid-cols-3"><section className="card p-5 lg:col-span-2"><div className="flex items-start justify-between gap-4"><div><h2 className="font-semibold text-navy">Fechamento de <span className="capitalize">{monthLabel(previousMonth)}</span></h2><p className="text-sm text-silver-500">Prazo operacional: dia 02. Repasses ficam bloqueados depois do prazo.</p></div><CalendarCheck className="h-7 w-7 text-red-700"/></div><div className="my-5 grid gap-3 sm:grid-cols-3"><Mini label="Situação" value={current?.status??'Não iniciado'}/><Mini label="Pendências" value={String(pending.length)} danger={pending.length>0}/><Mini label="Fechado em" value={current?.fechado_em?formatDate(current.fechado_em):'—'}/></div>{pending.length>0&&<Notice danger>Resolva ou cancele com justificativa todos os lançamentos pendentes antes de fechar.</Notice>}<div className="mt-5 flex flex-wrap gap-2"><button className="btn-outline" disabled={materialize.isPending||current?.status==='fechado'} onClick={()=>materialize.mutate()}><Repeat2 className="h-4 w-4"/> Gerar recorrências</button>{current?.status==='fechado'?<button className="btn-outline" disabled={reopen.isPending} onClick={()=>{reopen.reset();setReopenOpen(true)}}>Reabrir com justificativa</button>:<button className="btn-gold" disabled={close.isPending||pending.length>0} onClick={()=>close.mutate()}>{close.isPending&&<Loader2 className="h-4 w-4 animate-spin"/>} Fechar competência</button>}</div></section><section className="card p-5"><h2 className="mb-4 font-semibold text-navy">Histórico</h2>{!rows.length?<p className="text-sm text-silver-500">Nenhum fechamento.</p>:<div className="space-y-3">{rows.map(row=><div key={row.id} className="flex items-center justify-between border-b border-silver-100 pb-3"><div><p className="capitalize text-sm font-medium">{monthLabel(row.competencia)}</p><p className="text-xs text-silver-500">Prazo {formatDate(row.prazo_fechamento)}</p></div><StatusBadge status={row.status}/></div>)}</div>}</section></div><ReasonDialog open={reopenOpen} title="Reabrir competência" description="Esta ação libera novamente a competência para ajustes financeiros e fica registrada na auditoria." context={`Competência: ${monthLabel(previousMonth)}`} confirmLabel="Confirmar reabertura" pending={reopen.isPending} serverError={reopen.error?errorMessage(reopen.error):null} onClose={closeReopen} onConfirm={reason=>reopen.mutate(reason)}/></>}
 
-  const aprovarMut = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc('comissao_aprovar', { p_comissao_id: id })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['admin-comissoes'] })
-      void qc.invalidateQueries({ queryKey: ['admin-financeiro-sum'] })
-    },
-    onError: (e) => setErro(e instanceof Error ? e.message : 'falha'),
-  })
+function LancamentoDrawer({categorias,onClose,onSaved}:{categorias:Categoria[];onClose:()=>void;onSaved:()=>Promise<void>}){const[tipo,setTipo]=useState<Tipo>('saida');const[valor,setValor]=useState(0);const[saving,setSaving]=useState(false);const[error,setError]=useState<string|null>(null);const submit=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();setError(null);if(valor<=0){setError('Informe um valor maior que zero.');return}setSaving(true);const fd=new FormData(e.currentTarget);const status=fd.get('realizado')?'realizado':'previsto';const payload={tipo,categoria_id:String(fd.get('categoria')),descricao:String(fd.get('descricao')).trim(),contraparte:String(fd.get('contraparte')).trim()||null,competencia:`${String(fd.get('competencia'))}-01`,vencimento_em:String(fd.get('vencimento')),valor_previsto:valor,status,valor_realizado:status==='realizado'?valor:null,realizado_em:status==='realizado'?String(fd.get('realizado_em')):null};const{error:err}=await supabase.from('financeiro_lancamentos').insert(payload);setSaving(false);if(err){setError(err.message);return}await onSaved()};return <Drawer title="Novo lançamento" onClose={onClose}><form onSubmit={submit} className="flex h-full flex-col"><div className="flex-1 space-y-5 overflow-y-auto p-6"><div className="grid grid-cols-2 gap-2"><Choice active={tipo==='entrada'} onClick={()=>setTipo('entrada')} label="Entrada" icon={ArrowUpRight}/><Choice active={tipo==='saida'} onClick={()=>setTipo('saida')} label="Saída" icon={ArrowDownRight}/></div><div className="grid gap-4 sm:grid-cols-2"><Field label="Categoria"><select required name="categoria" className="input"><option value="">Selecione</option>{categorias.filter(c=>c.tipo===tipo).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</select></Field><MoneyInput label="Valor previsto" value={valor} onChange={setValor} required/></div><Field label="Descrição"><input required maxLength={180} name="descricao" className="input" placeholder="Ex.: Energia elétrica do escritório"/></Field><Field label="Contraparte"><input name="contraparte" className="input" placeholder="Fornecedor ou recebedor"/></Field><div className="grid gap-4 sm:grid-cols-3"><Field label="Competência"><input required name="competencia" type="month" defaultValue={monthStart().slice(0,7)} className="input"/></Field><Field label="Vencimento"><input required name="vencimento" type="date" className="input"/></Field><Field label="Data realizada"><input name="realizado_em" type="date" defaultValue={iso(new Date())} className="input"/></Field></div><label className="flex items-center gap-3 rounded-lg bg-silver-50 p-4 text-sm"><input name="realizado" type="checkbox"/> Registrar como realizado</label>{error&&<Notice danger>{error}</Notice>}</div><DrawerFooter saving={saving} onClose={onClose}/></form></Drawer>}
 
-  const pagarMut = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc('comissao_marcar_paga', { p_comissao_id: id })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['admin-comissoes'] })
-      void qc.invalidateQueries({ queryKey: ['admin-financeiro-sum'] })
-    },
-    onError: (e) => setErro(e instanceof Error ? e.message : 'falha'),
-  })
+function RecorrenciaDrawer({categorias,onClose,onSaved}:{categorias:Categoria[];onClose:()=>void;onSaved:()=>Promise<void>}){const[tipo,setTipo]=useState<Tipo>('saida');const[valor,setValor]=useState(0);const[saving,setSaving]=useState(false);const[error,setError]=useState<string|null>(null);const submit=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();setError(null);if(valor<=0){setError('Informe um valor maior que zero.');return}setSaving(true);const fd=new FormData(e.currentTarget);const{error:err}=await supabase.from('financeiro_recorrencias').insert({tipo,categoria_id:String(fd.get('categoria')),descricao:String(fd.get('descricao')).trim(),contraparte:String(fd.get('contraparte')).trim()||null,valor_previsto:valor,dia_vencimento:Number(fd.get('dia')),inicio_em:String(fd.get('inicio'))+'-01',fim_em:fd.get('fim')?String(fd.get('fim'))+'-01':null});setSaving(false);if(err){setError(err.message);return}await onSaved()};return <Drawer title="Nova recorrência mensal" onClose={onClose}><form onSubmit={submit} className="flex h-full flex-col"><div className="flex-1 space-y-5 overflow-y-auto p-6"><div className="grid grid-cols-2 gap-2"><Choice active={tipo==='entrada'} onClick={()=>setTipo('entrada')} label="Entrada" icon={ArrowUpRight}/><Choice active={tipo==='saida'} onClick={()=>setTipo('saida')} label="Saída" icon={ArrowDownRight}/></div><Field label="Descrição"><input required name="descricao" className="input" placeholder="Ex.: Aluguel do escritório"/></Field><div className="grid gap-4 sm:grid-cols-2"><Field label="Categoria"><select required name="categoria" className="input"><option value="">Selecione</option>{categorias.filter(c=>c.tipo===tipo).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</select></Field><Field label="Contraparte"><input name="contraparte" className="input"/></Field><MoneyInput label="Valor mensal" value={valor} onChange={setValor} required/><Field label="Dia do vencimento"><input required name="dia" min="1" max="31" type="number" className="input"/></Field><Field label="Início"><input required name="inicio" type="month" defaultValue={monthStart().slice(0,7)} className="input"/></Field><Field label="Fim opcional"><input name="fim" type="month" className="input"/></Field></div>{error&&<Notice danger>{error}</Notice>}</div><DrawerFooter saving={saving} onClose={onClose}/></form></Drawer>}
 
-  const sum = sumQuery.data
-  const comissoes = comissoesQuery.data ?? []
-
-  return (
-    <>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-navy">Financeiro</h1>
-        <p className="text-sm text-silver-500">Volume de liberações e comissões dos parceiros.</p>
-      </div>
-
-      {erro && (
-        <div className="mb-4 flex items-start gap-2 rounded border border-danger/30 bg-danger/5 p-3 text-xs text-danger">
-          <AlertTriangle className="mt-0.5 h-4 w-4" /> {erro}
-        </div>
-      )}
-
-      {/* KPIs */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi icon={DollarSign} label="Volume liberado (mês)" value={sum ? brl(cents(sum.volume_mes)) : '—'} />
-        <Kpi icon={TrendingUp} label="Ticket médio" value={sum ? brl(cents(sum.ticket_medio)) : '—'} />
-        <Kpi icon={CheckCircle2} label="Comissões pagas" value={sum ? brl(cents(sum.comissoes_pagas)) : '—'} />
-        <Kpi icon={BadgeCheck} label="Comissões previstas" value={sum ? brl(cents(sum.comissoes_previstas)) : '—'}
-          sub={sum ? `${sum.comissoes_qtd_prevista} pendente${sum.comissoes_qtd_prevista !== 1 ? 's' : ''}` : ''} />
-      </div>
-
-      {/* Histórico mensal */}
-      {sum?.historico_mensal && sum.historico_mensal.length > 0 && (
-        <div className="card mb-6 overflow-x-auto p-5">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-silver-500">Liberações por mês</h3>
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase text-silver-500">
-              <tr><th className="py-2">Mês</th><th className="py-2 text-right">Liberações</th><th className="py-2 text-right">Volume</th></tr>
-            </thead>
-            <tbody>
-              {sum.historico_mensal.map(m => (
-                <tr key={m.mes} className="border-t border-silver-100">
-                  <td className="py-2">{new Date(m.mes).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</td>
-                  <td className="py-2 text-right">{m.qtd}</td>
-                  <td className="py-2 text-right font-medium">{brl(cents(m.volume))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Comissões */}
-      <div className="card overflow-hidden">
-        <div className="flex items-center justify-between border-b border-silver-100 p-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-silver-500">Comissões</h3>
-          <div className="flex gap-1">
-            {(['prevista','aprovada','paga','todas'] as const).map(s => (
-              <button key={s} onClick={() => setStatusFiltro(s)}
-                className={`rounded-md px-3 py-1 text-xs font-medium ${statusFiltro === s ? 'bg-navy text-white' : 'bg-silver-50 text-silver-700 hover:bg-silver-100'}`}>
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-        {comissoesQuery.isLoading ? (
-          <div className="p-10 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin text-red-700" /></div>
-        ) : comissoes.length === 0 ? (
-          <p className="p-10 text-center text-sm text-silver-500">Nenhuma comissão.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase text-silver-500" style={{ backgroundColor: '#f9f9f9' }}>
-              <tr>
-                <th className="px-4 py-3">Parceiro</th>
-                <th className="px-4 py-3">Protocolo</th>
-                <th className="px-4 py-3 text-right">%</th>
-                <th className="px-4 py-3 text-right">Valor</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Data</th>
-                <th className="px-4 py-3 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {comissoes.map(c => (
-                <tr key={c.id} className="border-t border-silver-100 hover:bg-silver-50">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-navy">{c.partner_nome ?? '—'}</p>
-                    <p className="text-xs text-silver-500">{c.partner_email ?? ''}</p>
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs text-silver-600">{c.protocolo ?? '—'}</td>
-                  <td className="px-4 py-3 text-right">{Number(c.percentual).toFixed(2)}%</td>
-                  <td className="px-4 py-3 text-right font-bold text-navy">{brl(cents(c.valor))}</td>
-                  <td className="px-4 py-3">
-                    <span className={`badge ${
-                      c.status === 'paga' ? 'bg-success/15 text-success' :
-                      c.status === 'aprovada' ? 'bg-blue-100 text-blue-700' :
-                      'bg-yellow-100 text-yellow-700'
-                    }`}>{c.status}</span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-silver-500">{new Date(c.created_at).toLocaleDateString('pt-BR')}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="inline-flex gap-1">
-                      {c.status === 'prevista' && (
-                        <button className="btn-outline text-xs" disabled={aprovarMut.isPending}
-                          onClick={() => aprovarMut.mutate(c.id)}>Aprovar</button>
-                      )}
-                      {c.status !== 'paga' && (
-                        <button className="btn-gold text-xs" disabled={pagarMut.isPending}
-                          onClick={() => pagarMut.mutate(c.id)}>Marcar paga</button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </>
-  )
-}
-
-function Kpi({ icon: Icon, label, value, sub }: { icon: typeof DollarSign; label: string; value: string; sub?: string }) {
-  return (
-    <div className="card p-4">
-      <div className="flex items-center gap-2 text-silver-500">
-        <Icon className="h-4 w-4 text-red-700" />
-        <p className="text-xs uppercase tracking-wide">{label}</p>
-      </div>
-      <p className="mt-2 text-xl font-bold text-navy">{value}</p>
-      {sub && <p className="text-xs text-silver-500">{sub}</p>}
-    </div>
-  )
-}
-
+function Drawer({title,onClose,children}:{title:string;onClose:()=>void;children:React.ReactNode}){return <div className="fixed inset-0 z-50 flex justify-end bg-navy/45" role="dialog" aria-modal="true"><div className="h-full w-full max-w-3xl bg-white shadow-2xl"><div className="flex h-16 items-center justify-between border-b border-silver-200 px-6"><h2 className="text-lg font-bold text-navy">{title}</h2><button onClick={onClose} aria-label="Fechar"><X className="h-5 w-5"/></button></div><div className="h-[calc(100%-4rem)]">{children}</div></div></div>}
+function DrawerFooter({saving,onClose}:{saving:boolean;onClose:()=>void}){return <div className="flex justify-end gap-2 border-t border-silver-200 p-4"><button type="button" className="btn-outline" onClick={onClose}>Cancelar</button><button className="btn-gold" disabled={saving}>{saving&&<Loader2 className="h-4 w-4 animate-spin"/>} Salvar</button></div>}
+function Choice({active,onClick,label,icon:Icon}:{active:boolean;onClick:()=>void;label:string;icon:typeof ArrowUpRight}){const entrada=label==='Entrada';const activeTone=entrada?'border-success bg-success/10 text-success ring-success/20':'border-danger bg-danger/10 text-danger ring-danger/20';return <button type="button" aria-pressed={active} onClick={onClick} className={`btn-no-liquid flex items-center justify-center gap-2 rounded-lg border p-3 text-sm font-semibold transition-colors ${active?`${activeTone} ring-2`:'border-silver-200 bg-white text-silver-500 hover:bg-silver-50'}`}><span className={`h-2 w-2 rounded-full ${active?(entrada?'bg-success':'bg-danger'):'bg-silver-300'}`} aria-hidden="true"/><Icon className="h-4 w-4"/>{label}</button>}
+function Field({label,children}:{label:string;children:React.ReactNode}){return <label className="block text-xs font-medium text-silver-600"><span className="mb-1 block">{label}</span>{children}</label>}
+function Kpi({icon:Icon,label,value,tone}:{icon:typeof ArrowUpRight;label:string;value:string;tone?:'success'|'danger'}){return <div className="card border-t-2 p-4" style={{borderTopColor:tone==='success'?'#16A34A':tone==='danger'?'#DC2626':'#0F172A'}}><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-silver-500"><Icon className="h-4 w-4"/>{label}</p><p className={`mt-2 text-xl font-bold ${tone==='success'?'text-success':tone==='danger'?'text-danger':'text-navy'}`}>{value}</p></div>}
+function Metric({label,value,danger}:{label:string;value:string;danger?:boolean}){return <div className="flex justify-between border-b border-silver-100 py-3 text-sm"><span className="text-silver-600">{label}</span><strong className={danger?'text-danger':'text-navy'}>{value}</strong></div>}
+function Mini({label,value,danger}:{label:string;value:string;danger?:boolean}){return <div className="rounded-lg bg-silver-50 p-3"><p className="text-xs text-silver-500">{label}</p><p className={`mt-1 font-semibold capitalize ${danger?'text-danger':'text-navy'}`}>{value}</p></div>}
+function StatusBadge({status}:{status:string}){const tone=status==='realizado'||status==='paga'||status==='fechado'?'bg-success/15 text-success':status==='vencido'||status==='cancelado'?'bg-danger/10 text-danger':'bg-yellow-100 text-yellow-700';return <span className={`badge capitalize ${tone}`}>{status}</span>}
+function Notice({children,danger}:{children:React.ReactNode;danger?:boolean}){return <div className={`mb-4 flex gap-2 rounded-lg border p-3 text-sm ${danger?'border-danger/30 bg-danger/5 text-danger':'border-success/30 bg-success/5 text-success'}`}><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0"/>{children}</div>}
+function Empty({title,text,compact}:{title:string;text:string;compact?:boolean}){return <div className={compact?'py-8 text-center':'px-6 py-16 text-center'}><CheckCircle2 className="mx-auto h-10 w-10 text-silver-300"/><h3 className="mt-3 font-semibold text-navy">{title}</h3><p className="mx-auto mt-1 max-w-md text-sm text-silver-500">{text}</p></div>}
+function Loading(){return <div className="flex justify-center py-20"><Loader2 className="h-7 w-7 animate-spin text-red-700"/></div>}
+function formatDate(value:string){return new Date(`${value.slice(0,10)}T12:00:00`).toLocaleDateString('pt-BR')}
+function errorMessage(error:unknown){return error instanceof Error?error.message:'Não foi possível carregar os dados.'}

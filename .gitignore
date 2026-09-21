@@ -22,3 +22,4 @@ supabase/.branches/
 
 # Certificados/credenciais locais (nunca versionar)
 certificates_LOCAL/
+.local-secrets/

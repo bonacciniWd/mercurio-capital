@@ -3,7 +3,7 @@ export const PROPOSTA_KANBAN_STATUS = [
   'comite', 'proposta_cliente', 'diligencia_juridica', 'emissao_contrato',
   'aguardando_assinatura', 'protocolo_cartorio', 'exigencias_cartorio',
   'custas_cartorio', 'registro_af', 'recurso_liberado',
-  'pagamento_comissao', 'completo',
+  'pagamento_comissao', 'completo', 'standby',
 ] as const
 
 export type PropostaKanbanStatus = typeof PROPOSTA_KANBAN_STATUS[number]
@@ -16,7 +16,7 @@ export const PROPOSTA_STATUS_LABEL: Record<string, string> = {
   protocolo_cartorio: 'Protocolo Cartório', exigencias_cartorio: 'Exigências Cartório',
   custas_cartorio: 'Custas Cartório', registro_af: 'Registro de AF',
   recurso_liberado: 'Recurso Liberado', pagamento_comissao: 'Pagamento de Comissão',
-  completo: 'Concluído', cancelado: 'Cancelado',
+  completo: 'Concluído', cancelado: 'Cancelado', standby: 'Standby',
   resolucao_pendencias: 'Diligência Jurídica (legado)',
   em_registro: 'Protocolo Cartório (legado)',
   contrato_registrado: 'Registro de AF (legado)',

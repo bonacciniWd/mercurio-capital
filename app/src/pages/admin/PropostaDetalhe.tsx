@@ -6,9 +6,11 @@ import {
   ArrowLeft,
   Building2,
   CheckCircle2,
+  CircleDollarSign,
   FileSignature,
   FileText,
   History,
+  Eye,
   Loader2,
   Pencil,
   Plus,
@@ -28,7 +30,9 @@ import { PropostaPendencias } from '@/components/PropostaPendencias'
 import { PropostaConsultas } from '@/components/PropostaConsultas'
 import { PropostaContrato } from '@/components/PropostaContrato'
 import { PropostaFundos } from '@/components/PropostaFundos'
+import { PropostaCondicaoComercial } from '@/components/PropostaCondicaoComercial'
 import { useAuth } from '@/auth/AuthContext'
+import { createPropostaDocumentoSignedUrl, openPropostaDocumento } from '@/lib/propostaDocumento'
 import {
   buildChecklist,
   CATEGORIA_LABEL,
@@ -44,7 +48,7 @@ function maskCpfCnpj(cpf: string | null | undefined, cnpj: string | null | undef
   return '—'
 }
 
-const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Pendências', 'Consultas', 'Contrato', 'Histórico'] as const
+const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Pendências', 'Consultas', 'Contrato', 'Financeiro', 'Histórico'] as const
 
 const TAB_DOM_ID: Record<typeof TABS[number], string> = {
   Resumo: 'resumo',
@@ -54,6 +58,7 @@ const TAB_DOM_ID: Record<typeof TABS[number], string> = {
   Pendências: 'pendencias',
   Consultas: 'consultas',
   Contrato: 'contrato',
+  Financeiro: 'financeiro',
   Histórico: 'historico',
 }
 
@@ -65,6 +70,7 @@ const TAB_ICON: Record<typeof TABS[number], React.ComponentType<{ className?: st
   Pendências: AlertTriangle,
   Consultas: Search,
   Contrato: FileSignature,
+  Financeiro: CircleDollarSign,
   Histórico: History,
 }
 
@@ -82,6 +88,7 @@ const STATUS_LABEL: Record<string, string> = {
   em_registro: 'Em Registro',
   contrato_registrado: 'Contrato Registrado',
   recurso_liberado: 'Recurso Liberado',
+  standby: 'Standby',
   cancelado: 'Cancelada',
 }
 
@@ -99,6 +106,7 @@ const STATUS_ORDER = [
   'em_registro',
   'contrato_registrado',
   'recurso_liberado',
+  'standby',
   'cancelado',
 ] as const
 
@@ -291,6 +299,7 @@ interface HistoricoRow {
   status_novo: string
   motivo: string | null
   created_at: string
+  metadata?: Record<string, unknown>
 }
 
 interface DocRow {
@@ -312,6 +321,8 @@ export function AdminPropostaDetalhe() {
   const [tab, setTab] = useState<typeof TABS[number]>('Resumo')
   const [novoStatus, setNovoStatus] = useState<string>('')
   const [motivo, setMotivo] = useState('')
+  const [dataComissao, setDataComissao] = useState('')
+  const [motivoComissao, setMotivoComissao] = useState('')
   const canEdit = !isAdminJuridico
   const [editResumo, setEditResumo] = useState(false)
   const [produtoForm, setProdutoForm] = useState<ProdutoForm | null>(null)
@@ -321,6 +332,25 @@ export function AdminPropostaDetalhe() {
   const [editImoveis, setEditImoveis] = useState(false)
   const [imoveisForm, setImoveisForm] = useState<Array<Imovel & { _novo?: boolean }>>([])
   const [imoveisError, setImoveisError] = useState<string | null>(null)
+  const [documentoAbrindoId, setDocumentoAbrindoId] = useState<string | null>(null)
+  const [documentoVisualizacaoError, setDocumentoVisualizacaoError] = useState<string | null>(null)
+
+  async function handleVisualizarDocumento(documento: DocRow) {
+    if (!documento.storage_path) return
+
+    setDocumentoVisualizacaoError(null)
+    setDocumentoAbrindoId(documento.id)
+    try {
+      const signedUrl = await createPropostaDocumentoSignedUrl(documento.storage_path)
+      openPropostaDocumento(signedUrl)
+    } catch (err) {
+      setDocumentoVisualizacaoError(
+        err instanceof Error ? err.message : 'Não foi possível visualizar o documento.',
+      )
+    } finally {
+      setDocumentoAbrindoId(null)
+    }
+  }
 
   const { data: proposta, isLoading, error } = useQuery({
     queryKey: ['admin-proposta', id],
@@ -384,7 +414,7 @@ export function AdminPropostaDetalhe() {
     queryFn: async (): Promise<HistoricoRow[]> => {
       const { data, error } = await supabase
         .from('proposta_status_historico')
-        .select('id, status_anterior, status_novo, motivo, created_at')
+        .select('id, status_anterior, status_novo, motivo, metadata, created_at')
         .eq('proposta_id', id!)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -436,6 +466,20 @@ export function AdminPropostaDetalhe() {
       qc.invalidateQueries({ queryKey: ['admin-propostas'] })
       setMotivo('')
       setNovoStatus('')
+    },
+  })
+
+  const comissaoHistoricaMut = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('admin_corrigir_entrada_pagamento_comissao', {
+        p_proposta_id: id!, p_data: dataComissao, p_motivo: motivoComissao,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-proposta-historico', id] })
+      setDataComissao('')
+      setMotivoComissao('')
     },
   })
 
@@ -609,7 +653,7 @@ export function AdminPropostaDetalhe() {
           </div>
         </div>
 
-        <div className="flex w-full flex-col gap-3 lg:w-96">
+        <div className="flex w-full flex-row gap-3 lg:w-full">
           {!isAdminJuridico && (
             <div className="card p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-silver-500">Alterar status</p>
@@ -625,7 +669,7 @@ export function AdminPropostaDetalhe() {
                   ))}
                 </select>
                 <input
-                  className="input"
+                  className="input" style={{ minWidth: '200px', minHeight: '150px',  }}
                   placeholder="Motivo / observação"
                   value={motivo}
                   onChange={(e) => setMotivo(e.target.value)}
@@ -1169,6 +1213,11 @@ export function AdminPropostaDetalhe() {
 
           <div className="card p-5">
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-silver-500">Validação de documentos</h3>
+            {documentoVisualizacaoError && (
+              <div role="alert" className="mb-3 rounded-md border border-danger/20 bg-danger/5 px-3 py-2 text-sm text-danger">
+                {documentoVisualizacaoError}
+              </div>
+            )}
             {(() => {
               const reais = (docs ?? []).filter((d) => d.storage_path)
               if (!docs) return <div className="p-6 text-center text-sm text-silver-500">Carregando…</div>
@@ -1187,9 +1236,20 @@ export function AdminPropostaDetalhe() {
                         {d.categoria} · {d.origem || '—'} · {new Date(d.created_at).toLocaleString('pt-BR')}
                       </p>
                     </div>
-                    {!isAdminJuridico && (
-                      <div className="flex gap-2">
-                        {!d.validado ? (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="btn-outline inline-flex items-center gap-1"
+                        disabled={documentoAbrindoId === d.id}
+                        onClick={() => void handleVisualizarDocumento(d)}
+                      >
+                        {documentoAbrindoId === d.id
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <Eye className="h-4 w-4" />}
+                        {documentoAbrindoId === d.id ? 'Abrindo…' : 'Visualizar'}
+                      </button>
+                      {!isAdminJuridico && (
+                        !d.validado ? (
                           <button
                             className="btn-gold inline-flex items-center gap-1"
                             disabled={validarMut.isPending}
@@ -1205,9 +1265,9 @@ export function AdminPropostaDetalhe() {
                           >
                             <XCircle className="h-4 w-4" /> Reabrir
                           </button>
-                        )}
-                      </div>
-                    )}
+                        )
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -1231,8 +1291,23 @@ export function AdminPropostaDetalhe() {
         <PropostaContrato propostaId={id} role="admin" adminNivel={session?.adminNivel} />
       )}
 
+      {tab === 'Financeiro' && id && (
+        <PropostaCondicaoComercial propostaId={id} valorSugerido={valor} canEdit={canEdit} />
+      )}
+
       {tab === 'Histórico' && (
-        <div className="card overflow-x-auto">
+        <div className="space-y-4">
+          {canEdit && proposta && ['pagamento_comissao', 'completo'].includes(proposta.status) && <div className="card p-5">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-silver-500">Corrigir entrada em Pagamento de Comissão</h3>
+            <p className="mt-1 text-xs text-silver-600">Use somente quando a data real não estiver no histórico. A correção não muda o status atual.</p>
+            <div className="mt-4 grid gap-3 md:grid-cols-[180px_1fr_auto] md:items-end">
+              <label className="text-xs font-medium text-silver-600">Data real<input className="input mt-1" type="date" value={dataComissao} onChange={e => setDataComissao(e.target.value)} /></label>
+              <label className="text-xs font-medium text-silver-600">Motivo<input className="input mt-1" minLength={5} value={motivoComissao} onChange={e => setMotivoComissao(e.target.value)} placeholder="Ex.: conferido no comprovante" /></label>
+              <button className="btn-gold" disabled={!dataComissao || motivoComissao.trim().length < 5 || comissaoHistoricaMut.isPending} onClick={() => comissaoHistoricaMut.mutate()}>Registrar correção</button>
+            </div>
+            {comissaoHistoricaMut.error && <p className="mt-2 text-xs text-danger">{comissaoHistoricaMut.error.message}</p>}
+          </div>}
+          <div className="card overflow-x-auto">
           {!historico ? (
             <div className="p-10 text-center text-sm text-silver-500">Carregando…</div>
           ) : historico.length === 0 ? (
@@ -1248,6 +1323,7 @@ export function AdminPropostaDetalhe() {
                       ) : null}
                       <b className="text-navy">{STATUS_LABEL[h.status_novo] || h.status_novo}</b>
                     </p>
+                    {h.metadata?.correcao_historica === true && <p className="text-xs font-medium text-red-700">Correção histórica da data de entrada em comissão</p>}
                     {h.motivo && <p className="text-xs text-silver-600">{h.motivo}</p>}
                     <p className="mt-1 text-xs text-silver-500">{new Date(h.created_at).toLocaleString('pt-BR')}</p>
                   </div>
@@ -1255,6 +1331,7 @@ export function AdminPropostaDetalhe() {
               ))}
             </ol>
           )}
+          </div>
         </div>
       )}
       </div>

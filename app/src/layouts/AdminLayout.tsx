@@ -1,8 +1,8 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Suspense } from 'react'
 import {
-  LayoutDashboard, UserCheck, Network, Kanban, FileText, Folder, Wallet, Tags, Coins,
-  BarChart3, GraduationCap, Workflow, Megaphone, Plug, Settings, ScrollText, Flag, Loader2, Trophy,
+  LayoutDashboard, UserCheck, Network, Kanban, FileText, Folder, Wallet, Coins,
+  BarChart3, GraduationCap, Settings, Loader2, Trophy,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { NotificationBell } from '@/components/NotificationBell'
@@ -15,21 +15,12 @@ const ITEMS = [
   { to: '/admin/rede', icon: Network, label: 'Rede' },
   { to: '/admin/kanban', icon: Kanban, label: 'Kanban' },
   { to: '/admin/propostas', icon: FileText, label: 'Propostas' },
-  // Financeiro — três telas distintas, aninhadas no menu
+  // Carteiras permanece como atalho operacional; os demais módulos financeiros ficam agrupados.
   { to: '/admin/financeiro/carteiras', icon: Wallet, label: 'Carteiras' },
-  { to: '/admin/financeiro/precos', icon: Tags, label: 'Preços' },
-  // O item "Comissões" aponta para /admin/financeiro (index do módulo financeiro).
-  // Usamos `end: true` para não ficar ativo quando estivermos em /carteiras ou /precos.
-  { to: '/admin/financeiro', icon: Coins, label: 'Comissões', end: true },
+  { to: '/admin/financeiro', icon: Coins, label: 'Financeiro', end: true },
   { to: '/admin/relatorios', icon: BarChart3, label: 'Relatórios' },
   { to: '/admin/universidade', icon: GraduationCap, label: 'Universidade' },
   { to: '/admin/milestones', icon: Trophy, label: 'Milestones' },
-  { to: '/admin/fluxos', icon: Workflow, label: 'Fluxos' },
-  { to: '/admin/campanhas', icon: Megaphone, label: 'Campanhas' },
-  { to: '/admin/templates', icon: FileText, label: 'Templates' },
-  { to: '/admin/feature-flags', icon: Flag, label: 'Feature flags' },
-  { to: '/admin/integracoes', icon: Plug, label: 'Integrações' },
-  { to: '/admin/auditoria', icon: ScrollText, label: 'Auditoria' },
   { to: '/admin/configuracoes', icon: Settings, label: 'Configurações' },
 ]
 

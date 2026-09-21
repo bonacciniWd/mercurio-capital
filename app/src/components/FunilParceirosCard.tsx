@@ -12,9 +12,9 @@ type FunilRow = {
 }
 
 const STEPS = [
-  { key: 'convidados',        label: 'Convidados',        icon: Mail,          accent: '#0F172A' },
-  { key: 'ativaram',          label: 'Ativaram conta',    icon: LogIn,         accent: '#0EA5E9' },
-  { key: 'enviaram_docs',     label: 'Enviaram docs',     icon: FileCheck2,    accent: '#6366F1' },
+  { key: 'convidados',        label: 'Convidados',        icon: Mail,          accent: '#343A40' },
+  { key: 'ativaram',          label: 'Ativaram conta',    icon: LogIn,         accent: '#6C757D' },
+  { key: 'enviaram_docs',     label: 'Enviaram docs',     icon: FileCheck2,    accent: '#ADB5BD' },
   { key: 'aprovados',         label: 'Aprovados',         icon: ShieldCheck,   accent: '#16A34A' },
   { key: 'com_proposta',      label: '1ª proposta',       icon: FileSignature, accent: '#F59E0B' },
   { key: 'com_comissao_paga', label: 'Comissão paga',     icon: Banknote,      accent: '#DC2626' },
@@ -42,7 +42,7 @@ export function FunilParceirosCard() {
     <div className="card p-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="font-semibold text-navy">Funil de parceiros</h2>
+          <h2 className="font-semibold text-silver-900">Funil de parceiros</h2>
           <p className="text-xs text-silver-500">Do convite à primeira comissão paga.</p>
         </div>
       </div>
@@ -74,7 +74,7 @@ export function FunilParceirosCard() {
                     <Icon className="h-3.5 w-3.5" />
                     {step.label}
                   </div>
-                  <div className="text-2xl font-bold text-navy tabular-nums">{value}</div>
+                  <div className="text-2xl font-bold text-silver-900 tabular-nums">{value}</div>
                   {conv !== null && (
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-silver-500">vs etapa anterior</span>
@@ -86,7 +86,7 @@ export function FunilParceirosCard() {
                   {fromStart !== null && (
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-silver-500">vs convidados</span>
-                      <span className="font-semibold text-navy">{fromStart}%</span>
+                      <span className="font-semibold text-silver-900">{fromStart}%</span>
                     </div>
                   )}
                 </div>

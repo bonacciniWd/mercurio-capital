@@ -90,6 +90,13 @@ jobs:
           echo "Desktop version sincronizada para $app_version (tag: $RELEASE_TAG)"
           node -p "require('./package.json').version"
 
+      - name: Validate release consistency
+        working-directory: app
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: npm run validate:release
+
       - name: Build web app
         working-directory: app
         run: npm run build:desktop:web

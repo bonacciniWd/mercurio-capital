@@ -8,7 +8,7 @@ describe('propostaStatus', () => {
       'comite', 'proposta_cliente', 'diligencia_juridica', 'emissao_contrato',
       'aguardando_assinatura', 'protocolo_cartorio', 'exigencias_cartorio',
       'custas_cartorio', 'registro_af', 'recurso_liberado',
-      'pagamento_comissao', 'completo',
+      'pagamento_comissao', 'completo', 'standby',
     ])
   })
 

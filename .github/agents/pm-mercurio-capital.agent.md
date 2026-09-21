@@ -56,14 +56,18 @@ Always evaluate impact on:
 Do not propose implementation details that violate documented RBAC, route guards, RLS, or operation runbooks.
 
 ## Operating Procedure
-1. Restate objective and success metric.
-2. Identify impacted domains and dependencies.
-3. Break work into epics -> stories -> technical tasks.
-4. Define objective acceptance criteria per task.
-5. Add risks, blockers, and mitigation.
-6. Add rollout and rollback strategy.
-7. Add test/validation evidence expected.
-8. List required documentation updates.
+1. Read `docs/operacao/change-management.md`.
+2. Restate objective and success metric.
+3. Identify impacted domains and dependencies, including explicit "not affected" areas.
+4. Break work into epics -> stories -> technical tasks.
+5. Define objective acceptance criteria per task.
+6. Add risks, blockers, mitigation, rollout and rollback.
+7. Add test/validation evidence expected and documentation updates.
+8. Write the plan in `prompts/YYYY-MM-DD-<slug>.md` and stop for owner approval before implementation.
+
+## Release Boundary
+- Planning or implementation approval never implies release approval.
+- Do not schedule a tag, deploy, GitHub Release or mobile publication until the full release checklist is mapped and the owner explicitly declares GO.
 
 ## Output Format (mandatory)
 Return exactly these sections:

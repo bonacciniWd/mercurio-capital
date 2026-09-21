@@ -209,6 +209,45 @@
   }
 }
 
+/* Dashboard financeiro v2: controles administrativos neutros, sem o skin
+   global liquid. Vermelho identifica seleção/ação; textos permanecem cinza. */
+.admin-dashboard-v2 .text-navy,
+.admin-financeiro-v2 .text-navy {
+  color: #212529 !important;
+}
+
+.admin-financeiro-v2 button:not(.btn-no-liquid) {
+  border: 1px solid #ced4da !important;
+  border-radius: 0.375rem !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  color: #343a40 !important;
+  transform: none !important;
+}
+
+.admin-financeiro-v2 button:not(.btn-no-liquid)::before,
+.admin-financeiro-v2 button:not(.btn-no-liquid)::after {
+  content: none !important;
+  display: none !important;
+}
+
+.admin-financeiro-v2 button:not(.btn-no-liquid):hover {
+  border-color: rgba(185, 28, 28, 0.35) !important;
+  background: #fef2f2 !important;
+  color: #212529 !important;
+}
+
+.admin-financeiro-v2 .btn-gold:not(.btn-no-liquid) {
+  border-color: #b91c1c !important;
+  background: #b91c1c !important;
+  color: #fff !important;
+}
+
+.admin-financeiro-v2 .btn-gold:not(.btn-no-liquid):hover {
+  background: #991b1b !important;
+  color: #fff !important;
+}
+
 @keyframes moveGradient {
   0% {
     background-position: 0% 50%;

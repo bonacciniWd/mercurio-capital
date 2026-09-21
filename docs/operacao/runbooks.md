@@ -2,6 +2,8 @@
 
 > Procedimentos operacionais. Cada runbook tem: gatilho, diagnóstico, ação, validação, escalation.
 >
+> **Estado atual de versionamento (2026-09-03): `v0.2.0`.** Releases futuras exigem mapeamento integral, checklist e GO explícito do dono do produto; consultar `change-management.md` e `release-checklist.md`.
+>
 > **Release 0.1.0 (2026-07-23)**: web em produção via Vercel (Root Directory = `app`; deploy a partir da raiz do repositório com `.vercelignore` excluindo `node_modules`/`app/desktop`). Migrations até `20260722000010` aplicadas em `bhagksfvszeogtjvjtpx`. Edge Functions `documento-validar` e `cnpj-consultar` deployadas (requer `INVERTEXTO_TOKEN`).
 
 ## Sumário

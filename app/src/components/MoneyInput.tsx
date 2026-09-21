@@ -17,12 +17,13 @@ export function parseReaisInput(raw: string): number {
 }
 
 export function MoneyInput({
-  label, value, onChange, disabled, hint,
+  label, value, onChange, disabled, required, hint,
 }: {
   label: string
   value: number
   onChange?: (value: number) => void
   disabled?: boolean
+  required?: boolean
   hint?: string
 }) {
   const [focused, setFocused] = useState(false)
@@ -37,6 +38,7 @@ export function MoneyInput({
         inputMode="numeric"
         value={display}
         disabled={disabled}
+        required={required}
         placeholder="R$ 0,00"
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}

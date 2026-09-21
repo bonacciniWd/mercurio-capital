@@ -31,6 +31,7 @@ const STATUS_LABEL: Record<string, string> = {
   em_registro: 'Em Registro',
   contrato_registrado: 'Contrato Registrado',
   recurso_liberado: 'Recurso Liberado',
+  standby: 'Standby',
   cancelado: 'Cancelado',
 }
 
@@ -40,7 +41,7 @@ const PRODUTO_LABEL: Record<string, string> = {
   financiamento_imobiliario: 'Financiamento Imobiliário',
 }
 
-const STATUS_FINAIS = new Set(['contrato_registrado', 'completo', 'cancelado'])
+const STATUS_FINAIS = new Set(['contrato_registrado', 'completo', 'cancelado', 'standby'])
 const STATUS_AGUARDANDO_CLIENTE = new Set(['proposta_cliente', 'resolucao_pendencias', 'aguardando_assinatura'])
 
 interface PropostaRow {

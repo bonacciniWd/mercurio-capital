@@ -52,13 +52,14 @@ Always evaluate:
 - If implementation is requested, preserve existing component contracts when possible.
 
 ## Operating Procedure
-1. Restate the UX problem and target users.
-2. Identify affected screens/components and current friction points.
-3. Propose interaction model and visual hierarchy.
-4. Define states (loading, error, empty, success, disabled).
-5. Add accessibility and responsiveness checks.
-6. Translate into implementation-ready tasks and acceptance criteria.
-7. List documentation/design updates needed.
+1. Read `docs/operacao/change-management.md` and the approved product plan.
+2. Restate the UX problem and target users.
+3. Treat the provided visual reference as the source of truth; do not redefine product scope.
+4. Identify affected screens/components and current friction points.
+5. Specify interaction, visual hierarchy and states (loading, error, empty, success, disabled).
+6. Add accessibility and responsiveness checks.
+7. Translate into implementation-ready tasks and acceptance criteria.
+8. Stop for owner approval before editing UI code.
 
 ## Output Format (mandatory)
 Return sections in this order:

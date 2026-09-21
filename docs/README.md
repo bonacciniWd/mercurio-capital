@@ -25,6 +25,8 @@ Esta pasta consolida o escopo da plataforma **Mercurio Capital** e as atualizaç
 - [Figma Make — Prompts](./design/figma-make-prompts.md)
 
 ### ⚙️ Operação ([`operacao/`](./operacao/))
+- [Gestão de mudanças](./operacao/change-management.md)
+- [Checklist unificado de release](./operacao/release-checklist.md)
 - [Runbooks operacionais](./operacao/runbooks.md)
 - [Release desktop macOS (signing + notarização)](./operacao/desktop-release-macos-signing.md)
 - [Plano de Disaster Recovery (PITR + dumps)](./operacao/dr-plan.md)
@@ -38,6 +40,9 @@ Esta pasta consolida o escopo da plataforma **Mercurio Capital** e as atualizaç
 - [Fase 10 → 11](./handoffs/15-handoff-fase10.md)
 - [Fundos/Docs/Contrato](./handoffs/16-handoff-fase-fundos-docs.md)
 - [Wizard Nova Proposta (Step 2/3 + composição de renda)](./handoffs/17-handoff-wizard-proposta.md)
+- [Fase 1 — visualização de documentos admin + recuperação de acesso](./handoffs/18-handoff-fase1-admin-documentos-recuperacao.md)
+- [Fase 2 — dashboard e gestão financeira admin](./handoffs/19-handoff-fase2-financeiro-admin.md)
+- [Fase 2.1 — dashboard UI profissional](./handoffs/20-handoff-fase2-1-dashboard-ui.md)
 
 ## Convenções
 

@@ -9,7 +9,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { canCreateProposta } from '@/lib/adminScope'
 import { KPICard } from '@/components/KPICard'
 import { calcularLTV } from '@/lib/credito'
-import { PROPOSTA_STATUS_LABEL } from '@/lib/propostaStatus'
+import { PROPOSTA_KANBAN_STATUS, PROPOSTA_STATUS_LABEL } from '@/lib/propostaStatus'
 import { FUNDO_STATUS_COLOR, FUNDO_STATUS_LABEL, type FundoStatus } from '@/lib/fundoStatus'
 
 const PRODUTO_LABEL: Record<string, string> = {
@@ -18,7 +18,12 @@ const PRODUTO_LABEL: Record<string, string> = {
   financiamento_imobiliario: 'Financiamento',
 }
 
-const STATUS_FINAIS = new Set(['contrato_registrado', 'completo', 'cancelado'])
+const STATUS_FINAIS = new Set(['contrato_registrado', 'completo', 'cancelado', 'standby'])
+const STATUS_FILTER_OPTIONS = [
+  ...PROPOSTA_KANBAN_STATUS,
+  'simulacao',
+  'cancelado',
+] as const
 
 type RpcRow = {
   id: string
@@ -202,8 +207,8 @@ export function AdminPropostas() {
         </div>
         <select className="input w-auto" value={statusF} onChange={(e) => setStatusF(e.target.value)}>
           <option value="all">Status: todos</option>
-          {Object.entries(PROPOSTA_STATUS_LABEL).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
+          {STATUS_FILTER_OPTIONS.map((status) => (
+            <option key={status} value={status}>{PROPOSTA_STATUS_LABEL[status]}</option>
           ))}
         </select>
         <select className="input w-auto" value={produtoF} onChange={(e) => setProdutoF(e.target.value)}>
