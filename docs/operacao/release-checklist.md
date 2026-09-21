@@ -1,10 +1,10 @@
 # Checklist de release — Mercurio Capital
 
-<!-- RELEASE_CURRENT_VERSION: 0.2.1 -->
+<!-- RELEASE_CURRENT_VERSION: 0.2.2 -->
 
 ## Regra de bloqueio
 
-Versao atualmente mapeada: `v0.2.1`.
+Versao atualmente mapeada: `v0.2.2`.
 
 Este checklist nao autoriza publicacao. E proibido criar tag, GitHub Release, promover deploy ou publicar build mobile antes de:
 
@@ -15,7 +15,7 @@ Este checklist nao autoriza publicacao. E proibido criar tag, GitHub Release, pr
 
 ## Identificacao
 
-- [x] Versao candidata: `v0.2.1`.
+- [x] Versao candidata: `v0.2.2`.
 - [x] Escopo candidato registrado nos handoffs 18, 19 e 20 e no plano da release.
 - [x] Canais afetados: web e desktop; Supabase apenas conferido; mobile fora do escopo.
 - [x] Plano aprovado em `prompts/2026-09-03-release-manual-v0-2-0.md`.

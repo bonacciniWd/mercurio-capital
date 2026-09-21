@@ -1,6 +1,6 @@
 # Gestao de mudancas — Mercurio Capital
 
-<!-- RELEASE_CURRENT_VERSION: 0.2.1 -->
+<!-- RELEASE_CURRENT_VERSION: 0.2.2 -->
 
 ## Objetivo
 

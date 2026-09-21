@@ -176,6 +176,9 @@ function configureAutoUpdater(channel) {
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.allowPrerelease = false;
   autoUpdater.allowDowngrade = false;
+  // GitHub release assets can intermittently return 504 for blockmap range
+  // requests. Download the published artifact in one request instead.
+  autoUpdater.disableDifferentialDownload = true;
   autoUpdater.channel = channel;
 
   autoUpdater.on('checking-for-update', () => {
