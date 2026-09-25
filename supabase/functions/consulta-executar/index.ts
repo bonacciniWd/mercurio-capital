@@ -29,6 +29,9 @@ interface Body {
 const SERASA_CLIENT_ID     = Deno.env.get('SERASA_CLIENT_ID') ?? ''
 const SERASA_CLIENT_SECRET = Deno.env.get('SERASA_CLIENT_SECRET') ?? ''
 const SERASA_API_URL       = Deno.env.get('SERASA_API_URL') ?? 'https://api.serasaexperian.com.br'
+// Mock is opt-in and must never be enabled in production. Without credentials,
+// the consultation is estornada and returned as not configured.
+const SERASA_ALLOW_MOCK    = (Deno.env.get('SERASA_ALLOW_MOCK') ?? 'false').toLowerCase() === 'true'
 
 // ─────────────────────────── Bacen SCR (configurável) ───────────────────────────
 // O SCR do Banco Central não expõe API pública direta: o acesso é feito por
@@ -214,7 +217,11 @@ async function chamarProvedor(tipo: string, payload: Record<string, unknown>): P
       if (SERASA_CLIENT_ID && SERASA_CLIENT_SECRET) {
         return chamarSerasa(tipo, payload)
       }
-      // fallback mock
+      // Sem credenciais, não simular score ou restrições em produção.
+      if (!SERASA_ALLOW_MOCK) {
+        throw new Error('serasa_nao_configurado')
+      }
+      // Mock determinístico somente em ambiente de staging explicitamente habilitado.
       const score = 300 + (seed % 700)
       return {
         provedor: 'serasa_mock',

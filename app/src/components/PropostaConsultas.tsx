@@ -110,6 +110,8 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
           wallet_bloqueada: 'Carteira bloqueada pelo admin.',
           preco_nao_configurado: 'Preço não configurado para este tipo.',
           falha_provedor: 'Falha no provedor — valor estornado.',
+          bacen_nao_configurado: 'Bacen ainda não configurado — nenhuma consulta foi realizada.',
+          serasa_nao_configurado: 'Serasa ainda não configurado — nenhuma consulta foi realizada.',
         }
         throw new Error(map[errorCode] ?? error.message ?? 'Falha ao executar consulta.')
       }
