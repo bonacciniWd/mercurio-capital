@@ -42,6 +42,13 @@ import {
   type RequisitoRow,
 } from '@/lib/documentos'
 
+const LEAD_CLASS_LABEL: Record<string, string> = {
+  triple_a: 'Triplo A',
+  double_aa: 'Double AA',
+  estressado: 'Estressado',
+  desqualificado: 'Desqualificado',
+}
+
 function maskCpfCnpj(cpf: string | null | undefined, cnpj: string | null | undefined): string {
   if (cnpj) return maskCnpj(cnpj)
   if (cpf) return maskCpf(cpf)
@@ -154,6 +161,12 @@ interface Proposta {
   created_at: string
   updated_at: string
   responsavel_id: string | null
+  classificacao_lead: 'triple_a' | 'double_aa' | 'estressado' | 'desqualificado' | null
+  classificacao_peso: number | null
+  classificacao_confianca: number | null
+  classificacao_motivo: string | null
+  distribuido_em: string | null
+  distribuicao_motivo: string | null
   partner: { usuario: { nome_completo: string | null } | null } | null
   responsavel: { nome_completo: string | null } | null
   cliente: {
@@ -359,7 +372,7 @@ export function AdminPropostaDetalhe() {
         .from('propostas')
         // partners tem 2 FKs para usuarios (usuario_id e aprovado_por),
         // por isso o embed precisa desambiguar com !usuario_id.
-        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, correcao, indexador, limite_50_aplicado, created_at, updated_at, responsavel_id, partner:partners(usuario:usuarios!usuario_id(nome_completo)), responsavel:usuarios!responsavel_id(nome_completo), cliente:clientes(nome_completo, cpf, cnpj, email, telefone, modelo_renda, renda_mensal, endereco_cep, endereco_logradouro, endereco_numero, endereco_bairro, endereco_cidade, endereco_estado, razao_social, email_responsavel, celular_comercial, tipo_empresa, ramo_atuacao, data_abertura, faturamento_mensal)')
+        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, correcao, indexador, limite_50_aplicado, created_at, updated_at, responsavel_id, classificacao_lead, classificacao_peso, classificacao_confianca, classificacao_motivo, distribuido_em, distribuicao_motivo, partner:partners(usuario:usuarios!usuario_id(nome_completo)), responsavel:usuarios!responsavel_id(nome_completo), cliente:clientes(nome_completo, cpf, cnpj, email, telefone, modelo_renda, renda_mensal, endereco_cep, endereco_logradouro, endereco_numero, endereco_bairro, endereco_cidade, endereco_estado, razao_social, email_responsavel, celular_comercial, tipo_empresa, ramo_atuacao, data_abertura, faturamento_mensal)')
         .eq('id', id!)
         .single()
       if (error) throw error
@@ -512,6 +525,23 @@ export function AdminPropostaDetalhe() {
       const { error } = await supabase.rpc('admin_set_responsavel', {
         p_proposta_id: id!,
         p_usuario_id: usuarioId,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-proposta', id] })
+      qc.invalidateQueries({ queryKey: ['admin-propostas'] })
+    },
+  })
+
+  const classificacaoMut = useMutation({
+    mutationFn: async (classificacao: string) => {
+      const { error } = await supabase.rpc('admin_classificar_distribuir_proposta', {
+        p_proposta_id: id!,
+        p_classificacao: classificacao,
+        p_confianca: 1,
+        p_motivo: 'Classificação manual pelo administrador',
+        p_automatico: false,
       })
       if (error) throw error
     },
@@ -747,6 +777,22 @@ export function AdminPropostaDetalhe() {
             )}
 
             {canEdit && (
+              <div className="flex items-center gap-2 text-sm">
+                <label className="text-xs font-semibold uppercase tracking-wide text-silver-500">Classificação</label>
+                <select
+                  className="input w-auto"
+                  value={proposta.classificacao_lead ?? ''}
+                  disabled={classificacaoMut.isPending}
+                  onChange={(e) => e.target.value && classificacaoMut.mutate(e.target.value)}
+                >
+                  <option value="">Não classificado</option>
+                  {Object.entries(LEAD_CLASS_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                </select>
+                {classificacaoMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin text-silver-400" />}
+              </div>
+            )}
+
+            {canEdit && (
               editResumo ? (
                 <div className="flex items-center gap-2">
                   <button className="btn-outline text-xs" onClick={() => setEditResumo(false)} disabled={updateCamposMut.isPending}>
@@ -775,6 +821,11 @@ export function AdminPropostaDetalhe() {
           {responsavelMut.error && (
             <p className="inline-flex items-center gap-1 text-xs text-danger">
               <AlertTriangle className="h-3 w-3" /> {(responsavelMut.error as Error).message}
+            </p>
+          )}
+          {classificacaoMut.error && (
+            <p className="inline-flex items-center gap-1 text-xs text-danger">
+              <AlertTriangle className="h-3 w-3" /> {(classificacaoMut.error as Error).message}
             </p>
           )}
           {updateCamposMut.error && (
