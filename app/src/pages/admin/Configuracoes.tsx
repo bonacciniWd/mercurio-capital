@@ -373,6 +373,7 @@ function UsuariosTab() {
   const [users, setUsers] = useState<AdminUserRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [capacityDrafts, setCapacityDrafts] = useState<Record<string, string>>({})
 
   async function load() {
     setError(null)
@@ -386,6 +387,7 @@ function UsuariosTab() {
       setUsers([])
     } else {
       setUsers((data ?? []) as AdminUserRow[])
+      setCapacityDrafts(Object.fromEntries((data ?? []).map(user => [user.id, user.capacidade_leads_mensal == null ? '' : String(user.capacidade_leads_mensal)])))
     }
   }
 
@@ -408,6 +410,9 @@ function UsuariosTab() {
     setBusyId(null)
     if (error) { setError(error.message); return }
     setUsers(list => (list ?? []).map(x => x.id === u.id ? { ...x, ...patch } : x))
+    if (patch.capacidade_leads_mensal !== undefined) {
+      setCapacityDrafts(drafts => ({ ...drafts, [u.id]: patch.capacidade_leads_mensal == null ? '' : String(patch.capacidade_leads_mensal) }))
+    }
   }
 
   return (
@@ -463,15 +468,24 @@ function UsuariosTab() {
                         <option value="senior">Sênior</option>
                       </select>
                       <input
-                        className="input h-8 w-20 py-0 text-xs"
+                        className="input h-8 w-28 py-0 text-sm"
                         type="number"
                         min="0.1"
                         step="0.1"
-                        value={u.capacidade_leads_mensal ?? ''}
-                        placeholder="Capacidade"
+                        inputMode="decimal"
+                        aria-label={`Capacidade mensal de ${u.nome_completo}`}
+                        value={capacityDrafts[u.id] ?? ''}
+                        placeholder="Ex.: 8"
+                        onChange={e => setCapacityDrafts(drafts => ({ ...drafts, [u.id]: e.target.value }))}
                         onBlur={e => {
                           const value = e.target.value.trim()
-                          void updateOperational(u, { capacidade_leads_mensal: value ? Number(value) : null })
+                          const parsed = value ? Number(value) : null
+                          if (parsed !== null && (!Number.isFinite(parsed) || parsed <= 0)) {
+                            setError('A capacidade deve ser um número maior que zero.')
+                            setCapacityDrafts(drafts => ({ ...drafts, [u.id]: u.capacidade_leads_mensal == null ? '' : String(u.capacidade_leads_mensal) }))
+                            return
+                          }
+                          void updateOperational(u, { capacidade_leads_mensal: parsed })
                         }}
                         disabled={busyId === u.id}
                       />
