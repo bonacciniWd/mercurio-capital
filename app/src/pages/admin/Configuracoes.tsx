@@ -348,6 +348,9 @@ type AdminUserRow = {
   ativo: boolean
   ultimo_login_at: string | null
   created_at: string
+  nivel_operacional: 'junior' | 'pleno' | 'senior' | null
+  capacidade_leads_mensal: number | null
+  participa_distribuicao: boolean
 }
 
 function formatRelative(iso: string | null): string {
@@ -375,7 +378,7 @@ function UsuariosTab() {
     setError(null)
     const { data, error } = await supabase
       .from('usuarios')
-      .select('id, nome_completo, email, ativo, ultimo_login_at, created_at')
+      .select('id, nome_completo, email, ativo, ultimo_login_at, created_at, nivel_operacional, capacidade_leads_mensal, participa_distribuicao')
       .eq('role', 'admin')
       .order('created_at', { ascending: true })
     if (error) {
@@ -399,12 +402,20 @@ function UsuariosTab() {
     setUsers(list => (list ?? []).map(x => x.id === u.id ? { ...x, ativo: !x.ativo } : x))
   }
 
+  async function updateOperational(u: AdminUserRow, patch: Partial<Pick<AdminUserRow, 'nivel_operacional' | 'capacidade_leads_mensal' | 'participa_distribuicao'>>) {
+    setBusyId(u.id)
+    const { error } = await supabase.from('usuarios').update(patch).eq('id', u.id)
+    setBusyId(null)
+    if (error) { setError(error.message); return }
+    setUsers(list => (list ?? []).map(x => x.id === u.id ? { ...x, ...patch } : x))
+  }
+
   return (
     <>
       <div className="mb-5">
         <h2 className="font-semibold text-navy">Usuários internos</h2>
         <p className="text-xs text-silver-500">
-          Administradores da plataforma (role <code className="font-mono">admin</code>). O cadastro é feito diretamente no banco via SQL.
+          Configure quem participa da distribuição de leads. O nível e a capacidade ficam registrados para o roteamento ponderado.
         </p>
       </div>
 
@@ -423,6 +434,7 @@ function UsuariosTab() {
               <tr>
                 <th className="px-4 py-3">Nome</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Operação</th>
                 <th className="px-4 py-3">Último acesso</th>
                 <th className="px-4 py-3 text-right">Ações</th>
               </tr>
@@ -436,6 +448,43 @@ function UsuariosTab() {
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={u.ativo ? 'green' : 'gray'}>{u.ativo ? 'Ativo' : 'Inativo'}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        className="input h-8 w-28 py-0 text-xs"
+                        value={u.nivel_operacional ?? ''}
+                        onChange={e => void updateOperational(u, { nivel_operacional: (e.target.value || null) as AdminUserRow['nivel_operacional'] })}
+                        disabled={busyId === u.id}
+                      >
+                        <option value="">Sem nível</option>
+                        <option value="junior">Júnior</option>
+                        <option value="pleno">Pleno</option>
+                        <option value="senior">Sênior</option>
+                      </select>
+                      <input
+                        className="input h-8 w-20 py-0 text-xs"
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        value={u.capacidade_leads_mensal ?? ''}
+                        placeholder="Capacidade"
+                        onBlur={e => {
+                          const value = e.target.value.trim()
+                          void updateOperational(u, { capacidade_leads_mensal: value ? Number(value) : null })
+                        }}
+                        disabled={busyId === u.id}
+                      />
+                      <label className="flex items-center gap-1 text-xs text-silver-600">
+                        <input
+                          type="checkbox"
+                          checked={u.participa_distribuicao}
+                          onChange={e => void updateOperational(u, { participa_distribuicao: e.target.checked })}
+                          disabled={busyId === u.id}
+                        />
+                        Distribuir
+                      </label>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-silver-600">{formatRelative(u.ultimo_login_at)}</td>
                   <td className="px-4 py-3 text-right">
