@@ -1284,7 +1284,7 @@ export function AdminPropostaDetalhe() {
       )}
 
       {tab === 'Consultas' && id && (
-        <PropostaConsultas propostaId={id} readOnly />
+        <PropostaConsultas propostaId={id} />
       )}
 
       {tab === 'Contrato' && id && (
