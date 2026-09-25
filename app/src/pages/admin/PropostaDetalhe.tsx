@@ -414,7 +414,7 @@ export function AdminPropostaDetalhe() {
       const { data, error } = await supabase
         .from('usuarios')
         .select('id, nome_completo')
-        .eq('role', 'admin')
+        .in('role', ['admin', 'team_member'])
         .order('nome_completo')
       if (error) throw error
       return data || []

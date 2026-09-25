@@ -380,7 +380,7 @@ function UsuariosTab() {
     const { data, error } = await supabase
       .from('usuarios')
       .select('id, nome_completo, email, ativo, ultimo_login_at, created_at, nivel_operacional, capacidade_leads_mensal, participa_distribuicao')
-      .eq('role', 'admin')
+      .in('role', ['admin', 'team_member'])
       .order('created_at', { ascending: true })
     if (error) {
       setError(error.message)
