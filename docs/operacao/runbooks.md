@@ -208,6 +208,40 @@ Se o job estiver inativo ou falhando, os registros permanecem em `pendente`; use
 
 ---
 
+### Imagem de cabeçalho em template de e-mail
+
+**Sintoma**: a imagem inserida no template não aparece, ou o teste do e-mail retorna erro depois de adicionar o cabeçalho.
+
+**Evidência conhecida (28/09/2026)**: a URL `https://www.mercuriocapitalsa.com.br/assets/call-to-DyM9aWlp.png` respondeu `HTTP 200`, HTTPS, `Content-Type: image/png` e sem autenticação. O arquivo tem aproximadamente 1 MB. Portanto, a URL não está comprovadamente recusada pelo servidor da Mercurio; a falha pode ocorrer no provedor de envio, na validação do HTML ou no cliente de e-mail que bloqueia imagens remotas.
+
+**Formato recomendado no corpo HTML**:
+
+```html
+<p style="margin:0 0 16px;text-align:center;">
+  <img
+    src="https://www.mercuriocapitalsa.com.br/assets/call-to-DyM9aWlp.png"
+    alt="Mercurio Capital"
+    width="600"
+    style="display:block;width:100%;max-width:600px;height:auto;border:0;margin:0 auto;"
+  >
+</p>
+```
+
+**Evitar**: caminhos relativos, `localhost`, HTTP sem TLS, `file://`, imagens em base64, `background-image`, `srcset` e URLs que exigem cookie, login ou redirecionamento.
+
+**Diagnóstico**:
+
+1. Confirmar que a URL responde sem autenticação com `curl -I` e que o tipo é `image/png`, `image/jpeg` ou `image/webp`.
+2. No painel `/admin/templates`, abrir o preview sandbox e verificar o HTML renderizado.
+3. Enfileirar um teste para um endereço interno e conferir `evento=template_teste` na `email_outbox`.
+4. Conferir o status e `ultimo_erro` do item após o `email-dispatcher` processar a fila.
+5. Se o envio for aceito, mas a imagem não aparecer, testar outro cliente de e-mail e considerar bloqueio de imagens remotas.
+6. Otimizar o arquivo para reduzir o peso e manter uma versão de fallback; o provedor ou o cliente pode impor limites próprios sem retornar erro claro.
+
+**Fallback operacional**: manter o nome Mercurio Capital em texto e, se necessário, remover a imagem do template. A mensagem deve continuar legível quando imagens externas estiverem bloqueadas.
+
+**Segurança**: não inserir tokens, URLs assinadas de documentos ou dados pessoais no `src`. Imagens públicas de marca devem permanecer em um endereço estável e versionado.
+
 ## 6. Incidente: parceiro reporta erro de saldo
 
 **Diagnóstico**:
