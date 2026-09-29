@@ -1,6 +1,7 @@
 import { brl } from '@/lib/utils'
-import { Download, FileSpreadsheet, Loader2 } from 'lucide-react'
+import { ChevronDown, Download, FileSpreadsheet, Loader2 } from 'lucide-react'
 import { KPICard } from '@/components/KPICard'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
 import {
   Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
@@ -150,45 +151,37 @@ export function AdminRelatorios() {
           <h1 className="text-2xl font-bold text-navy">Relatórios</h1>
           <p className="text-sm text-silver-600">Análise consolidada da operação.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            className="input w-auto"
-            value={periodo}
-            disabled={Boolean(rangeFrom || rangeTo)}
-            onChange={(e) => setPeriodo(e.target.value as '12m' | 'ytd' | 'trimestre')}
-          >
-            <option value="12m">Últimos 12 meses</option>
-            <option value="ytd">YTD</option>
-            <option value="trimestre">Trimestre</option>
-          </select>
-          <div className="flex items-center gap-1.5">
-            <input
-              type="date"
-              className="input w-auto"
-              value={rangeFrom}
-              onChange={(e) => setRangeFrom(e.target.value)}
-              aria-label="Data inicial"
-            />
-            <span className="text-xs text-silver-500">até</span>
-            <input
-              type="date"
-              className="input w-auto"
-              value={rangeTo}
-              onChange={(e) => setRangeTo(e.target.value)}
-              aria-label="Data final"
-            />
-            {(rangeFrom || rangeTo) && (
-              <button
-                type="button"
-                className="text-xs text-silver-500 underline hover:text-navy"
-                onClick={() => { setRangeFrom(''); setRangeTo('') }}
-              >
-                Limpar
-              </button>
-            )}
-          </div>
-          <button className="btn-outline" disabled><FileSpreadsheet className="h-4 w-4" /> Excel</button>
-          <button className="btn-gold" disabled><Download className="h-4 w-4" /> PDF</button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <label className="relative inline-flex items-center">
+            <span className="sr-only">Período do relatório</span>
+            <select
+              className="h-10 w-[170px] appearance-none rounded-lg border border-navy/20 bg-white px-3 pr-9 text-sm font-semibold text-navy shadow-sm outline-none transition focus:border-red-700 focus:ring-2 focus:ring-red-700/15 disabled:cursor-not-allowed disabled:bg-silver-50 disabled:text-silver-400"
+              value={periodo}
+              disabled={Boolean(rangeFrom || rangeTo)}
+              onChange={(e) => setPeriodo(e.target.value as '12m' | 'ytd' | 'trimestre')}
+            >
+              <option value="12m">Últimos 12 meses</option>
+              <option value="ytd">YTD</option>
+              <option value="trimestre">Trimestre</option>
+            </select>
+            <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 h-4 w-4 text-navy" />
+          </label>
+          <DateRangePicker
+            start={range.inicio}
+            end={range.fim}
+            onChange={(start, end) => { setRangeFrom(start); setRangeTo(end) }}
+          />
+          {(rangeFrom || rangeTo) && (
+            <button
+              type="button"
+              className="h-10 rounded-lg px-2 text-xs font-semibold text-silver-600 underline decoration-silver-300 underline-offset-2 transition hover:text-red-700"
+              onClick={() => { setRangeFrom(''); setRangeTo('') }}
+            >
+              Limpar
+            </button>
+          )}
+          <button className="btn-outline h-10 border-silver-300 px-3 text-sm" disabled><FileSpreadsheet className="h-4 w-4" /> Excel</button>
+          <button className="btn-gold h-10 px-3 text-sm" disabled><Download className="h-4 w-4" /> PDF</button>
         </div>
       </div>
 
