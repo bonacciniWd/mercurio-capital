@@ -31,123 +31,72 @@ const FUNIL_STAGES: { label: string; matches: string[] }[] = [
   { label: 'Liberada', matches: ['contrato_registrado', 'recurso_liberado'] },
 ]
 
-interface KpiRow {
+interface Analytics {
   total_propostas: number
-  propostas_mes: number
   ativas: number
   ganhas: number
-  canceladas: number
   taxa_conversao: number
   volume_ganho: number
   volume_total: number
-  parceiros_ativos: number
+  serie: Array<{ periodo: string; propostas: number; ganhas: number; volume_solicitado: number; volume_ganho: number }>
+  top_parceiros: Array<{ partner_id: string; partner_nome: string; total: number; ganhas: number; volume_ganho: number }>
 }
-interface TopRow { partner_id: string; partner_nome: string; total: number; ganhas: number; volume: number }
-interface FunilRow { partner_id: string; status: string; quantidade: number; volume: number }
-interface MesRow { partner_id: string; mes: string; quantidade: number; ganhas: number; volume: number }
-interface PropostaRow { produto: string; valor_solicitado: number }
+interface PropostaRow { produto: string; status: string; valor_solicitado: number }
 
 export function AdminRelatorios() {
   const [periodo, setPeriodo] = useState<'12m' | 'ytd' | 'trimestre'>('12m')
   const [rangeFrom, setRangeFrom] = useState('')
   const [rangeTo, setRangeTo] = useState('')
 
-  const kpiQuery = useQuery({
-    queryKey: ['admin-rel-kpis'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_admin_dashboard_kpis')
-        .select('*')
-        .maybeSingle()
-      if (error) throw error
-      return data as KpiRow | null
-    },
-  })
+  const range = useMemo(() => {
+    const now = new Date()
+    if (rangeFrom || rangeTo) {
+      return { inicio: rangeFrom || rangeTo, fim: rangeTo || rangeFrom }
+    }
+    if (periodo === 'ytd') return { inicio: `${now.getFullYear()}-01-01`, fim: now.toISOString().slice(0, 10) }
+    if (periodo === 'trimestre') {
+      const start = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1)
+      return { inicio: start.toISOString().slice(0, 10), fim: now.toISOString().slice(0, 10) }
+    }
+    const start = new Date(now.getFullYear(), now.getMonth() - 11, 1)
+    return { inicio: start.toISOString().slice(0, 10), fim: now.toISOString().slice(0, 10) }
+  }, [periodo, rangeFrom, rangeTo])
 
-  const topQuery = useQuery({
-    queryKey: ['admin-rel-top'],
+  const analyticsQuery = useQuery({
+    queryKey: ['admin-rel-analytics', range.inicio, range.fim],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_admin_top_partners')
-        .select('partner_id, partner_nome, total, ganhas, volume')
+      const { data, error } = await supabase.rpc('admin_dashboard_analytics', {
+        p_inicio: range.inicio, p_fim: range.fim, p_fundo: null, p_partner: null, p_equipe: null,
+      })
       if (error) throw error
-      return (data ?? []) as TopRow[]
-    },
-  })
-
-  const funilQuery = useQuery({
-    queryKey: ['admin-rel-funil'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_partner_funil_status')
-        .select('partner_id, status, quantidade, volume')
-      if (error) throw error
-      return (data ?? []) as FunilRow[]
-    },
-  })
-
-  const mesQuery = useQuery({
-    queryKey: ['admin-rel-mes'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_partner_propostas_por_mes')
-        .select('partner_id, mes, quantidade, ganhas, volume')
-        .order('mes')
-      if (error) throw error
-      return (data ?? []) as MesRow[]
+      return data as Analytics
     },
   })
 
   const propostasQuery = useQuery({
-    queryKey: ['admin-rel-propostas'],
+    queryKey: ['admin-rel-propostas', range.inicio, range.fim],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('propostas')
-        .select('produto, valor_solicitado')
+        .select('produto, status, valor_solicitado')
+        .gte('created_at', `${range.inicio}T00:00:00-03:00`)
+        .lt('created_at', `${range.fim}T23:59:59.999-03:00`)
         .limit(20000)
       if (error) throw error
       return (data ?? []) as PropostaRow[]
     },
   })
 
-  const kpi = kpiQuery.data
+  const analytics = analyticsQuery.data
 
   // Volume mensal × propostas: agregar por mês, filtrar pelo período
   const monthly = useMemo(() => {
-    const rows = mesQuery.data ?? []
-    const map = new Map<string, { volume: number; propostas: number }>()
-    const now = new Date()
-    const customStart = rangeFrom ? new Date(rangeFrom) : null
-    const customEnd = rangeTo ? new Date(rangeTo) : null
-    const start = customStart ?? (() => {
-      if (periodo === 'ytd') return new Date(now.getFullYear(), 0, 1)
-      if (periodo === 'trimestre') {
-        const d = new Date(now); d.setMonth(d.getMonth() - 3); return d
-      }
-      const d = new Date(now); d.setMonth(d.getMonth() - 12); return d
-    })()
-    const end = customEnd ?? now
-    rows.forEach(r => {
-      const d = new Date(r.mes)
-      if (d < start || d > end) return
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      const cur = map.get(key) ?? { volume: 0, propostas: 0 }
-      cur.volume += Number(r.volume) || 0
-      cur.propostas += r.quantidade
-      map.set(key, cur)
-    })
-    return Array.from(map.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, v]) => {
-        const [yy, mm] = key.split('-')
-        const d = new Date(Number(yy), Number(mm) - 1, 1)
-        return {
-          m: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''),
-          volume: Math.round(v.volume / 1_000_000), // milhões de reais
-          propostas: v.propostas,
-        }
-      })
-  }, [mesQuery.data, periodo, rangeFrom, rangeTo])
+    return (analytics?.serie ?? []).map(row => ({
+      m: new Date(`${row.periodo}T12:00:00`).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''),
+      volume: Math.round(Number(row.volume_solicitado) / 1_000_000),
+      propostas: Number(row.propostas),
+    }))
+  }, [analytics?.serie])
 
   // Distribuição por produto
   const produtos = useMemo(() => {
@@ -164,35 +113,35 @@ export function AdminRelatorios() {
 
   // Top 5 parceiros (volume em milhões)
   const ranking = useMemo(() => {
-    return (topQuery.data ?? [])
+    return (analytics?.top_parceiros ?? [])
       .slice(0, 5)
-      .map(t => ({ p: t.partner_nome, v: Math.round(Number(t.volume) / 1_000_000) }))
-  }, [topQuery.data])
+      .map(t => ({ p: t.partner_nome, v: Math.round(Number(t.volume_ganho) / 1_000_000) }))
+  }, [analytics?.top_parceiros])
 
   // Funil agregado global
   const funil = useMemo(() => {
-    const rows = funilQuery.data ?? []
+    const rows = propostasQuery.data ?? []
     return FUNIL_STAGES.map(s => ({
       etapa: s.label,
-      q: rows.filter(r => s.matches.includes(r.status)).reduce((a, b) => a + b.quantidade, 0),
+      q: rows.filter(r => s.matches.includes(r.status)).length,
     }))
-  }, [funilQuery.data])
+  }, [propostasQuery.data])
 
   // Tabela de parceiros
   const partnersTable = useMemo(() => {
-    return (topQuery.data ?? []).slice(0, 20).map(t => ({
+    return (analytics?.top_parceiros ?? []).slice(0, 20).map(t => ({
       nome: t.partner_nome,
       propostas: t.total,
       aprovadas: t.ganhas,
-      volume: Number(t.volume),
-      ticket: t.ganhas > 0 ? Number(t.volume) / t.ganhas : 0,
+      volume: Number(t.volume_ganho),
+      ticket: t.ganhas > 0 ? Number(t.volume_ganho) / t.ganhas : 0,
       conversao: t.total > 0 ? Math.round((t.ganhas / t.total) * 100) : 0,
     }))
-  }, [topQuery.data])
+  }, [analytics?.top_parceiros])
 
-  const loading = kpiQuery.isLoading || topQuery.isLoading || funilQuery.isLoading || mesQuery.isLoading || propostasQuery.isLoading
+  const loading = analyticsQuery.isLoading || propostasQuery.isLoading
 
-  const ticketMedio = kpi && kpi.ganhas > 0 ? Number(kpi.volume_ganho) / kpi.ganhas : 0
+  const ticketMedio = analytics && analytics.ganhas > 0 ? Number(analytics.volume_ganho) / analytics.ganhas : 0
 
   return (
     <>
@@ -248,10 +197,10 @@ export function AdminRelatorios() {
       ) : (
         <>
           <div className="mb-6 grid gap-4 md:grid-cols-4">
-            <KPICard label="Volume ganho" value={brl(Number(kpi?.volume_ganho ?? 0) * 100)} intent="gold" />
-            <KPICard label="Propostas (mês)" value={String(kpi?.propostas_mes ?? 0)} intent="success" />
+            <KPICard label="Volume ganho" value={brl(Number(analytics?.volume_ganho ?? 0) * 100)} intent="gold" />
+            <KPICard label="Propostas no período" value={String(analytics?.total_propostas ?? 0)} intent="success" />
             <KPICard label="Ticket médio" value={brl(ticketMedio * 100)} />
-            <KPICard label="Taxa de conversão" value={`${kpi?.taxa_conversao ?? 0}%`} />
+            <KPICard label="Taxa de conversão" value={`${analytics?.taxa_conversao ?? 0}%`} />
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2">
@@ -360,4 +309,3 @@ export function AdminRelatorios() {
 function EmptyChart({ label = 'Sem dados.' }: { label?: string }) {
   return <p className="py-16 text-center text-sm text-silver-400">{label}</p>
 }
-
