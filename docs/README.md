@@ -26,6 +26,7 @@ Esta pasta consolida o escopo da plataforma **Mercurio Capital** e as atualizaç
 
 ### ⚙️ Operação ([`operacao/`](./operacao/))
 - [Gestão de mudanças](./operacao/change-management.md)
+- [Matriz de critérios para classificação de leads](./operacao/matriz-criterios-classificacao-leads.md)
 - [Checklist unificado de release](./operacao/release-checklist.md)
 - [Runbooks operacionais](./operacao/runbooks.md)
 - [Release desktop macOS (signing + notarização)](./operacao/desktop-release-macos-signing.md)
