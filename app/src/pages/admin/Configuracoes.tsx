@@ -14,6 +14,7 @@ const TABS = [
   { id: 'emails', icon: MailCheck, label: 'Templates de e-mail' },
   { id: 'dominio', icon: Globe, label: 'Domínio & marca' },
   { id: 'metas', icon: TrendingUp, label: 'Metas' },
+  { id: 'classificador', icon: Settings, label: 'Classificador de leads' },
   { id: 'operacao', icon: Settings, label: 'Módulos operacionais' },
 ]
 
@@ -50,10 +51,97 @@ export function AdminConfiguracoes() {
           {tab === 'emails' && <EmailTemplatesTab />}
           {tab === 'dominio' && <DominioTab />}
           {tab === 'metas' && <MetasTab />}
+          {tab === 'classificador' && <ClassificadorLeadsTab />}
           {tab === 'operacao' && <ModulosOperacionaisTab />}
         </div>
       </div>
     </>
+  )
+}
+
+type ClassificadorConfig = {
+  classificador_ativo: boolean
+  classificador_versao: string
+  confianca_distribuicao: number
+  confianca_revisao: number
+  classificador_criterios: Record<string, boolean>
+}
+
+function ClassificadorLeadsTab() {
+  const [config, setConfig] = useState<ClassificadorConfig | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+
+  useEffect(() => {
+    void (async () => {
+      const { data, error } = await supabase
+        .from('config_leads_operacao')
+        .select('classificador_ativo, classificador_versao, confianca_distribuicao, confianca_revisao, classificador_criterios')
+        .eq('id', true)
+        .maybeSingle()
+      if (error) {
+        setMessage({ ok: false, text: error.message })
+        return
+      }
+      if (data) setConfig(data as ClassificadorConfig)
+    })()
+  }, [])
+
+  async function save() {
+    if (!config) return
+    setBusy(true)
+    setMessage(null)
+    const { data, error } = await supabase.rpc('admin_config_leads_classificador_atualizar', {
+      p_ativo: config.classificador_ativo,
+      p_versao: config.classificador_versao,
+      p_confianca_distribuicao: Number(config.confianca_distribuicao),
+      p_confianca_revisao: Number(config.confianca_revisao),
+      p_criterios: config.classificador_criterios,
+    })
+    setBusy(false)
+    if (error) {
+      setMessage({ ok: false, text: error.message })
+      return
+    }
+    setConfig(data as ClassificadorConfig)
+    setMessage({ ok: true, text: 'Configuração do classificador salva.' })
+  }
+
+  function setCriterion(key: string, value: boolean) {
+    setConfig(current => current ? { ...current, classificador_criterios: { ...current.classificador_criterios, [key]: value } } : current)
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold text-navy">Classificador de leads</h2>
+      <p className="mt-1 max-w-2xl text-sm text-silver-600">Ajuste a versão da regra e os limiares sem alterar o histórico. A distribuição automática só ocorre quando a feature está ativa e a confiança atende ao limite configurado.</p>
+      {message && <div className={`mt-4 rounded-lg border p-3 text-sm ${message.ok ? 'border-success/30 bg-success/5 text-success' : 'border-danger/30 bg-danger/5 text-danger'}`}>{message.text}</div>}
+      {!config ? <div className="py-10 text-center text-sm text-silver-500">Carregando…</div> : (
+        <div className="mt-5 space-y-5">
+          <label className="flex items-center gap-3 rounded-lg border border-silver-200 bg-silver-50 p-4 text-sm text-silver-800">
+            <input type="checkbox" checked={config.classificador_ativo} onChange={e => setConfig({ ...config, classificador_ativo: e.target.checked })} />
+            <span><strong className="text-navy">Ativar classificação automática</strong><br /><span className="text-xs text-silver-500">Deixe desligado durante a homologação dos primeiros casos.</span></span>
+          </label>
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="label">Versão da regra<input className="input mt-1" value={config.classificador_versao} onChange={e => setConfig({ ...config, classificador_versao: e.target.value })} /></label>
+            <label className="label">Confiança para distribuir<input className="input mt-1" type="number" min="0" max="1" step="0.01" value={config.confianca_distribuicao} onChange={e => setConfig({ ...config, confianca_distribuicao: Number(e.target.value) })} /></label>
+            <label className="label">Confiança mínima para revisar<input className="input mt-1" type="number" min="0" max="1" step="0.01" value={config.confianca_revisao} onChange={e => setConfig({ ...config, confianca_revisao: Number(e.target.value) })} /></label>
+          </div>
+          <div className="rounded-lg border border-silver-200 p-4">
+            <h3 className="text-sm font-semibold text-navy">Critérios considerados</h3>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {[
+                ['exigir_documentos_aprovados', 'Exigir checklist mínimo aprovado'],
+                ['considerar_debitos_imovel', 'Considerar débitos do imóvel'],
+                ['considerar_pendencias_abertas', 'Considerar pendências abertas'],
+                ['revisar_sinal_juridico', 'Exigir revisão em sinal jurídico'],
+              ].map(([key, label]) => <label key={key} className="flex items-center gap-2 text-sm text-silver-700"><input type="checkbox" checked={Boolean(config.classificador_criterios[key])} onChange={e => setCriterion(key, e.target.checked)} />{label}</label>)}
+            </div>
+          </div>
+          <button className="btn-gold inline-flex items-center gap-2" onClick={() => void save()} disabled={busy || config.confianca_revisao > config.confianca_distribuicao}><Save className="h-4 w-4" />{busy ? 'Salvando…' : 'Salvar configuração'}</button>
+        </div>
+      )}
+    </div>
   )
 }
 

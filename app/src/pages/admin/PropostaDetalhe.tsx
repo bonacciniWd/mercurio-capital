@@ -551,6 +551,18 @@ export function AdminPropostaDetalhe() {
     },
   })
 
+  const classificacaoAutomaticaMut = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc('admin_classificar_proposta_automatico', { p_proposta_id: id! })
+      if (error) throw error
+      return data as { distribuido?: boolean; revisao_obrigatoria?: boolean; motivo?: string }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-proposta', id] })
+      qc.invalidateQueries({ queryKey: ['admin-propostas'] })
+    },
+  })
+
   function saveResumo() {
     if (!produtoForm || !clienteForm) return
     updateCamposMut.mutate(
@@ -789,10 +801,23 @@ export function AdminPropostaDetalhe() {
                   {Object.entries(LEAD_CLASS_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
                 </select>
                 {classificacaoMut.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin text-silver-400" />}
-                {!proposta.classificacao_lead && proposta.distribuicao_motivo && (
+                {proposta.distribuicao_motivo && (
                   <span className="text-xs text-amber-600">{proposta.distribuicao_motivo}</span>
                 )}
               </div>
+            )}
+
+            {canEdit && (
+              <button
+                type="button"
+                className="btn-outline inline-flex items-center gap-1.5 text-xs"
+                disabled={classificacaoAutomaticaMut.isPending}
+                onClick={() => classificacaoAutomaticaMut.mutate()}
+                title="Executa o classificador server-side conforme a configuração vigente"
+              >
+                {classificacaoAutomaticaMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                Classificar automaticamente
+              </button>
             )}
 
             {canEdit && (
