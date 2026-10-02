@@ -23,11 +23,12 @@ interface Body {
 }
 
 // Mock determinístico — substituir por chamadas reais quando credenciais existirem.
-// Serasa: usa API real se SERASA_CLIENT_ID + SERASA_CLIENT_SECRET estiverem setados.
+// Serasa: usa API real se client ID/secret estiverem setados.
+// `SERASA_LOGON`/`SERASA_SENHA` são aliases aceitos pelo onboarding do provedor.
 // Bacen SCR: usa API real se BACEN_SCR_API_URL + credenciais estiverem setados.
 
-const SERASA_CLIENT_ID     = Deno.env.get('SERASA_CLIENT_ID') ?? ''
-const SERASA_CLIENT_SECRET = Deno.env.get('SERASA_CLIENT_SECRET') ?? ''
+const SERASA_CLIENT_ID     = Deno.env.get('SERASA_CLIENT_ID') ?? Deno.env.get('SERASA_LOGON') ?? ''
+const SERASA_CLIENT_SECRET = Deno.env.get('SERASA_CLIENT_SECRET') ?? Deno.env.get('SERASA_SENHA') ?? ''
 // O ambiente deve ser informado explicitamente para evitar que credenciais de
 // homologação sejam usadas acidentalmente contra produção (ou vice-versa).
 const SERASA_API_URL       = (Deno.env.get('SERASA_API_URL') ?? '').replace(/\/+$/, '')

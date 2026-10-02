@@ -58,7 +58,7 @@ API identificada: **Serasa Experian — Data Return for PF and PJ**
 → https://developer.serasaexperian.com.br/api/data-return-for-pf-and-pj
 
 **O que precisamos do cliente:**
-- `SERASA_CLIENT_ID` e `SERASA_CLIENT_SECRET` (OAuth 2.0 gerados no portal developer)
+- `SERASA_CLIENT_ID` e `SERASA_CLIENT_SECRET` (ou os aliases fornecidos no onboarding: `SERASA_LOGON` e `SERASA_SENHA`)
 - Confirmar ambiente: sandbox → produção
 - `SERASA_API_URL` = `https://api.serasaexperian.com.br` (produção) ou sandbox equivalente
 
@@ -66,6 +66,27 @@ API identificada: **Serasa Experian — Data Return for PF and PJ**
 - Edge `consulta-executar` roteada para `serasa_pf` e `serasa_pj`
 - Débito de carteira + estorno automático em falha
 - Basta substituir o mock pelos endpoints reais quando as credenciais chegarem
+
+### Cadastro seguro das credenciais Serasa
+
+Nunca coloque `SERASA_LOGON` ou `SERASA_SENHA` no `app/.env`, `mobile/.env`, Git ou chat. Cadastre-os como secrets da Edge Function, usando entrada silenciosa:
+
+```bash
+read -s SERASA_LOGON
+echo
+read -s SERASA_SENHA
+echo
+supabase secrets set \
+  SERASA_LOGON="$SERASA_LOGON" \
+  SERASA_SENHA="$SERASA_SENHA" \
+  SERASA_API_URL="https://uat-api.serasaexperian.com.br" \
+  SERASA_ALLOW_MOCK="false" \
+  --project-ref bhagksfvszeogtjvjtpx
+unset SERASA_LOGON SERASA_SENHA
+```
+
+Use a URL de produção somente após homologar: `https://api.serasaexperian.com.br`. Para conferir a configuração, liste apenas os nomes dos secrets; nunca os valores.
+
 
 ---
 
@@ -97,6 +118,8 @@ Infraestrutura criada e pronta (modo dev/mock até as credenciais existirem):
 (use o mesmo `WHATSAPP_VERIFY_TOKEN`; assine os campos `messages` e `message_template_status_update`).
 
 **Agendamento do dispatcher** (igual ao `email-dispatcher`): invocar periodicamente
+
+
 `POST /functions/v1/whatsapp-dispatcher?limit=20` (ex.: cron externo a cada 1 min, ou
 `pg_cron` + `pg_net` se habilitados). Sem isso, mensagens enfileiradas ficam `pendente`.
 
