@@ -1,6 +1,6 @@
 // Status em que a proposta ainda NÃO está aprovada (pré-aprovação) + cancelado.
 const STATUS_NAO_APROVADA = new Set<string>([
-  'simulacao', 'pre_analise', 'analise_credito', 'analise_imovel',
+  'simulacao', 'pre_analise', 'analise_credito', 'pre_aprovado', 'analise_imovel',
   'analise_juridica', 'comite', 'cancelado',
 ])
 

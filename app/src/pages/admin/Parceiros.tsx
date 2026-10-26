@@ -8,6 +8,7 @@ import {
 import { brl, formatNumber } from '@/lib/utils'
 import { KPICard } from '@/components/KPICard'
 import { Badge } from '@/components/Badge'
+import { FunilParceirosCard } from '@/components/FunilParceirosCard'
 import { supabase } from '@/lib/supabase'
 import { maskCpf, onlyDigits } from '@/lib/documentoBr'
 
@@ -227,6 +228,10 @@ export function AdminParceiros() {
             <Plus className="h-4 w-4" /> Convidar parceiro
           </button>
         </div>
+      </div>
+
+      <div className="mb-6">
+        <FunilParceirosCard />
       </div>
 
       <div className="mb-6 grid gap-4 md:grid-cols-4">
@@ -1042,5 +1047,4 @@ function Field({
     </div>
   )
 }
-
 

@@ -39,6 +39,7 @@ const items = [
 const FUNIL_STAGES: { label: string; matches: string[] }[] = [
   { label: 'Pré-análise',  matches: ['pre_analise'] },
   { label: 'Crédito',      matches: ['analise_credito'] },
+  { label: 'Pré-aprovado', matches: ['pre_aprovado'] },
   { label: 'Comitê',       matches: ['comite'] },
   { label: 'Assinatura',   matches: ['aguardando_assinatura', 'em_registro'] },
   { label: 'Liberada',     matches: ['contrato_registrado', 'recurso_liberado'] },

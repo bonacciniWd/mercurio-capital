@@ -26,6 +26,7 @@ const PRODUTO_COLORS: Record<string, string> = {
 const FUNIL_STAGES: { label: string; matches: string[] }[] = [
   { label: 'Pré-análise', matches: ['pre_analise'] },
   { label: 'Crédito', matches: ['analise_credito'] },
+  { label: 'Pré-aprovado', matches: ['pre_aprovado'] },
   { label: 'Jurídica', matches: ['analise_juridica'] },
   { label: 'Comitê', matches: ['comite'] },
   { label: 'Assinatura', matches: ['aguardando_assinatura', 'em_registro'] },

@@ -71,7 +71,7 @@ const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Contrato', 'Hi
 type Tab = typeof TABS[number]
 
 const STATUS_LABEL: Record<string, string> = {
-  simulacao: 'Rascunho', pre_analise: 'Pré-análise', analise_credito: 'Análise Crédito',
+  simulacao: 'Rascunho', pre_analise: 'Pré-análise', analise_credito: 'Análise Crédito', pre_aprovado: 'Pré-aprovado',
   analise_imovel: 'Análise Imóvel', analise_juridica: 'Análise Jurídica', comite: 'Comitê',
   proposta_cliente: 'Proposta ao Cliente', resolucao_pendencias: 'Resolução pendências',
   emissao_contrato: 'Emissão de Contrato', aguardando_assinatura: 'Aguardando Assinatura',
@@ -79,7 +79,7 @@ const STATUS_LABEL: Record<string, string> = {
   recurso_liberado: 'Recurso Liberado', cancelado: 'Cancelada',
 }
 const STATUS_ORDER = [
-  'simulacao','pre_analise','analise_credito','analise_imovel','analise_juridica','comite',
+  'simulacao','pre_analise','analise_credito','pre_aprovado','analise_imovel','analise_juridica','comite',
   'proposta_cliente','resolucao_pendencias','emissao_contrato','aguardando_assinatura',
   'em_registro','contrato_registrado','recurso_liberado','cancelado',
 ] as const

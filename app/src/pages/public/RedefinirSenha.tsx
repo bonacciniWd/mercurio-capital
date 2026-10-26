@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { CheckCircle2 } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { supabase } from '@/lib/supabase'
@@ -16,6 +16,11 @@ const MFA_CODE_INVALID_MESSAGE =
   'Código 2FA inválido ou expirado. Gere um novo código no aplicativo autenticador e tente novamente.'
 const MFA_STEP_UP_HINT =
   'Para concluir a redefinição, confirme seu código 2FA de 6 dígitos.'
+
+function resolveLoginPath(value: string | null): '/admin/login' | '/p/login' | '/c/login' {
+  if (value === '/admin/login' || value === '/c/login') return value
+  return '/p/login'
+}
 
 const SESSION_MISSING_MARKERS = [
   'auth session missing',
@@ -79,6 +84,8 @@ function normalizeMfaStepUpError(err: unknown): string {
 
 export function RedefinirSenha() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const nextLoginPath = resolveLoginPath(new URLSearchParams(location.search).get('next'))
   const [hasRecovery, setHasRecovery] = useState(false)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -114,7 +121,7 @@ export function RedefinirSenha() {
   async function completePasswordUpdate(): Promise<void> {
     await supabase.auth.signOut()
     setDone(true)
-    window.setTimeout(() => navigate('/p/login', { replace: true }), 1500)
+    window.setTimeout(() => navigate(nextLoginPath, { replace: true }), 1500)
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {

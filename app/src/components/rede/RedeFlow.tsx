@@ -12,6 +12,8 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Building2, Crown, Users } from 'lucide-react'
+import { NetworkCanvas } from './NetworkCanvas'
+import { layoutAdminRedeGraph } from '@/lib/redeLayout'
 
 export type RedeNode = {
   id: string
@@ -158,8 +160,15 @@ export function layoutRedeGraph(graph: RedeGraph): { nodes: Node[]; edges: Edge[
   return { nodes, edges }
 }
 
-export function RedeFlowCanvas({ graph, height = 600 }: { graph: RedeGraph; height?: number }) {
+
+export function RedeFlowCanvas({ graph, height = 600, variant, selectedId, highlightedIds, onSelect }: {
+  graph: RedeGraph; height?: number; variant?: 'admin' | 'partner'; selectedId?: string | null
+  highlightedIds?: Set<string>; onSelect?: (id: string) => void
+}) {
   const layout = useMemo(() => layoutRedeGraph(graph), [graph])
+  const sharedLayout = useMemo(() => variant ? layoutAdminRedeGraph(graph) : null, [graph, variant])
+
+  if (sharedLayout) return <NetworkCanvas {...sharedLayout} selectedId={selectedId} highlightedIds={highlightedIds} onSelect={onSelect} label={variant === 'partner' ? 'Mapa da equipe do parceiro' : 'Mapa da rede de originação'} />
 
   if (layout.nodes.length === 0) {
     return (

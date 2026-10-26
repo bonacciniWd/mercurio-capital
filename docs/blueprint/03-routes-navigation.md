@@ -16,6 +16,9 @@
 | Rota | Componente | Descrição |
 |---|---|---|
 | `/` | `LandingPage` | Página institucional. |
+| `/simulador` | `PublicSimulator` | Simulador público de Home Equity em quatro etapas; captura consentida server-side na v2 e cálculo compartilhado. |
+| `/credito-para-construcao` | `CreditoParaConstrucao` | Página pública do produto CPC, integrada a partir do material do designer. |
+| `/politica-de-privacidade` | `PoliticaPrivacidade` | Rota pública reservada; conteúdo básico ainda será elaborado e aprovado. |
 | `/login` | `Navigate(/p/login)` | Alias legado: redireciona para a entrada parceira. |
 | `/p/login` | `LoginPage` | Entrada principal web/desktop para `partner` e `team_member`. |
 | `/admin/login` | `LoginPage` | Entrada exclusiva do módulo administrativo. |
@@ -77,7 +80,7 @@
 
 > **Escopo por `admin_nivel`** (guard `RequireAdminScope` + `isAdminPathAllowed` em `app/src/lib/adminScope.ts`):
 > - **full**: todas as rotas `/admin/*`.
-> - **limitado**: `/admin`, `/admin/aprovacoes`, `/admin/parceiros` (+ `/:id/equipes`), `/admin/rede`, `/admin/kanban`, `/admin/propostas`, `/admin/propostas/:id`, **`/admin/propostas/nova`** e `/admin/relatorios`. Demais rotas redirecionam para `/admin`.
+> - **limitado**: `/admin`, `/admin/aprovacoes`, `/admin/parceiros` (+ `/:id/equipes`), `/admin/rede`, `/admin/kanban`, `/admin/propostas`, `/admin/propostas/:id`, `/admin/leads/simulacoes`, **`/admin/propostas/nova`** e `/admin/relatorios`. Demais rotas redirecionam para `/admin`.
 > - **juridico**: idem limitado, **exceto** `/admin/propostas/nova` (criação bloqueada). O botão "Nova proposta" só aparece para full/limitado (`canCreateProposta`).
 
 | Rota | Componente |
@@ -94,6 +97,7 @@
 | `/admin/propostas` | `PropostasAdminList` |
 | `/admin/propostas/nova` | `PropostaWizard` (modo admin, parceiro alvo obrigatório em status `approved` ou `pending`) |
 | `/admin/propostas/:id` | `PropostaAdminDetail` |
+| `/admin/leads/simulacoes` | `LeadsSimulacoes` (leitura interna dos leads públicos: calculadoras e solicitações CPC) |
 | `/admin/propostas/kanban` | `PropostasKanbanGlobal` |
 | `/admin/rede` | `ReactFlowRede` (network map) |
 | `/admin/documentos` | `DocumentosCentral` |
@@ -212,3 +216,8 @@ Relatórios · Auditoria · Configurações
 - Web: `/p/propostas/nova` (parceiro) e `/admin/propostas/nova` (admin) — mesmo componente `PartnerWizard` com `mode`.
 - Mobile: `propostas/nova` (parceiro) e `propostas/nova?mode=admin` (admin) — `PropostaWizardScreen`.
 - Pós-criação: tela de sucesso exibe magic link do cliente (30 min) + consultas recomendadas por perfil, com atalho para `/(admin|p)/propostas/:id` (aba Consultas).
+
+## Equipe interna (2026-10-13)
+- `/admin/configuracoes` → Usuários internos: convites, foto, cargo, departamento, gestor, data de início e catálogos; mantém controles de distribuição de leads separados.
+- `/admin/rede` → alternância entre Rede de originação e Organograma interno. Organograma é somente leitura e disponível a admins autenticados.
+- O convite inicia em `/auth/admin-bootstrap`, define senha no bootstrap atual e encaminha admin para `/admin`.

@@ -18,6 +18,7 @@ const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Rascunho',
   pre_analise: 'Pré-análise',
   analise_credito: 'Análise crédito',
+  pre_aprovado: 'Pré-aprovado',
   analise_imovel: 'Análise imóvel',
   analise_juridica: 'Análise jurídica',
   comite: 'Comitê',
@@ -33,14 +34,14 @@ const STATUS_LABEL: Record<string, string> = {
 
 // Funil agregado: do mais amplo para o mais restrito
 const FUNIL_STAGES: { key: string; label: string; matches: string[] }[] = [
-  { key: 'simulacoes', label: 'Simulações', matches: ['simulacao', 'pre_analise', 'analise_credito', 'analise_imovel', 'analise_juridica', 'comite', 'proposta_cliente', 'resolucao_pendencias', 'emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado'] },
-  { key: 'pre_analise', label: 'Pré-análise', matches: ['pre_analise', 'analise_credito', 'analise_imovel', 'analise_juridica', 'comite', 'proposta_cliente', 'resolucao_pendencias', 'emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado'] },
-  { key: 'analise', label: 'Análise', matches: ['analise_credito', 'analise_imovel', 'analise_juridica', 'comite', 'proposta_cliente', 'resolucao_pendencias', 'emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado'] },
+  { key: 'simulacoes', label: 'Simulações', matches: ['simulacao', 'pre_analise', 'analise_credito', 'pre_aprovado', 'analise_imovel', 'analise_juridica', 'comite', 'proposta_cliente', 'resolucao_pendencias', 'emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado'] },
+  { key: 'pre_analise', label: 'Pré-análise', matches: ['pre_analise', 'analise_credito', 'pre_aprovado', 'analise_imovel', 'analise_juridica', 'comite', 'proposta_cliente', 'resolucao_pendencias', 'emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado'] },
+  { key: 'analise', label: 'Análise', matches: ['analise_credito', 'pre_aprovado', 'analise_imovel', 'analise_juridica', 'comite', 'proposta_cliente', 'resolucao_pendencias', 'emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado'] },
   { key: 'comite', label: 'Comitê', matches: ['comite', 'proposta_cliente', 'resolucao_pendencias', 'emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado'] },
   { key: 'contrato', label: 'Contrato', matches: ['emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado'] },
 ]
 
-const STATUS_TABLE_ORDER = ['pre_analise', 'analise_credito', 'analise_imovel', 'analise_juridica', 'comite', 'emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado']
+const STATUS_TABLE_ORDER = ['pre_analise', 'analise_credito', 'pre_aprovado', 'analise_imovel', 'analise_juridica', 'comite', 'emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado']
 
 const colors = ['#0A2B4E', '#D4AF37', '#2C6B9E', '#10B981', '#DC2626']
 

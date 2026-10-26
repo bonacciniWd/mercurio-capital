@@ -129,3 +129,15 @@ export function calcularLTV(valorSolicitado: number, valorImovel: number): numbe
   if (valorImovel <= 0) return 0
   return valorSolicitado / valorImovel
 }
+
+/** Soma valores de garantia em reais, mantendo precisão de centavos. */
+export function somarValoresImoveis(
+  imoveis: ReadonlyArray<{ valor: number | string | null | undefined }>,
+): number {
+  const totalCentavos = imoveis.reduce((total, imovel) => {
+    const valor = Number(imovel.valor)
+    return total + (Number.isFinite(valor) ? Math.round(valor * 100) : 0)
+  }, 0)
+
+  return totalCentavos / 100
+}

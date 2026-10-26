@@ -97,6 +97,8 @@ export function Login({
   const hero = pickHero(allowedRoles)
   const registerLink = pickRegisterLink(allowedRoles)
   const isAdminLogin = allowedRoles?.length === 1 && allowedRoles[0] === 'admin'
+  const isClientLogin = allowedRoles?.length === 1 && allowedRoles[0] === 'client'
+  const recoveryLoginPath = isAdminLogin ? '/admin/login' : isClientLogin ? '/c/login' : '/p/login'
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -145,7 +147,10 @@ export function Login({
               <div>
                 <div className="flex items-baseline justify-between">
                   <label className="label">Senha</label>
-                  <Link to="/recuperar-senha" className="text-xs font-medium text-navy hover:underline">
+                  <Link
+                    to={`/recuperar-senha?next=${encodeURIComponent(recoveryLoginPath)}`}
+                    className="text-xs font-medium text-navy hover:underline"
+                  >
                     Esqueci minha senha
                   </Link>
                 </div>

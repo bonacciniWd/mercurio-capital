@@ -142,6 +142,13 @@ Permissions-Policy: geolocation=(), camera=(self), microphone=()
 - `production` — projeto Supabase isolado, acesso restrito.
 - Migrações via `supabase db push` versionadas em git, deploy automatizado.
 
+## Equipe interna e fotos
+- Nunca criar credenciais no navegador: convites passam pela Edge Function `admin-invite-internal`, que valida JWT e admin full antes de usar service role.
+- A função não altera contas existentes; e-mail já cadastrado retorna conflito. Novas contas recebem `role=admin` e `admin_nivel=limitado`.
+- RPCs protegidas por `app_is_admin_full()` são a única escrita para perfis e catálogos; alterações são registradas em `audit_log`.
+- O bucket `avatares-internos` é privado. Upload é limitado a JPG/PNG/WebP de até 5 MB e leitura é via URL assinada de curta duração. O bucket público `avatares` e `usuarios.avatar_url` permanecem separados.
+- A RPC do organograma limita a saída a campos organizacionais e permite leitura a admins, sem expor e-mail/telefone. Gestores precisam ser admins ativos; auto-referência e ciclos são rejeitados no banco.
+
 ## Validação CPF/CNPJ e PII (2026-07-22)
 
 - A validação CPF/CNPJ (Invertexto) ocorre **exclusivamente** via Edge Function `documento-validar` com token server-side; o frontend nunca recebe segredos.

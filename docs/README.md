@@ -26,9 +26,12 @@ Esta pasta consolida o escopo da plataforma **Mercurio Capital** e as atualizaç
 
 ### ⚙️ Operação ([`operacao/`](./operacao/))
 - [Gestão de mudanças](./operacao/change-management.md)
+- [Serasa + MERX — auditoria de implementação e pendências (21/10/2026)](./operacao/2026-10-21-auditoria-serasa-merx.md)
 - [Matriz de critérios para classificação de leads](./operacao/matriz-criterios-classificacao-leads.md)
 - [Critérios do classificador de leads v1](./operacao/criterios-classificador-leads-v1.md)
 - [Checklist unificado de release](./operacao/release-checklist.md)
+- [Datas civis das propostas](./operacao/datas-propostas.md)
+- [Simuladores públicos e leads capturados](./operacao/simulador-publico.md)
 - [Runbooks operacionais](./operacao/runbooks.md)
 - [Release desktop macOS (signing + notarização)](./operacao/desktop-release-macos-signing.md)
 - [Plano de Disaster Recovery (PITR + dumps)](./operacao/dr-plan.md)

@@ -2,11 +2,41 @@
 
 > Documento de definição operacional. Os critérios abaixo organizam os dados já disponíveis no sistema; não autorizam classificação automática até serem validados pela operação.
 
+O informativo operacional do Trello está anexado em
+[ParametrosIA-01.jpeg](./assets/ParametrosIA-01.jpeg) e
+[ParametrosIA-02.jpeg](./assets/ParametrosIA-02.jpeg). A leitura do
+informativo foi incorporada como referência, sem transformar seus limites
+numéricos em configuração de produção.
+
 ## Estado atual
 
 A distribuição automática já está implementada. Uma proposta nova fica `aguardando classificação operacional`. Depois que a classe é definida, o sistema aplica o peso e escolhe um analista elegível conforme senioridade, capacidade e carga do mês.
 
 O que ainda falta é transformar as descrições comerciais em critérios observáveis para que um classificador server-side possa sugerir uma classe com confiança e justificativa.
+
+## Quatro saídas da classificação
+
+O material visual exibe três perfis distribuíveis. Para manter o controle
+operacional e a regra já aprovada, o sistema trabalha com quatro saídas:
+
+| Saída | Participa da distribuição? | Regra de encaminhamento |
+|---|---|---|
+| Triplo A | Sim | Lead de menor complexidade, respeitando capacidade e balanceamento. |
+| Double AA | Sim | Lead de complexidade intermediária, com estruturação quando necessário. |
+| Estressado | Sim, com revisão conforme o caso | Lead de maior complexidade, com preferência por pleno/sênior e acompanhamento. |
+| Desqualificado | Não | Encerramento operacional confirmado por humano, com motivo e auditoria. |
+
+Desqualificado não entra no mix de senioridade, na capacidade ponderada nem no
+gatilho de bonificação. Ausência de documento, consulta indisponível ou baixa
+confiança não são motivos suficientes para essa saída.
+
+## Parâmetros adicionais do informativo
+
+O material sugere limites para score, renda mínima, LTV, materialidade de
+restrições, população da cidade e quantidade de pendências. Esses limites são
+referências para a próxima validação da operação. Enquanto não houver aprovação
+formal, permanecem fora da automação e não substituem os campos configuráveis
+da versão 1.
 
 ## Dados que podem alimentar a análise
 

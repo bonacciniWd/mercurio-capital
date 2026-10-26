@@ -39,11 +39,11 @@ create type imovel_tipo as enum ('apartamento','casa','comercial','terreno','vag
 create type correcao_tipo as enum ('pos_fixado','pre_fixado');
 create type amortizacao_tipo as enum ('price','sac');
 create type proposta_status as enum (
-  'simulacao','pre_analise','analise_credito','analise_imovel','analise_juridica',
+  'simulacao','pre_analise','analise_credito','pre_aprovado','analise_imovel','analise_juridica',
   'comite','proposta_cliente','resolucao_pendencias','emissao_contrato',
   'aguardando_assinatura','em_registro','contrato_registrado','recurso_liberado','cancelado',
   'diligencia_juridica','protocolo_cartorio','exigencias_cartorio','custas_cartorio',
-  'registro_af','pagamento_comissao','completo'
+  'registro_af','pagamento_comissao','completo','standby'
 );
 create type estado_civil as enum ('solteiro','casado','divorciado','viuvo','uniao_estavel');
 create type documento_tipo as enum (
@@ -70,6 +70,17 @@ create type stripe_intent_status as enum (
 ```
 
 ## 3. Identidade & Acesso
+
+### Equipe interna (migration `20261013000001_equipe_interna_organograma.sql`)
+As contas continuam em `auth.users` e `usuarios`; os metadados organizacionais ficam separados para não confundir cargo com RBAC.
+
+| Tabela | Campos principais | Relações e acesso |
+|---|---|---|
+| `departamentos_internos` | `id`, `nome`, `descricao`, `ativo`, timestamps | catálogo; leitura/escrita administrativa completa via RPC |
+| `cargos_internos` | `id`, `nome`, `descricao`, `ativo`, timestamps | catálogo reutilizável; leitura/escrita administrativa completa via RPC |
+| `usuarios_internos` | `usuario_id`, `departamento_id`, `cargo_id`, `gestor_usuario_id`, `foto_path`, `data_inicio`, timestamps | 1:1 com `usuarios`; gestor autorreferente; escrita auditada somente por admin full; leitura do organograma entrega campos mínimos a admins |
+
+Fotos ficam no bucket privado `avatares-internos`, path `{usuario_id}/{uuid}.{ext}`; URLs de exibição são assinadas e temporárias. A hierarquia rejeita auto-gestão, gestor que não seja admin ativo e ciclos.
 
 ### `usuarios`
 Espelha `auth.users` do Supabase com dados de perfil.

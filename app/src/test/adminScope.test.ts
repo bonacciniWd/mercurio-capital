@@ -56,8 +56,8 @@ describe('adminScope — escopo por admin_nivel', () => {
     expect(canCreateProposta(null)).toBe(false)
   })
 
-  it('nav allowlist inclui propostas e relatorios para escopo reduzido', () => {
-    for (const to of ['/admin', '/admin/aprovacoes', '/admin/parceiros', '/admin/rede', '/admin/kanban', '/admin/propostas', '/admin/relatorios']) {
+  it('nav allowlist inclui propostas, leads e relatorios para escopo reduzido', () => {
+    for (const to of ['/admin', '/admin/aprovacoes', '/admin/parceiros', '/admin/rede', '/admin/kanban', '/admin/propostas', '/admin/leads/simulacoes', '/admin/relatorios']) {
       expect(isRestrictedAdminNavPath(to)).toBe(true)
     }
     for (const to of ['/admin/financeiro', '/admin/configuracoes', '/admin/integracoes', '/admin/campanhas']) {
@@ -77,6 +77,7 @@ describe('adminScope — escopo por admin_nivel', () => {
     expect(isAdminPathAllowed('/admin/propostas/nova', 'limitado')).toBe(true)
     expect(isAdminPathAllowed('/admin/propostas/abc-123', 'limitado')).toBe(true)
     expect(isAdminPathAllowed('/admin/relatorios', 'limitado')).toBe(true)
+    expect(isAdminPathAllowed('/admin/leads/simulacoes', 'limitado')).toBe(true)
     expect(isAdminPathAllowed('/admin/parceiros/p1/equipes', 'limitado')).toBe(true)
     expect(isAdminPathAllowed('/admin/financeiro', 'limitado')).toBe(false)
     expect(isAdminPathAllowed('/admin/configuracoes', 'limitado')).toBe(false)
@@ -86,6 +87,7 @@ describe('adminScope — escopo por admin_nivel', () => {
     expect(isAdminPathAllowed('/admin/propostas', 'juridico')).toBe(true)
     expect(isAdminPathAllowed('/admin/propostas/abc-123', 'juridico')).toBe(true)
     expect(isAdminPathAllowed('/admin/relatorios', 'juridico')).toBe(true)
+    expect(isAdminPathAllowed('/admin/leads/simulacoes', 'juridico')).toBe(true)
     expect(isAdminPathAllowed('/admin/propostas/nova', 'juridico')).toBe(false)
     expect(isAdminPathAllowed('/admin/financeiro', 'juridico')).toBe(false)
   })

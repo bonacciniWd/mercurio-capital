@@ -1,0 +1,41 @@
+<!-- Standalone Animated Red Metallic Vector SVG -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="100%" height="auto" style="filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.1));">
+  <defs>
+    <linearGradient id="redStroke" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff3355" />
+      <stop offset="100%" stop-color="#cc001a" />
+    </linearGradient>
+    <linearGradient id="redFill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff2a4b" />
+      <stop offset="100%" stop-color="#66000d" />
+    </linearGradient>
+  </defs>
+  <style>
+    .draw-subpath {
+      stroke: url(#redStroke);
+      stroke-width: 5px;
+      fill: url(#redFill);
+      stroke-dasharray: 800;
+      stroke-dashoffset: 800;
+      animation: writeEraseLoop 9.5s ease-in-out infinite;
+    }
+    .path-seq-0 { animation-delay: 0.00s; }
+    .path-seq-1 { animation-delay: 0.83s; }
+    .path-seq-2 { animation-delay: 1.66s; }
+    .path-seq-3 { animation-delay: 2.49s; }
+
+    @keyframes writeEraseLoop {
+      0% { stroke-dashoffset: 800; fill-opacity: 0; }
+      40% { stroke-dashoffset: 0; fill-opacity: 1; }
+      60% { stroke-dashoffset: 0; fill-opacity: 1; }
+      90% { stroke-dashoffset: -800; fill-opacity: 0; }
+      100% { stroke-dashoffset: -800; fill-opacity: 0; }
+    }
+  </style>
+  <g>
+    <path class="draw-subpath path-seq-0" d="M 312 473.339 L 312 621.679 349.977 660.582 C 370.865 681.978, 388.302 699.595, 388.727 699.730 C 389.152 699.865, 393.775 695.992, 399 691.123 L 408.500 682.271 380.327 653.386 C 364.832 637.499, 349.195 621.588, 345.577 618.029 L 339 611.558 339 480.949 L 339 350.341 326.096 337.670 C 318.998 330.702, 312.923 325, 312.596 325 C 312.268 325, 312 391.753, 312 473.339" stroke-linecap="round" stroke-linejoin="round" />
+    <path class="draw-subpath path-seq-1" d="M 698.750 337.153 L 686 349.182 685.971 479.841 L 685.941 610.500 650.762 646.361 L 615.583 682.221 625.042 691.067 C 630.244 695.932, 634.762 699.933, 635.081 699.957 C 635.401 699.980, 652.840 682.491, 673.835 661.090 L 712.007 622.181 711.753 473.652 L 711.500 325.124 698.750 337.153" stroke-linecap="round" stroke-linejoin="round" />
+    <path class="draw-subpath path-seq-2" d="M 368 490.056 L 368 601.257 390.750 624.700 C 403.262 637.594, 416.875 651.756, 421 656.172 L 428.500 664.202 436.750 656.514 L 445 648.827 L 445 571.413 C 445 528.836, 445.344 494, 445.763 494 C 446.183 494, 452.704 500.189, 460.254 507.754 L 473.981 521.507 474.241 571.724 L 474.500 621.940 L 486.750 610.821 L 499 599.703 L 498.938 552.601 L 498.877 505.500 L 460.014 467.750 C 438.640 446.988, 420.893 430, 420.576 430 C 420.259 430, 420 471.281, 420 521.736 L 420 613.472 L 406.500 600 L 393 586.528 393 494.514 L 392.999 402.500 L 380.500 390.677 L 368 378.855 L 368 490.056" stroke-linecap="round" stroke-linejoin="round" />
+    <path class="draw-subpath path-seq-3" d="M 643.235 391.264 L 631 403.529 L 631 495.028 L 631 586.528 L 617.505 599.995 L 604.011 613.462 L 603.755 521.578 L 603.500 429.695 L 564.250 467.922 L 525 506.149 L 525.010 552.825 L 525.019 599.500 L 537.134 610.500 C 543.797 616.550, 549.643 621.650, 550.125 621.833 C 550.618 622.021, 551 599.983, 551 571.319 L 551 520.472 L 564.263 507.236 C 571.558 499.956, 577.856 494, 578.257 494 C 578.659 494, 579.103 528.930, 579.244 571.621 L 579.500 649.242 L 587.608 656.621 L 595.717 664 L 625.836 632.750 L 655.956 601.500 L 655.978 490.250 C 655.990 429.063, 655.881 379, 655.735 379 C 655.589 379, 649.964 384.519, 643.235 391.264" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>

@@ -19,8 +19,11 @@ type FundoBadge = { fundo_id: string; nome: string; cor_hex: string; status_fund
 
 // Agrupa status enum em colunas de kanban
 const COLS_DEF: { id: string; label: string; accent: string; statuses: string[] }[] = [
+  { id: 'standby', label: 'Standby',      accent: '#64748B', statuses: ['standby'] },
   { id: 'pre',  label: 'Pré-análise', accent: '#737373', statuses: ['simulacao', 'pre_analise'] },
-  { id: 'cred', label: 'Crédito',     accent: '#F59E0B', statuses: ['analise_credito', 'analise_imovel'] },
+  { id: 'cred', label: 'Crédito',     accent: '#F59E0B', statuses: ['analise_credito'] },
+  { id: 'preap', label: 'Pré-aprovado', accent: '#16A34A', statuses: ['pre_aprovado'] },
+  { id: 'imovel', label: 'Análise Imóvel', accent: '#3B82F6', statuses: ['analise_imovel'] },
   { id: 'jur',  label: 'Jurídico',    accent: '#F87171', statuses: ['analise_juridica'] },
   { id: 'com',  label: 'Comitê',      accent: '#A78BFA', statuses: ['comite', 'proposta_cliente', 'resolucao_pendencias'] },
   { id: 'ass',  label: 'Assinatura',  accent: '#38BDF8', statuses: ['emissao_contrato', 'aguardando_assinatura', 'em_registro'] },

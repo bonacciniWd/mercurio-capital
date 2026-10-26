@@ -88,6 +88,7 @@ Papel operacional que é `role='admin'` mas com escopo reduzido. Implementado se
 | Detalhe de proposta | `/admin/propostas/:id` | ✅ | ✅ | ✅ |
 | **Nova proposta (criação)** | `/admin/propostas/nova` | ✅ | ✅ | ❌ |
 | Relatórios | `/admin/relatorios` | ✅ | ✅ | ✅ |
+| Leads do simulador público (leitura) | `/admin/leads/simulacoes` | ✅ | ✅ | ✅ |
 | Financeiro / Preços / Carteiras | `/admin/financeiro*` | ✅ | ❌ | ❌ |
 | Fluxos / Campanhas / Templates | `/admin/{fluxos,campanhas,templates}` | ✅ | ❌ | ❌ |
 | Feature flags / Integrações / Configurações | … | ✅ | ❌ | ❌ |
@@ -108,7 +109,7 @@ Perfil interno com **leitura administrativa** (inclui Propostas e Relatórios) e
 
 A aba Contrato (web e mobile) usa `isPropostaAprovada(status)` (`app/src/lib/propostaStatus.ts` / `mobile/lib/propostaStatus.ts`):
 
-- **Não aprovada** = status ∈ {`simulacao`, `pre_analise`, `analise_credito`, `analise_imovel`, `analise_juridica`, `comite`, `cancelado`} → placeholder.
+- **Não aprovada** = status ∈ {`simulacao`, `pre_analise`, `analise_credito`, `pre_aprovado`, `analise_imovel`, `analise_juridica`, `comite`, `cancelado`} → placeholder.
 - **Admin (`role='admin'`)**: aba Contrato fica liberada mesmo em pré-aprovação (mantém placeholder apenas para `cancelado`).
 - **Partner/Client**: gate por aprovação continua igual (só libera quando `isPropostaAprovada(status)` for verdadeiro).
 - É gate **apenas de UI**: a geração Clicksign continua exigindo `emissao_contrato` no backend.
@@ -182,7 +183,7 @@ create policy "client_own" on propostas
 ## 5. Matriz de permissões por status (transições)
 
 ```
-[Simulação] → Pré-análise → Análise Jurídica → Análise Crédito → Análise Imóvel
+[Simulação] → Pré-análise → Análise Jurídica → Análise Crédito → Pré-aprovado → Análise Imóvel
             → Comitê → Proposta ao Cliente → Diligência Jurídica
             → Emissão de Contrato → Aguardando Assinatura
             → Protocolo Cartório → Exigências Cartório → Custas Cartório
@@ -195,7 +196,7 @@ create policy "client_own" on propostas
 | Simulação → Pré-análise | partner, team_member, admin |
 | Pré-análise → Análise Jurídica | admin |
 | Análise Jurídica → Análise Crédito | admin |
-| Análise Crédito → Análise Imóvel | admin |
+| Análise Crédito → Pré-aprovado → Análise Imóvel | admin |
 | Análise Imóvel → Comitê | admin |
 | Comitê → Proposta ao Cliente | admin |
 | Proposta ao Cliente → Diligência Jurídica | admin, partner |
@@ -207,3 +208,10 @@ create policy "client_own" on propostas
 | Qualquer → Cancelado | admin, partner (com motivo) |
 
 Os valores legados não são removidos do enum. No Kanban: `resolucao_pendencias` aparece em Diligência Jurídica, `em_registro` em Protocolo Cartório e `contrato_registrado` em Registro de AF.
+
+### Equipe interna e organograma (2026-10-13)
+- Convites internos são separados do fluxo de parceiro e criam `role=admin` com `admin_nivel=limitado`.
+- Somente admin full pode convidar, editar perfis organizacionais e manter os catálogos de cargos/departamentos.
+- Em `/admin/rede`, admin full pode atribuir cargo, departamento e gestor pelo painel do organograma. A troca de gestor exige confirmação; conectar cards apenas prepara essa alteração. Admin limitado/jurídico consulta a estrutura, sem controles ou consultas de edição.
+- Admins podem consultar o organograma, que expõe apenas nome, cargo, departamento, foto, gestor e data de início.
+- Cargo organizacional não concede permissões. A Rede de originação existente permanece separada.

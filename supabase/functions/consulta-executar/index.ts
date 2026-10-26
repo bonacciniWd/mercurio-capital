@@ -15,10 +15,17 @@
 //   502 falha no provedor (após estorno automático)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
+import {
+  normalizeSerasaReport,
+  requestSerasaReport,
+  serasaEnvironment,
+} from '../_shared/serasa-reports.ts'
 
 interface Body {
   proposta_id: string
   tipo: string
+  chave_idempotencia?: string
+  autorizacao_id?: string
   payload?: Record<string, unknown>
 }
 
@@ -32,13 +39,11 @@ const SERASA_CLIENT_SECRET = Deno.env.get('SERASA_CLIENT_SECRET') ?? Deno.env.ge
 // O ambiente deve ser informado explicitamente para evitar que credenciais de
 // homologação sejam usadas acidentalmente contra produção (ou vice-versa).
 const SERASA_API_URL       = (Deno.env.get('SERASA_API_URL') ?? '').replace(/\/+$/, '')
+// Produção permanece bloqueada até a liberação explícita após a conferência
+// das credenciais e da configuração do produto contratado.
+const SERASA_PRODUCTION_ENABLED = (Deno.env.get('SERASA_PRODUCTION_ENABLED') ?? 'false').toLowerCase() === 'true'
 // Mock is opt-in and must never be enabled in production. Without credentials,
 // the consultation is estornada and returned as not configured.
-const SERASA_ALLOW_MOCK    = (Deno.env.get('SERASA_ALLOW_MOCK') ?? 'false').toLowerCase() === 'true'
-
-function serasaConfigurado(): boolean {
-  return !!(SERASA_API_URL && SERASA_CLIENT_ID && SERASA_CLIENT_SECRET)
-}
 
 // ─────────────────────────── Bacen SCR (configurável) ───────────────────────────
 // O SCR do Banco Central não expõe API pública direta: o acesso é feito por
@@ -147,96 +152,6 @@ async function chamarBacen(tipo: string, documento: string): Promise<{
   }
 }
 
-let _serasaToken: string | null = null
-let _serasaTokenExp = 0
-
-async function getSerasaToken(): Promise<string> {
-  if (_serasaToken && Date.now() < _serasaTokenExp) return _serasaToken
-  const basicCredentials = btoa(`${SERASA_CLIENT_ID}:${SERASA_CLIENT_SECRET}`)
-  const res = await fetch(`${SERASA_API_URL}/security/iam/v1/client-identities/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Basic ${basicCredentials}`,
-    },
-  })
-  if (!res.ok) throw new Error(`Serasa auth ${res.status}: ${await res.text()}`)
-  const json = await res.json() as { accessToken?: string; expiresIn?: string | number }
-  if (!json.accessToken) throw new Error('Serasa auth sem accessToken')
-  _serasaToken = json.accessToken
-  const expiresIn = Number(json.expiresIn ?? 3600)
-  // A documentação retorna expiresIn como epoch em alguns ambientes e como
-  // duração em segundos em outros. Aceitamos ambos com margem de segurança.
-  const expiresAt = expiresIn > 1_000_000_000 ? expiresIn * 1000 : Date.now() + expiresIn * 1000
-  _serasaTokenExp = Math.max(Date.now() + 30_000, expiresAt - 30_000)
-  return _serasaToken
-}
-
-function texto(payload: Record<string, unknown>, key: string): string | undefined {
-  const value = payload[key]
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined
-}
-
-function semVazios<T extends Record<string, unknown>>(obj: T): T {
-  return Object.fromEntries(Object.entries(obj).filter(([, value]) => value !== undefined && value !== null && value !== '')) as T
-}
-
-async function chamarSerasa(tipo: string, payload: Record<string, unknown>): Promise<{
-  provedor: string; response: Record<string, unknown>; resumo: Record<string, unknown>
-}> {
-  const token = await getSerasaToken()
-  const isPJ = tipo === 'serasa_pj'
-  const document = String(payload.documento ?? payload.cpf ?? payload.cnpj ?? '').replace(/\D/g, '')
-  if (!document) throw new Error(`documento_ausente_para_${isPJ ? 'serasa_pj' : 'serasa_pf'}`)
-
-  const address = semVazios({
-    street: texto(payload, 'endereco_logradouro') ?? texto(payload, 'street'),
-    number: texto(payload, 'endereco_numero') ?? texto(payload, 'number'),
-    city: texto(payload, 'endereco_cidade') ?? texto(payload, 'city'),
-    state: texto(payload, 'endereco_estado') ?? texto(payload, 'state'),
-    zipCode: (texto(payload, 'endereco_cep') ?? texto(payload, 'zipCode'))?.replace(/\D/g, ''),
-  })
-  const phone = semVazios({
-    areaCode: texto(payload, 'ddd'),
-    number: texto(payload, 'telefone')?.replace(/\D/g, ''),
-  })
-
-  const body = isPJ
-    ? { business: semVazios({
-        document,
-        companyName: texto(payload, 'razao_social') ?? texto(payload, 'companyName'),
-        fantasyName: texto(payload, 'nome_fantasia') ?? texto(payload, 'fantasyName'),
-        openingDate: texto(payload, 'data_abertura') ?? texto(payload, 'openingDate'),
-        address: Object.keys(address).length ? address : undefined,
-      }), scoreParameters: ['VERIFY'] }
-    : { person: semVazios({
-        document,
-        name: texto(payload, 'nome') ?? texto(payload, 'name'),
-        socialName: texto(payload, 'nome_social') ?? texto(payload, 'socialName'),
-        birthDate: texto(payload, 'data_nascimento') ?? texto(payload, 'birthDate'),
-        motherName: texto(payload, 'nome_mae') ?? texto(payload, 'motherName'),
-        email: texto(payload, 'email'),
-        address: Object.keys(address).length ? address : undefined,
-        phone: Object.keys(phone).length ? phone : undefined,
-      }), scoreParameters: ['VERIFY'] }
-
-  const endpoint = `${SERASA_API_URL}/id-fraud/verify-id/v1/${isPJ ? 'business' : 'people'}`
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) throw new Error(`Serasa ${res.status}: ${(await res.text()).slice(0, 300)}`)
-  const data = await res.json() as Record<string, unknown>
-  const score = typeof data.verificationScore === 'number' ? data.verificationScore : null
-  const risk = typeof data.verificationRisk === 'string' ? data.verificationRisk : null
-  return {
-    provedor: 'serasa_experian',
-    response: data,
-    resumo: { status: 'ok', score, verificationRisk: risk, validationGroups: data.validationGroups ?? [] },
-  }
-}
-
 async function chamarProvedor(tipo: string, payload: Record<string, unknown>): Promise<{
   provedor: string
   response: Record<string, unknown>
@@ -266,23 +181,8 @@ async function chamarProvedor(tipo: string, payload: Record<string, unknown>): P
       }
     }
     case 'serasa_pf':
-    case 'serasa_pj': {
-      // Usa API real se credenciais estiverem configuradas
-      if (serasaConfigurado()) {
-        return chamarSerasa(tipo, payload)
-      }
-      // Sem credenciais, não simular score ou restrições em produção.
-      if (!SERASA_ALLOW_MOCK) {
-        throw new Error('serasa_nao_configurado')
-      }
-      // Mock determinístico somente em ambiente de staging explicitamente habilitado.
-      const score = 300 + (seed % 700)
-      return {
-        provedor: 'serasa_mock',
-        response: { status: 'ok', tipo, consultado_em: now, payload, score, faixa: score > 700 ? 'A' : score > 500 ? 'B' : 'C' },
-        resumo: { status: 'ok', score },
-      }
-    }
+    case 'serasa_pj':
+      throw new Error('serasa_relatorio_deve_usar_fluxo_autorizado')
     case 'jusbrasil_cnpj':
     case 'escavador_cnpj': {
       const processos = seed % 12
@@ -349,37 +249,178 @@ async function resolverDocumento(
   return null
 }
 
-async function resolverPayloadSerasa(
-  service: ReturnType<typeof createClient>,
-  propostaId: string,
-  tipo: string,
-): Promise<Record<string, unknown>> {
-  const { data } = await service
-    .from('propostas')
-    .select('cliente:clientes(nome_completo, cpf, cnpj, email, telefone, endereco_cep, endereco_logradouro, endereco_numero, endereco_cidade, endereco_estado, razao_social, data_abertura, nome_fantasia)')
-    .eq('id', propostaId)
-    .maybeSingle()
-  const cliente = data?.cliente as Record<string, unknown> | null | undefined
-  if (!cliente) return {}
+function documentoValido(documento: string, tipo: 'serasa_pf' | 'serasa_pj'): boolean {
+  const digits = documento.replace(/\D/g, '')
+  const expectedLength = tipo === 'serasa_pf' ? 11 : 14
+  if (digits.length !== expectedLength || new Set(digits).size === 1) return false
+  const checkDigit = (base: string, weights: number[]) => {
+    const total = [...base].reduce((sum, digit, index) => sum + Number(digit) * weights[index], 0)
+    const remainder = total % 11
+    return remainder < 2 ? 0 : 11 - remainder
+  }
+  if (tipo === 'serasa_pf') {
+    const first = checkDigit(digits.slice(0, 9), [10, 9, 8, 7, 6, 5, 4, 3, 2])
+    const second = checkDigit(digits.slice(0, 9) + first, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2])
+    return first === Number(digits[9]) && second === Number(digits[10])
+  }
+  const first = checkDigit(digits.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+  const second = checkDigit(digits.slice(0, 12) + first, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+  return first === Number(digits[12]) && second === Number(digits[13])
+}
 
-  const isPJ = tipo === 'serasa_pj'
-  return {
-    ...(isPJ ? {
-      cnpj: cliente.cnpj,
-      razao_social: cliente.razao_social,
-      nome_fantasia: cliente.nome_fantasia,
-      data_abertura: cliente.data_abertura,
-    } : {
-      cpf: cliente.cpf,
-      nome: cliente.nome_completo,
-    }),
-    email: cliente.email,
-    telefone: cliente.telefone,
-    endereco_cep: cliente.endereco_cep,
-    endereco_logradouro: cliente.endereco_logradouro,
-    endereco_numero: cliente.endereco_numero,
-    endereco_cidade: cliente.endereco_cidade,
-    endereco_estado: cliente.endereco_estado,
+function parametrosPjValidos(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const parameters = (value as Record<string, unknown>).reportParameters
+  if (!Array.isArray(parameters) || parameters.length !== 1) return false
+  const item = parameters[0]
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return false
+  const parameter = item as Record<string, unknown>
+  return parameter.name === 'segmentCode' && typeof parameter.value === 'string' && /^\d{3}$/.test(parameter.value)
+}
+
+async function executarSerasaAutorizado(args: {
+  req: Request
+  body: Body
+  supabase: ReturnType<typeof createClient>
+  service: ReturnType<typeof createClient>
+}): Promise<Response> {
+  const { body, supabase, service } = args
+  if (body.tipo !== 'serasa_pf' && body.tipo !== 'serasa_pj') return jsonResponse({ error: 'tipo_invalido' }, 400)
+  if (!body.chave_idempotencia || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(body.chave_idempotencia)) {
+    return jsonResponse({ error: 'chave_idempotencia_obrigatoria' }, 400)
+  }
+  if (!body.autorizacao_id) return jsonResponse({ error: 'autorizacao_documentada_obrigatoria' }, 403)
+
+  const ambiente = serasaEnvironment(SERASA_API_URL)
+  if (!ambiente) return jsonResponse({ error: 'serasa_ambiente_ou_url_invalida' }, 503)
+  if (ambiente === 'producao' && !SERASA_PRODUCTION_ENABLED) {
+    return jsonResponse({ error: 'serasa_producao_bloqueada' }, 503)
+  }
+  if (!SERASA_CLIENT_ID || !SERASA_CLIENT_SECRET) return jsonResponse({ error: 'serasa_nao_configurado' }, 503)
+  if (!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')) return jsonResponse({ error: 'serasa_runtime_incompleto' }, 503)
+  const retailerDocumentId = (Deno.env.get('SERASA_RETAILER_DOCUMENT_ID') ?? '').replace(/\D/g, '')
+  if (ambiente === 'producao' && retailerDocumentId.length !== 14) {
+    return jsonResponse({ error: 'serasa_cnpj_consultante_ausente' }, 503)
+  }
+
+  const [{ data: integration, error: integrationError }, { data: config, error: configError }] = await Promise.all([
+    service.from('integracoes_config').select('ativo').eq('chave', 'serasa').maybeSingle(),
+    service.from('serasa_relatorios_config').select('ativo, report_pf, report_pj, parametros_pj, versao_normalizador')
+      .eq('ambiente', ambiente).maybeSingle(),
+  ])
+  if (integrationError || configError) return jsonResponse({ error: 'serasa_config_indisponivel' }, 503)
+  if (!integration?.ativo || !config?.ativo) return jsonResponse({ error: 'serasa_relatorio_desativado' }, 503)
+  if (body.tipo === 'serasa_pj' && !parametrosPjValidos(config.parametros_pj)) {
+    return jsonResponse({ error: 'serasa_parametros_pj_pendentes' }, 503)
+  }
+
+  const product = body.tipo === 'serasa_pf' ? config.report_pf : config.report_pj
+  const expectedProduct = body.tipo === 'serasa_pf'
+    ? 'RELATORIO_AVANCADO_TOP_SCORE_PF'
+    : 'RELATORIO_AVANCADO_PJ_ANALITICO'
+  if (product !== expectedProduct) return jsonResponse({ error: 'serasa_produto_nao_permitido' }, 503)
+
+  const { data: proposal, error: proposalError } = await service
+    .from('propostas')
+    .select('cliente:clientes(pessoa_tipo, cpf, cnpj)')
+    .eq('id', body.proposta_id)
+    .maybeSingle()
+  if (proposalError) return jsonResponse({ error: 'cadastro_proposta_indisponivel' }, 503)
+  const cliente = (proposal as { cliente?: { pessoa_tipo?: string; cpf?: string | null; cnpj?: string | null } | null } | null)?.cliente
+  const document = body.tipo === 'serasa_pf' ? cliente?.cpf : cliente?.cnpj
+  const expectedPersonType = body.tipo === 'serasa_pf' ? 'PF' : 'PJ'
+  if (cliente?.pessoa_tipo !== expectedPersonType || !document || !documentoValido(document, body.tipo)) {
+    return jsonResponse({ error: 'documento_titular_invalido' }, 422)
+  }
+
+  const { data: startData, error: startError } = await supabase.rpc('consulta_iniciar_serasa', {
+    p_proposta_id: body.proposta_id,
+    p_tipo: body.tipo,
+    p_chave_idempotencia: body.chave_idempotencia,
+    p_autorizacao_id: body.autorizacao_id,
+    p_ambiente: ambiente,
+  })
+  if (startError) {
+    const message = startError.message ?? ''
+    if (message.includes('saldo_insuficiente')) return jsonResponse({ error: 'saldo_insuficiente' }, 402)
+    if (message.includes('wallet_bloqueada')) return jsonResponse({ error: 'wallet_bloqueada' }, 403)
+    if (message.includes('preco_nao_configurado')) return jsonResponse({ error: 'preco_nao_configurado' }, 422)
+    if (message.includes('autorizacao') || message.includes('documento_')) return jsonResponse({ error: 'autorizacao_documento_ou_titular_invalido' }, 403)
+    if (message.includes('proposta_nao_encontrada')) return jsonResponse({ error: 'proposta_nao_encontrada_ou_sem_acesso' }, 404)
+    if (message.includes('serasa_')) return jsonResponse({ error: 'serasa_relatorio_desativado' }, 503)
+    if (message.includes('chave_idempotencia_reutilizada')) return jsonResponse({ error: 'chave_idempotencia_reutilizada' }, 409)
+    return jsonResponse({ error: 'erro_iniciar_consulta' }, 500)
+  }
+  const started = Array.isArray(startData) ? startData[0] : startData
+  if (!started?.log_id) return jsonResponse({ error: 'erro_iniciar_consulta' }, 500)
+
+  if (started.reutilizada) {
+    if (started.status === 'em_andamento' || started.status === 'reconciliacao_pendente') {
+      return jsonResponse({ error: 'consulta_em_reconciliacao', log_id: started.log_id, status: started.status }, 202)
+    }
+    const { data: previous, error: previousError } = await service.from('logs_consultas')
+      .select('resumo, provedor, produto_relatorio, ambiente, preco_centavos, status')
+      .eq('id', started.log_id).maybeSingle()
+    if (previousError || !previous) return jsonResponse({ error: 'consulta_anterior_indisponivel' }, 503)
+    return jsonResponse({ log_id: started.log_id, reused: true, ...previous })
+  }
+
+  try {
+    const raw = await requestSerasaReport({
+      apiUrl: SERASA_API_URL,
+      clientId: SERASA_CLIENT_ID,
+      clientSecret: SERASA_CLIENT_SECRET,
+      document,
+      retailerDocumentId: retailerDocumentId || undefined,
+      product: product as 'RELATORIO_AVANCADO_TOP_SCORE_PF' | 'RELATORIO_AVANCADO_PJ_ANALITICO',
+      reportParameters: body.tipo === 'serasa_pj' ? config.parametros_pj as Record<string, unknown> : undefined,
+    })
+    const resumo = normalizeSerasaReport(raw, product, config.versao_normalizador)
+    const { error: finishError } = await service.rpc('consulta_concluir', {
+      p_log_id: started.log_id,
+      p_response: resumo,
+      p_resumo: resumo,
+      p_provedor: 'serasa_experian',
+    })
+    if (finishError) {
+      const { data: persisted } = await service.from('logs_consultas').select('status, resumo')
+        .eq('id', started.log_id).maybeSingle()
+      if (persisted?.status === 'concluida') {
+        return jsonResponse({ log_id: started.log_id, status: 'concluida', resumo: persisted.resumo, reused: true })
+      }
+      await service.rpc('consulta_marcar_reconciliacao', {
+        p_log_id: started.log_id,
+        p_motivo: 'resultado_recebido_nao_persistido',
+      })
+      return jsonResponse({ error: 'resultado_pendente_reconciliacao', log_id: started.log_id }, 503)
+    }
+    return jsonResponse({
+      log_id: started.log_id,
+      ledger_id: started.ledger_id,
+      preco_centavos: started.preco_centavos,
+      status: 'concluida',
+      provedor: 'serasa_experian',
+      ambiente,
+      produto_relatorio: product,
+      resumo,
+    })
+  } catch (error) {
+    const code = error instanceof Error ? error.message : 'falha_provedor'
+    const statusCode = Number(code.match(/serasa_(?:auth|report)_(\d+)/)?.[1] ?? 0)
+    if (!statusCode || statusCode >= 500) {
+      const { error: reconcileError } = await service.rpc('consulta_marcar_reconciliacao', {
+        p_log_id: started.log_id,
+        p_motivo: code.slice(0, 160),
+      })
+      if (reconcileError) return jsonResponse({ error: 'consulta_em_reconciliacao', log_id: started.log_id }, 503)
+      return jsonResponse({ error: 'consulta_em_reconciliacao', log_id: started.log_id, status: 'reconciliacao_pendente' }, 202)
+    }
+    const { error: refundError } = await service.rpc('consulta_estornar', {
+      p_log_id: started.log_id,
+      p_motivo: code.slice(0, 160),
+    })
+    if (refundError) return jsonResponse({ error: 'estorno_pendente_reconciliacao', log_id: started.log_id }, 503)
+    return jsonResponse({ error: 'falha_provedor', status_serasa: statusCode, estornado: true, log_id: started.log_id }, 502)
   }
 }
 
@@ -405,6 +446,10 @@ Deno.serve(async (req: Request) => {
   try { body = await req.json() } catch { return jsonResponse({ error: 'invalid_json' }, 400) }
   if (!body.proposta_id || !body.tipo) {
     return jsonResponse({ error: 'campos_obrigatorios', detail: 'proposta_id e tipo' }, 400)
+  }
+
+  if (body.tipo === 'serasa_pf' || body.tipo === 'serasa_pj') {
+    return executarSerasaAutorizado({ req, body, supabase, service })
   }
 
   // 1. consulta_iniciar (debita carteira)
@@ -437,10 +482,6 @@ Deno.serve(async (req: Request) => {
       if (!documento) throw new Error('documento_nao_encontrado_na_proposta')
       payload.documento = documento
     }
-    if (body.tipo === 'serasa_pf' || body.tipo === 'serasa_pj') {
-      Object.assign(payload, await resolverPayloadSerasa(service, body.proposta_id, body.tipo))
-    }
-
     const result = await chamarProvedor(body.tipo, payload)
 
     // 3a. consulta_concluir

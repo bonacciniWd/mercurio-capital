@@ -1,16 +1,25 @@
 export const PROPOSTA_KANBAN_STATUS = [
-  'pre_analise', 'analise_juridica', 'analise_credito', 'analise_imovel',
+  'standby', 'pre_analise', 'analise_juridica', 'analise_credito', 'pre_aprovado', 'analise_imovel',
   'comite', 'proposta_cliente', 'diligencia_juridica', 'emissao_contrato',
   'aguardando_assinatura', 'protocolo_cartorio', 'exigencias_cartorio',
   'custas_cartorio', 'registro_af', 'recurso_liberado',
-  'pagamento_comissao', 'completo', 'standby',
+  'pagamento_comissao', 'completo',
 ] as const
 
 export type PropostaKanbanStatus = typeof PROPOSTA_KANBAN_STATUS[number]
+export type KanbanViewMode = 'todos' | 'operacional' | 'standby' | 'rascunhos' | 'canceladas'
+
+export function incluiStatusNaVisaoKanban(status: string, mode: KanbanViewMode): boolean {
+  if (mode === 'operacional') return status !== 'simulacao' && status !== 'cancelado'
+  if (mode === 'standby') return status === 'standby'
+  if (mode === 'rascunhos') return status === 'simulacao'
+  if (mode === 'canceladas') return status === 'cancelado'
+  return true
+}
 
 export const PROPOSTA_STATUS_LABEL: Record<string, string> = {
   simulacao: 'Rascunho', pre_analise: 'Pré-análise', analise_juridica: 'Análise Jurídica',
-  analise_credito: 'Análise Crédito', analise_imovel: 'Análise Imóvel', comite: 'Comitê',
+  analise_credito: 'Análise Crédito', pre_aprovado: 'Pré-aprovado', analise_imovel: 'Análise Imóvel', comite: 'Comitê',
   proposta_cliente: 'Proposta ao Cliente', diligencia_juridica: 'Diligência Jurídica',
   emissao_contrato: 'Emissão de Contrato', aguardando_assinatura: 'Aguardando Assinatura',
   protocolo_cartorio: 'Protocolo Cartório', exigencias_cartorio: 'Exigências Cartório',
@@ -41,7 +50,7 @@ export const PRODUTO_LABEL: Record<string, string> = {
 
 // Status em que a proposta ainda NÃO está aprovada (pré-aprovação) + cancelado.
 const STATUS_NAO_APROVADA = new Set<string>([
-  'simulacao', 'pre_analise', 'analise_credito', 'analise_imovel',
+  'simulacao', 'pre_analise', 'analise_credito', 'pre_aprovado', 'analise_imovel',
   'analise_juridica', 'comite', 'cancelado',
 ])
 

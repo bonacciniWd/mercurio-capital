@@ -1,0 +1,47 @@
+{
+  "info": {
+    "name": "REPORT_AVANCADO_TOP_SCORE_PJ_ANALITICO",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "TOKEN",
+      "event": [],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "disabled": false,
+            "type": "default"
+          }
+        ],
+        "url": "https://uat-api.serasaexperian.com.br/security/iam/v1/client-identities/login"
+      }
+    },
+    {
+      "name": "RELATORIO AVANÇADO_TOP_SCORE_ANALITICO",
+      "event": [],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-Document-id",
+            "value": "00063960000109",
+            "disabled": false,
+            "type": "default"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "disabled": false,
+            "type": "default"
+          }
+        ],
+        "url": "https://uat-api.serasaexperian.com.br/credit-services/business-information-report/v1/reports?reportName=RELATORIO_AVANCADO_TOP_SCORE_PJ_ANALITICO&reportParameters=ew0KCSJyZXBvcnRQYXJhbWV0ZXJzIjogWw0KCQl7DQoJCQkibmFtZSI6ICJzZWdtZW50Q29kZSIsDQoJCQkidmFsdWUiOiAiMDI4Ig0KCQl9DQoJXQ0KfQ"
+      }
+    }
+  ],
+  "variable": []
+}

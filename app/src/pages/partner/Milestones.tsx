@@ -6,9 +6,8 @@ import { brl } from '@/lib/utils'
 import { Lock, CheckCircle2, Loader2 } from 'lucide-react'
 
 interface KpiRow {
-  partner_id: string
-  ganhas: number
-  volume_ganho: number
+  propostas_elegiveis: number
+  volume_solicitado: number
 }
 
 interface Milestone {
@@ -34,10 +33,10 @@ function resolveImageUrl(m: Milestone): string | null {
   return m.image_url // pode ser URL absoluta ou path relativo tipo /milestones/prem1.svg
 }
 
-function MilestoneCard({ m, currentCgi }: { m: Milestone; currentCgi: number }) {
+function MilestoneCard({ m, currentProgress }: { m: Milestone; currentProgress: number }) {
   const target = Number(m.target_centavos)
-  const unlocked = currentCgi >= target
-  const progress = target > 0 ? Math.min(100, (currentCgi / target) * 100) : 0
+  const unlocked = currentProgress >= target
+  const progress = target > 0 ? Math.min(100, (currentProgress / target) * 100) : 0
   const img = resolveImageUrl(m)
 
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -137,7 +136,7 @@ function MilestoneCard({ m, currentCgi }: { m: Milestone; currentCgi: number }) 
 
           <div className="mt-5">
             <div className="mb-1.5 flex items-center justify-between text-xs">
-              <span className="text-white/35">{brl(Math.min(currentCgi, target))} liberados</span>
+              <span className="text-white/35">{brl(Math.min(currentProgress, target))} considerados</span>
               <span style={{ color: m.color }}>{progress >= 100 ? '100%' : `${progress.toFixed(1)}%`}</span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
@@ -173,12 +172,9 @@ export function PartnerMilestones() {
   const kpiQuery = useQuery({
     queryKey: ['p-kpis-milestones'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_partner_dashboard_kpis')
-        .select('partner_id, ganhas, volume_ganho')
-        .maybeSingle()
+      const { data, error } = await supabase.rpc('partner_milestones_progress')
       if (error) throw error
-      return data as KpiRow | null
+      return data as KpiRow
     },
   })
 
@@ -195,14 +191,14 @@ export function PartnerMilestones() {
     },
   })
 
-  // volume_ganho vem em reais (padrao da view) — convertemos para centavos p/ uso com brl()
-  const currentCgi = Math.round(Number(kpiQuery.data?.volume_ganho ?? 0) * 100)
-  const contratosCount = Number(kpiQuery.data?.ganhas ?? 0)
+  // A RPC retorna a soma em reais; brl() recebe centavos.
+  const volumeElegivel = Math.round(Number(kpiQuery.data?.volume_solicitado ?? 0) * 100)
+  const propostasCount = Number(kpiQuery.data?.propostas_elegiveis ?? 0)
   const milestones = milestonesQuery.data ?? []
   const maxTarget = milestones.length
     ? Math.max(...milestones.map(m => Number(m.target_centavos)))
     : 0
-  const overallPct = maxTarget > 0 ? Math.min(100, (currentCgi / maxTarget) * 100) : 0
+  const overallPct = maxTarget > 0 ? Math.min(100, (volumeElegivel / maxTarget) * 100) : 0
 
   const [displayPct, setDisplayPct] = useState(0)
   useEffect(() => {
@@ -216,6 +212,24 @@ export function PartnerMilestones() {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-gold" />
+      </div>
+    )
+  }
+
+  if (kpiQuery.isError || milestonesQuery.isError) {
+    return (
+      <div role="alert" className="mx-auto max-w-5xl rounded-xl border border-red-200 bg-white p-8 text-center text-sm text-red-700">
+        <p>Não foi possível carregar os milestones. Tente novamente.</p>
+        <button
+          className="mt-3 font-semibold underline"
+          onClick={() => {
+            void kpiQuery.refetch()
+            void milestonesQuery.refetch()
+          }}
+          type="button"
+        >
+          Recarregar
+        </button>
       </div>
     )
   }
@@ -235,7 +249,7 @@ export function PartnerMilestones() {
       <div>
         <h1 className="text-2xl font-bold text-navy">Programa de Milestones</h1>
         <p className="mt-1 text-sm text-silver-600">
-          Libere credito CGI e conquiste premios exclusivos. Quanto mais voce libera, maiores as recompensas.
+          Acompanhe seu volume elegível e avance nas metas de premiação configuradas pela Mercúrio.
         </p>
       </div>
 
@@ -248,10 +262,10 @@ export function PartnerMilestones() {
       >
         <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(ellipse at 80% 50%, rgba(212,175,55,0.12) 0%, transparent 60%)' }} />
         <div className="relative">
-          <p className="text-xs font-bold uppercase tracking-widest text-gold/60">Total Liberado em CGI</p>
-          <p className="mt-1 text-4xl font-bold text-gold">{brl(currentCgi)}</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-gold/60">Volume elegível para milestones</p>
+          <p className="mt-1 text-4xl font-bold text-gold">{brl(volumeElegivel)}</p>
           <p className="mt-1 text-sm text-white/35">
-            {contratosCount} {contratosCount === 1 ? 'contrato fechado' : 'contratos fechados'} · Atualizado em {atualizadoEm}
+            {propostasCount} {propostasCount === 1 ? 'proposta elegível' : 'propostas elegíveis'} · Atualizado em {atualizadoEm}
           </p>
 
           {maxTarget > 0 && (
@@ -299,7 +313,7 @@ export function PartnerMilestones() {
       ) : (
         <div className="grid gap-5 md:grid-cols-3">
           {milestones.map(m => (
-            <MilestoneCard key={m.id} m={m} currentCgi={currentCgi} />
+            <MilestoneCard key={m.id} m={m} currentProgress={volumeElegivel} />
           ))}
         </div>
       )}

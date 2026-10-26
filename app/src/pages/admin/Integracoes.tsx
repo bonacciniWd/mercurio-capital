@@ -25,6 +25,7 @@ interface Integracao {
   ultima_checagem: string | null
   ultimo_erro: string | null
   latencia_ms: number | null
+  metricas: Record<string, unknown>
   eventos_24h: number
   fila_pendente: number
 }
@@ -271,6 +272,12 @@ export function AdminIntegracoes() {
                 </div>
 
                 {i.descricao && <p className="mt-3 text-xs text-silver-600">{i.descricao}</p>}
+
+                {i.chave === 'serasa' && i.metricas?.verification === 'iam_authenticated' && (
+                  <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    Login IAM confirmado em {i.metricas.environment === 'uat' ? 'homologação' : 'produção'}. Os relatórios PF/PJ ainda não foram testados por este health check.
+                  </p>
+                )}
 
                 <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-silver-500">
                   {i.eventos_24h > 0 && <span>{i.eventos_24h} eventos · 24h</span>}

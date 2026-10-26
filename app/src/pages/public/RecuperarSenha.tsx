@@ -1,12 +1,19 @@
 import { FormEvent, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { MailCheck } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { supabase } from '@/lib/supabase'
 import { publicAppUrl } from '@/lib/publicUrl'
 import renewalPassword from '@/assets/renewal-password.jpg'
 
+function resolveLoginPath(value: string | null): '/admin/login' | '/p/login' | '/c/login' {
+  if (value === '/admin/login' || value === '/c/login') return value
+  return '/p/login'
+}
+
 export function RecuperarSenha() {
+  const location = useLocation()
+  const nextLoginPath = resolveLoginPath(new URLSearchParams(location.search).get('next'))
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -17,7 +24,7 @@ export function RecuperarSenha() {
     setError(null)
     setLoading(true)
     try {
-      const redirectTo = publicAppUrl('/redefinir-senha')
+      const redirectTo = publicAppUrl(`/redefinir-senha?next=${encodeURIComponent(nextLoginPath)}`)
       const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo })
       if (err) throw new Error(err.message)
       setSent(true)
@@ -44,7 +51,7 @@ export function RecuperarSenha() {
                   Se houver uma conta vinculada a <strong>{email}</strong>, enviamos um link para você redefinir a
                   senha. O link expira em 1 hora.
                 </p>
-                <Link to="/p/login" className="btn-gold mt-6 inline-flex w-full justify-center">Voltar ao login</Link>
+                <Link to={nextLoginPath} className="btn-gold mt-6 inline-flex w-full justify-center">Voltar ao login</Link>
               </>
             ) : (
               <>
@@ -78,7 +85,7 @@ export function RecuperarSenha() {
                   </button>
 
                   <p className="text-center text-sm text-silver-600">
-                    <Link to="/p/login" className="font-medium text-navy underline">Voltar ao login</Link>
+                    <Link to={nextLoginPath} className="font-medium text-navy underline">Voltar ao login</Link>
                   </p>
                 </form>
               </>

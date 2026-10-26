@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import './proposta-detalhe.css'
+import { useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -6,7 +7,10 @@ import {
   ArrowLeft,
   Building2,
   CheckCircle2,
+  Copy,
   CircleDollarSign,
+  ShieldCheck,
+  MapPin,
   FileSignature,
   FileText,
   History,
@@ -23,7 +27,8 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
-import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
+import { calcularFinanciamento, calcularLTV, somarValoresImoveis } from '@/lib/credito'
+import { formatReais, parseReaisInput } from '@/components/MoneyInput'
 import { maskCpf, maskCnpj } from '@/lib/documentoBr'
 import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
 import { PropostaPendencias } from '@/components/PropostaPendencias'
@@ -33,6 +38,7 @@ import { PropostaFundos } from '@/components/PropostaFundos'
 import { PropostaCondicaoComercial } from '@/components/PropostaCondicaoComercial'
 import { useAuth } from '@/auth/AuthContext'
 import { createPropostaDocumentoSignedUrl, openPropostaDocumento } from '@/lib/propostaDocumento'
+import { dateInputToTimestamp, formatDateBr, toDateInputValue } from '@/lib/dateBr'
 import {
   buildChecklist,
   CATEGORIA_LABEL,
@@ -85,6 +91,7 @@ const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Rascunho',
   pre_analise: 'Pré-análise',
   analise_credito: 'Análise de Crédito',
+  pre_aprovado: 'Pré-aprovado',
   analise_imovel: 'Análise de Imóvel',
   analise_juridica: 'Análise Jurídica',
   comite: 'Comitê',
@@ -103,6 +110,7 @@ const STATUS_ORDER = [
   'simulacao',
   'pre_analise',
   'analise_credito',
+  'pre_aprovado',
   'analise_imovel',
   'analise_juridica',
   'comite',
@@ -170,6 +178,8 @@ interface Proposta {
   partner: { usuario: { nome_completo: string | null } | null } | null
   responsavel: { nome_completo: string | null } | null
   cliente: {
+    id?: string
+    data_nascimento?: string | null
     nome_completo: string
     cpf: string | null
     cnpj: string | null
@@ -242,7 +252,7 @@ function toProdutoForm(p: Proposta): ProdutoForm {
     indexador: p.indexador ?? '',
     correcao: p.correcao ?? '',
     limite_50_aplicado: Boolean(p.limite_50_aplicado),
-    created_at: p.created_at ? p.created_at.slice(0, 10) : '',
+    created_at: toDateInputValue(p.created_at),
   }
 }
 
@@ -281,6 +291,12 @@ const MODELO_RENDA_LABEL: Record<string, string> = {
 
 interface Proponente {
   id: string
+  cliente_id?: string | null
+  endereco_cep?: string | null
+  endereco_logradouro?: string | null
+  endereco_numero?: string | null
+  endereco_complemento?: string | null
+  endereco_bairro?: string | null
   nome: string
   cpf_cnpj: string | null
   principal: boolean
@@ -332,10 +348,12 @@ export function AdminPropostaDetalhe() {
   const { session } = useAuth()
   const isAdminJuridico = session?.role === 'admin' && session.adminNivel === 'juridico'
   const [tab, setTab] = useState<typeof TABS[number]>('Resumo')
+  const statusDetailsRef = useRef<HTMLDetailsElement>(null)
   const [novoStatus, setNovoStatus] = useState<string>('')
   const [motivo, setMotivo] = useState('')
   const [dataComissao, setDataComissao] = useState('')
   const [motivoComissao, setMotivoComissao] = useState('')
+  const [buscaHistorico, setBuscaHistorico] = useState('')
   const canEdit = !isAdminJuridico
   const [editResumo, setEditResumo] = useState(false)
   const [produtoForm, setProdutoForm] = useState<ProdutoForm | null>(null)
@@ -372,7 +390,7 @@ export function AdminPropostaDetalhe() {
         .from('propostas')
         // partners tem 2 FKs para usuarios (usuario_id e aprovado_por),
         // por isso o embed precisa desambiguar com !usuario_id.
-        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, correcao, indexador, limite_50_aplicado, created_at, updated_at, responsavel_id, classificacao_lead, classificacao_peso, classificacao_confianca, classificacao_motivo, distribuido_em, distribuicao_motivo, partner:partners(usuario:usuarios!usuario_id(nome_completo)), responsavel:usuarios!responsavel_id(nome_completo), cliente:clientes(nome_completo, cpf, cnpj, email, telefone, modelo_renda, renda_mensal, endereco_cep, endereco_logradouro, endereco_numero, endereco_bairro, endereco_cidade, endereco_estado, razao_social, email_responsavel, celular_comercial, tipo_empresa, ramo_atuacao, data_abertura, faturamento_mensal)')
+        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, correcao, indexador, limite_50_aplicado, created_at, updated_at, responsavel_id, classificacao_lead, classificacao_peso, classificacao_confianca, classificacao_motivo, distribuido_em, distribuicao_motivo, partner:partners(usuario:usuarios!usuario_id(nome_completo)), responsavel:usuarios!responsavel_id(nome_completo), cliente:clientes(id, data_nascimento, nome_completo, cpf, cnpj, email, telefone, modelo_renda, renda_mensal, endereco_cep, endereco_logradouro, endereco_numero, endereco_bairro, endereco_cidade, endereco_estado, razao_social, email_responsavel, celular_comercial, tipo_empresa, ramo_atuacao, data_abertura, faturamento_mensal)')
         .eq('id', id!)
         .single()
       if (error) throw error
@@ -381,12 +399,24 @@ export function AdminPropostaDetalhe() {
     enabled: !!id,
   })
 
-  const { data: proponentes } = useQuery({
+  const { data: fundosCabecalho = [] } = useQuery({
+    queryKey: ['admin-proposta-fundos', id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('proposta_fundos')
+        .select('fundo_id, status_fundo, observacao, fundos(id, nome, cor_hex, ativo)')
+        .eq('proposta_id', id!).order('created_at', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as unknown as Array<{ fundo_id: string; fundos: { nome: string; cor_hex: string } | null }>
+    },
+    enabled: !!id,
+  })
+
+  const { data: proponentes, error: proponentesError } = useQuery({
     queryKey: ['admin-proposta-proponentes', id],
     queryFn: async (): Promise<Proponente[]> => {
       const { data, error } = await supabase
         .from('proponentes')
-        .select('id, nome, cpf_cnpj, principal, relacao, estado_civil, pessoa_tipo, compoe_renda, modelo_renda, renda_mensal, endereco_cidade, endereco_estado')
+        .select('id, cliente_id, endereco_cep, endereco_logradouro, endereco_numero, endereco_complemento, endereco_bairro, nome, cpf_cnpj, principal, relacao, estado_civil, pessoa_tipo, compoe_renda, modelo_renda, renda_mensal, endereco_cidade, endereco_estado')
         .eq('proposta_id', id!)
         .order('principal', { ascending: false })
       if (error) throw error
@@ -395,7 +425,7 @@ export function AdminPropostaDetalhe() {
     enabled: !!id && tab === 'Proponentes',
   })
 
-  const { data: imoveis } = useQuery({
+  const { data: imoveis, error: imoveisQueryError } = useQuery({
     queryKey: ['admin-proposta-imoveis', id],
     queryFn: async (): Promise<Imovel[]> => {
       const { data, error } = await supabase
@@ -422,7 +452,7 @@ export function AdminPropostaDetalhe() {
     enabled: tab === 'Resumo' && canEdit,
   })
 
-  const { data: historico } = useQuery({
+  const { data: historico, error: historicoError } = useQuery({
     queryKey: ['admin-proposta-historico', id],
     queryFn: async (): Promise<HistoricoRow[]> => {
       const { data, error } = await supabase
@@ -479,6 +509,7 @@ export function AdminPropostaDetalhe() {
       qc.invalidateQueries({ queryKey: ['admin-propostas'] })
       setMotivo('')
       setNovoStatus('')
+      if (statusDetailsRef.current) statusDetailsRef.current.open = false
     },
   })
 
@@ -512,11 +543,13 @@ export function AdminPropostaDetalhe() {
       })
       if (error) throw error
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-proposta', id] })
-      qc.invalidateQueries({ queryKey: ['admin-proposta-proponentes', id] })
-      qc.invalidateQueries({ queryKey: ['admin-proposta-imoveis', id] })
-      qc.invalidateQueries({ queryKey: ['admin-propostas'] })
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['admin-proposta', id] }),
+        qc.invalidateQueries({ queryKey: ['admin-proposta-proponentes', id] }),
+        qc.invalidateQueries({ queryKey: ['admin-proposta-imoveis', id] }),
+        qc.invalidateQueries({ queryKey: ['admin-propostas'] }),
+      ])
     },
   })
 
@@ -567,7 +600,11 @@ export function AdminPropostaDetalhe() {
     if (!produtoForm || !clienteForm) return
     updateCamposMut.mutate(
       {
-        proposta: { ...produtoForm, limite_50_aplicado: String(produtoForm.limite_50_aplicado) },
+        proposta: {
+          ...produtoForm,
+          created_at: dateInputToTimestamp(produtoForm.created_at),
+          limite_50_aplicado: String(produtoForm.limite_50_aplicado),
+        },
         cliente: { ...clienteForm },
       },
       { onSuccess: () => setEditResumo(false) },
@@ -661,9 +698,20 @@ export function AdminPropostaDetalhe() {
   if (error) return <div className="p-10 text-center text-danger">Erro: {(error as Error).message}</div>
   if (!proposta) return <div className="p-10 text-center text-silver-500">Proposta não encontrada.</div>
 
+  const historicoFiltrado = (historico ?? []).filter(h => [
+    STATUS_LABEL[h.status_anterior ?? ''] ?? h.status_anterior,
+    STATUS_LABEL[h.status_novo] ?? h.status_novo, h.motivo, formatDateBr(h.created_at),
+  ].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(buscaHistorico.toLocaleLowerCase('pt-BR')))
+
   const valor = Number(proposta.valor_solicitado)
   const valorImoveis = Number(proposta.valor_imoveis_total)
   const ltv = calcularLTV(valor, valorImoveis)
+  const valorImoveisAba = editImoveis
+    ? somarValoresImoveis(imoveisForm)
+    : imoveis
+      ? somarValoresImoveis(imoveis)
+      : valorImoveis
+  const ltvImoveisAba = calcularLTV(valor, valorImoveisAba)
   const calc = calcularFinanciamento({
     valor,
     prazoMeses: proposta.prazo_meses,
@@ -673,71 +721,49 @@ export function AdminPropostaDetalhe() {
   })
 
   return (
-    <>
+    <div className="admin-proposal">
       <Link to="/admin/propostas" className="mb-4 inline-flex items-center gap-1 text-sm text-silver-600 hover:text-navy">
         <ArrowLeft className="h-4 w-4" /> Voltar para propostas
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+      <header className="proposal-heading">
         <div>
-          <p className="font-mono text-xs text-silver-500">{proposta.protocolo || '—'}</p>
+          <p className="proposal-eyebrow">Proposta {proposta.protocolo || '—'}</p>
           <h1 className="text-2xl font-bold text-navy">
-            {proposta.cliente?.nome_completo || 'Cliente'} — {PRODUTO_LABEL[proposta.produto] || proposta.produto}
+            {proposta.cliente?.razao_social || proposta.cliente?.nome_completo || 'Cliente'}
           </h1>
-          <div className="mt-2 flex items-center gap-2 text-sm text-silver-600">
-            <span className="rounded-full bg-silver-100 px-2 py-0.5 text-xs text-silver-700">
-              {STATUS_LABEL[proposta.status] || proposta.status}
-            </span>
+          <div className="proposal-heading__meta">
+            <span>{PRODUTO_LABEL[proposta.produto] || proposta.produto}</span>
             <span>·</span>
             <span>Parceiro: {proposta.partner?.usuario?.nome_completo || '—'}</span>
             <span>·</span>
-            <span>Criada {new Date(proposta.created_at).toLocaleDateString('pt-BR')}</span>
+            <span>Criada {formatDateBr(proposta.created_at)}</span>
           </div>
         </div>
 
-        <div className="flex w-full flex-row gap-3 lg:w-full">
-          {!isAdminJuridico && (
-            <div className="card p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-silver-500">Alterar status</p>
-              <div className="flex flex-wrap gap-2">
-                <select
-                  className="input w-auto"
-                  value={novoStatus}
-                  onChange={(e) => setNovoStatus(e.target.value)}
-                >
-                  <option value="">Selecione…</option>
-                  {STATUS_ORDER.filter((s) => s !== proposta.status).map((s) => (
-                    <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-                  ))}
-                </select>
-                <input
-                  className="input" style={{ minWidth: '200px', minHeight: '150px',  }}
-                  placeholder="Motivo / observação"
-                  value={motivo}
-                  onChange={(e) => setMotivo(e.target.value)}
-                />
-                <button
-                  className="btn-gold"
-                  disabled={!novoStatus || statusMut.isPending}
-                  onClick={() => statusMut.mutate({ status: novoStatus, motivo })}
-                >
-                  {statusMut.isPending ? 'Aplicando…' : 'Aplicar'}
-                </button>
-              </div>
-              {statusMut.error && (
-                <p className="mt-2 inline-flex items-center gap-1 text-xs text-danger">
-                  <AlertTriangle className="h-3 w-3" /> {(statusMut.error as Error).message}
-                </p>
-              )}
-            </div>
-          )}
+        {canEdit && <div className="proposal-header-actions">
+          <details className="proposal-more-actions"><summary>··· Mais ações</summary><div className="proposal-more-actions__panel"><PropostaFundos propostaId={id!} /></div></details>
+          <button type="button" className="btn-gold" onClick={() => { setTab('Resumo'); setProdutoForm(toProdutoForm(proposta)); setClienteForm(toClienteForm(proposta.cliente)); setEditResumo(true) }}><Pencil className="h-3.5 w-3.5" /> Editar proposta</button>
+        </div>}
+      </header>
 
-          {!isAdminJuridico && <PropostaFundos propostaId={id!} />}
-        </div>
+      <div className="proposal-status-strip">
+        <div className="proposal-status-field"><span>Status da proposta</span>{isAdminJuridico ? <strong>{STATUS_LABEL[proposta.status] || proposta.status}</strong> : <details ref={statusDetailsRef} className="proposal-status-control" onKeyDown={event => { if (event.key === 'Escape' && !statusMut.isPending) { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus() } }}><summary aria-label="Alterar status">{STATUS_LABEL[proposta.status] || proposta.status}<span aria-hidden="true">⌄</span></summary>
+          <div className="proposal-status-popover">
+            <label>Novo status<select className="input" value={novoStatus} onChange={e => setNovoStatus(e.target.value)} disabled={statusMut.isPending}><option value="">Selecione…</option>{STATUS_ORDER.filter(s => s !== proposta.status).map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}</select></label>
+            <label>Motivo / observação<textarea className="input" rows={3} value={motivo} onChange={e => setMotivo(e.target.value)} disabled={statusMut.isPending} /></label>
+            <button type="button" className="btn-gold" disabled={!novoStatus || statusMut.isPending} onClick={() => statusMut.mutate({ status: novoStatus, motivo })}>{statusMut.isPending ? 'Aplicando…' : 'Confirmar alteração'}</button>
+            {statusMut.error && <p role="alert" className="text-xs text-danger">{(statusMut.error as Error).message}</p>}
+          </div>
+        </details>}</div>
+        <div><span>Responsável</span><strong>{proposta.responsavel?.nome_completo || 'Não atribuído'}</strong></div>
+        <div><span>Fundos atribuídos</span><div className="proposal-header-funds">{fundosCabecalho.filter(f => f.fundos).length ? fundosCabecalho.filter(f => f.fundos).map(f => <strong key={f.fundo_id}><i aria-hidden="true" style={{ backgroundColor: f.fundos!.cor_hex }} />{f.fundos!.nome}</strong>) : <strong>Não atribuído</strong>}</div></div>
+        <div><span>Classificação</span><strong className="proposal-classification">{proposta.classificacao_lead ? LEAD_CLASS_LABEL[proposta.classificacao_lead] || proposta.classificacao_lead : 'Pendente'}</strong></div>
+        <div><span>Última atualização</span><strong>{formatDateBr(proposta.updated_at)}</strong></div>
       </div>
 
-      <div className="sticky top-0 z-20 mb-6 rounded-2xl border border-silver-200/90 bg-white/95 p-2 shadow-card backdrop-blur supports-[backdrop-filter]:bg-white/85">
-        <div role="tablist" aria-label="Seções da proposta" className="flex gap-2 overflow-x-auto pb-1">
+      <div className="proposal-tabs-shell">
+        <div role="tablist" aria-label="Seções da proposta" className="proposal-tabs">
           {TABS.map((t) => {
             const isActive = tab === t
             const Icon = TAB_ICON[t]
@@ -751,11 +777,18 @@ export function AdminPropostaDetalhe() {
                 aria-selected={isActive}
                 aria-controls={`panel-${TAB_DOM_ID[t]}`}
                 onClick={() => setTab(t)}
-                className={`btn-no-liquid group inline-flex items-center gap-2 whitespace-nowrap rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-all ${
-                  isActive
-                    ? 'border-red-500/35 bg-gradient-to-r from-red-50 to-white text-navy shadow-sm ring-1 ring-red-200/70'
-                    : 'border-silver-200/70 bg-white text-silver-500 hover:border-silver-300 hover:bg-silver-50 hover:text-navy'
-                }`}
+                className={`btn-no-liquid proposal-tab ${isActive ? 'is-active' : ''}`}
+                onKeyDown={(event) => {
+                  const current = TABS.indexOf(t)
+                  const next = event.key === 'ArrowRight' ? (current + 1) % TABS.length
+                    : event.key === 'ArrowLeft' ? (current + TABS.length - 1) % TABS.length
+                    : event.key === 'Home' ? 0 : event.key === 'End' ? TABS.length - 1 : null
+                  if (next === null) return
+                  event.preventDefault()
+                  setTab(TABS[next])
+                  document.getElementById(`tab-${TAB_DOM_ID[TABS[next]]}`)?.focus()
+                }}
+                tabIndex={isActive ? 0 : -1}
               >
                 <Icon className={`h-4 w-4 ${isActive ? 'text-red-600' : 'text-silver-400 group-hover:text-silver-600'}`} />
                 <span>{t}</span>
@@ -765,7 +798,9 @@ export function AdminPropostaDetalhe() {
         </div>
       </div>
 
-      <div id={`panel-${TAB_DOM_ID[tab]}`} role="tabpanel" aria-labelledby={`tab-${TAB_DOM_ID[tab]}`}>
+      <div className="proposal-panel" tabIndex={0} id={`panel-${TAB_DOM_ID[tab]}`} role="tabpanel" aria-labelledby={`tab-${TAB_DOM_ID[tab]}`}>
+
+      <div className="proposal-page-heading"><h2>{tab}</h2><p>Informações e acompanhamento da operação.</p></div>
 
       {tab === 'Resumo' && (
         <div className="space-y-4">
@@ -862,10 +897,10 @@ export function AdminPropostaDetalhe() {
             </p>
           )}
 
-          <div className="grid gap-6 lg:grid-cols-2">
-          <Section title="Produto">
+          <div className="proposal-summary-grid">
+          <Section title="Condições da proposta" className={editResumo ? 'proposal-conditions-editing' : ''}>
             {editResumo && produtoForm ? (
-              <div className="space-y-3">
+              <div className="proposal-conditions-form">
                 <Field label="Produto">
                   <select className="input" value={produtoForm.produto} onChange={(e) => setProdutoForm({ ...produtoForm, produto: e.target.value })}>
                     {Object.entries(PRODUTO_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -908,12 +943,10 @@ export function AdminPropostaDetalhe() {
               </div>
             ) : (
               <>
-                <Row k="Produto" v={PRODUTO_LABEL[proposta.produto] || proposta.produto} />
                 <Row k="Valor solicitado" v={brl(valor * 100)} />
                 <Row k="Prazo" v={`${proposta.prazo_meses} meses`} />
                 <Row k="Carência" v={`${proposta.carencia_meses} meses`} />
                 <Row k="Sistema" v={`${proposta.amortizacao.toUpperCase()} · ${proposta.indexador} + ${Number(proposta.taxa_juros_mensal).toFixed(2)}% a.m.`} />
-                <Row k="Data da proposta" v={new Date(proposta.created_at).toLocaleDateString('pt-BR')} />
                 {proposta.limite_50_aplicado && (
                   <Row k="Limite 50%" v={<span className="badge bg-gold/15 text-red-600">Aplicado (máx. 50% do valor dos imóveis)</span>} />
                 )}
@@ -1024,7 +1057,7 @@ export function AdminPropostaDetalhe() {
               </span>
             } />
           </Section>
-          <Section title="Simulação">
+          <Section title="Simulação estimada">
             <Row k="1ª parcela" v={brl(calc.primeiraParcela * 100)} />
             <Row k="Última parcela" v={brl(calc.ultimaParcela * 100)} />
             <Row k="Total a pagar" v={brl(calc.totalPago * 100)} />
@@ -1036,7 +1069,7 @@ export function AdminPropostaDetalhe() {
 
       {tab === 'Proponentes' && (
         <div className="space-y-3">
-          {canEdit && proponentes && proponentes.length > 0 && (
+          {canEdit && editProponentes && proponentes && proponentes.length > 0 && (
             <div className="flex justify-end gap-2">
               {editProponentes ? (
                 <>
@@ -1063,8 +1096,8 @@ export function AdminPropostaDetalhe() {
               <AlertTriangle className="h-3 w-3" /> {(updateCamposMut.error as Error).message}
             </p>
           )}
-          <div className="card overflow-x-auto">
-          {!proponentes ? (
+          <div className={editProponentes ? "card overflow-x-auto" : "proposal-applicants-layout"}>
+          {proponentesError ? (<p role="alert" className="p-5 text-sm text-danger">Não foi possível carregar os proponentes. Tente novamente.</p>) : !proponentes ? (
             <div className="p-10 text-center text-sm text-silver-500">Carregando…</div>
           ) : proponentes.length === 0 ? (
             <div className="p-10 text-center text-sm text-silver-500">Sem proponentes.</div>
@@ -1114,28 +1147,55 @@ export function AdminPropostaDetalhe() {
               </tbody>
             </table>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-silver-50 text-left text-xs uppercase text-silver-500">
-                <tr><th className="px-4 py-3">Nome</th><th className="px-4 py-3">CPF/CNPJ</th><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Relação</th><th className="px-4 py-3">Renda</th></tr>
-              </thead>
-              <tbody>
-                {proponentes.map((p) => (
-                  <tr key={p.id} className="border-t border-silver-100">
-                    <td className="px-4 py-3 font-medium text-silver-900">
-                      {p.nome} {p.principal && <span className="ml-1 badge bg-gold/15 text-red-600">Principal</span>}
-                    </td>
-                    <td className="px-4 py-3">{maskCpfCnpj(p.pessoa_tipo === 'PF' ? p.cpf_cnpj : null, p.pessoa_tipo === 'PJ' ? p.cpf_cnpj : null)}</td>
-                    <td className="px-4 py-3">{p.pessoa_tipo}</td>
-                    <td className="px-4 py-3">{p.relacao || '—'}</td>
-                    <td className="px-4 py-3">
-                      {p.modelo_renda ? (MODELO_RENDA_LABEL[p.modelo_renda] ?? p.modelo_renda) : '—'}
-                      {p.renda_mensal != null ? ` · ${brl(Number(p.renda_mensal) * 100)}` : ''}
-                      {!p.principal ? ` · ${p.compoe_renda === true ? 'compõe renda' : p.compoe_renda === false ? 'não compõe' : '—'}` : ''}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <>
+              <section className="card proposal-applicants-section" aria-labelledby="applicants-title">
+                <div className="proposal-section-heading">
+                  <div><h2 id="applicants-title">Proponentes da operação</h2><p>{proponentes.length} {proponentes.length === 1 ? 'pessoa vinculada' : 'pessoas vinculadas'} a esta proposta.</p></div>
+                  {canEdit && <button type="button" className="btn-outline" onClick={() => { setProponentesForm(proponentes.map(p => ({ ...p }))); setEditProponentes(true) }}><Pencil className="h-3.5 w-3.5" /> Editar dados</button>}
+                </div>
+                <div className="proposal-applicants-list">
+                  {proponentes.map((p) => {
+                    const linkedClient = !!((p.cliente_id && p.cliente_id === proposta.cliente?.id) || (p.cpf_cnpj && p.cpf_cnpj.replace(/\D/g, '') === (proposta.cliente?.cnpj || proposta.cliente?.cpf || '').replace(/\D/g, '')))
+                    const client = linkedClient ? proposta.cliente : null
+                    return (
+                      <article className="proposal-applicant" key={p.id}>
+                        <div className="proposal-person-heading">
+                          <span className="proposal-avatar" aria-hidden="true">{p.nome.split(' ').filter(Boolean).slice(0, 2).map(n => n[0]).join('')}</span>
+                          <div className="proposal-person-identity"><div><h3>{p.nome}</h3>{p.principal && <span className="proposal-principal">Principal</span>}</div><p>{p.pessoa_tipo === 'PJ' ? 'Pessoa jurídica' : 'Pessoa física'}{p.relacao ? ` · ${{ conjuge: 'Cônjuge', socio: 'Sócio', outro: 'Outro' }[p.relacao] || p.relacao}` : ''}</p></div>
+                        </div>
+                        <dl className="proposal-details proposal-applicant-details">
+                          <Row copy k="CPF/CNPJ" v={maskCpfCnpj(p.pessoa_tipo === 'PF' ? p.cpf_cnpj : null, p.pessoa_tipo === 'PJ' ? p.cpf_cnpj : null)} />
+                          <Row k="Data de nascimento" v={client?.data_nascimento ? formatDateBr(client.data_nascimento) : '—'} />
+                          <Row k="Estado civil" v={p.estado_civil ? ({ solteiro: 'Solteiro(a)', casado: 'Casado(a)', divorciado: 'Divorciado(a)', viuvo: 'Viúvo(a)', uniao_estavel: 'União estável' }[p.estado_civil] || p.estado_civil) : '—'} />
+                          <Row k="Composição de renda" v={p.compoe_renda === true ? 'Compõe renda' : p.compoe_renda === false ? 'Não compõe renda' : '—'} />
+                          <Row copy k="E-mail" v={client?.email || client?.email_responsavel || '—'} />
+                          <Row copy k="Telefone" v={client?.telefone || client?.celular_comercial || '—'} />
+                          <Row k="Modelo de renda" v={p.modelo_renda ? MODELO_RENDA_LABEL[p.modelo_renda] ?? p.modelo_renda : '—'} />
+                          <Row k="Renda declarada" v={p.renda_mensal != null ? brl(Number(p.renda_mensal) * 100) : '—'} />
+                        </dl>
+                        <div className="proposal-registration-note"><FileText className="h-4 w-4" /><span>Dados declarados no cadastro da proposta.</span></div>
+                      </article>
+                    )
+                  })}
+                </div>
+              </section>
+              <aside className="proposal-applicant-aside" aria-label="Informações complementares do proponente principal">
+                <section className="card proposal-analysis-section">
+                  <div className="proposal-section-heading"><h2>Análise cadastral</h2><ShieldCheck className="h-4 w-4" /></div>
+                  <div className="proposal-score-empty" aria-label="Score não disponível"><div><ShieldCheck className="h-7 w-7" /><span>Sem score</span></div></div>
+                  <div className="proposal-analysis-copy"><span className="proposal-neutral-badge">Consulta não exibida</span><p>Consulte os resultados disponíveis na aba Consultas.</p></div>
+                  <dl className="proposal-analysis-facts"><Row k="Classificação da operação" v={proposta.classificacao_lead ? LEAD_CLASS_LABEL[proposta.classificacao_lead] || proposta.classificacao_lead : 'Não classificada'} /><Row k="Responsável pela análise" v={proposta.responsavel?.nome_completo || 'Não atribuído'} /></dl>
+                  <button type="button" className="btn-outline proposal-aside-action" onClick={() => setTab('Consultas')}><Search className="h-3.5 w-3.5" /> Ver consultas</button>
+                </section>
+                <section className="card proposal-address-section">
+                  <div className="proposal-section-heading"><h2>Endereço do principal</h2><MapPin className="h-4 w-4" /></div>
+                  {(() => {
+                    const principal = proponentes.find(p => p.principal)
+                    return principal && [principal.endereco_logradouro, principal.endereco_cidade, principal.endereco_cep].some(Boolean) ? <address className="proposal-address"><strong>{[principal.endereco_logradouro, principal.endereco_numero].filter(Boolean).join(', ')}</strong>{principal.endereco_complemento && <span>{principal.endereco_complemento}</span>}<span>{[principal.endereco_bairro, [principal.endereco_cidade, principal.endereco_estado].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}</span>{principal.endereco_cep && <span>CEP {principal.endereco_cep}</span>}</address> : <p className="proposal-address-empty">Endereço ainda não informado no cadastro do proponente principal.</p>
+                  })()}
+                </section>
+              </aside>
+            </>
           )}
           </div>
         </div>
@@ -1178,8 +1238,24 @@ export function AdminPropostaDetalhe() {
               <AlertTriangle className="h-3 w-3" /> {(updateCamposMut.error as Error).message}
             </p>
           )}
+          {imoveis && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="card p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-silver-500">Valor total das garantias</p>
+                <p className="mt-1 text-lg font-semibold text-navy">{formatReais(valorImoveisAba)}</p>
+                {editImoveis && <p className="mt-1 text-xs text-silver-500">Soma atualizada conforme os valores editados.</p>}
+              </div>
+              <div className="card p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-silver-500">{editImoveis ? 'LTV estimado' : 'LTV'}</p>
+                <p className={`mt-1 text-lg font-semibold ${ltvImoveisAba > 0.6 ? 'text-danger' : 'text-success'}`}>
+                  {(ltvImoveisAba * 100).toFixed(1)}%
+                </p>
+                {editImoveis && <p className="mt-1 text-xs text-silver-500">Calculado sobre o valor solicitado e a soma de todos os imóveis.</p>}
+              </div>
+            </div>
+          )}
           <div className="card overflow-x-auto">
-          {!imoveis ? (
+          {imoveisQueryError ? (<p role="alert" className="p-5 text-sm text-danger">Não foi possível carregar os imóveis. Tente novamente.</p>) : !imoveis ? (
             <div className="p-10 text-center text-sm text-silver-500">Carregando…</div>
           ) : imoveis.length === 0 ? (
             <div className="p-10 text-center text-sm text-silver-500">Sem imóveis.</div>
@@ -1216,7 +1292,14 @@ export function AdminPropostaDetalhe() {
                       <input className="input" maxLength={2} value={i.estado ?? ''} onChange={(e) => setImoveisForm(imoveisForm.map((x, j) => j === idx ? { ...x, estado: e.target.value.toUpperCase() } : x))} />
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <input className="input text-right" type="number" step="0.01" value={i.valor} onChange={(e) => setImoveisForm(imoveisForm.map((x, j) => j === idx ? { ...x, valor: Number(e.target.value) } : x))} />
+                      <input
+                        className="input text-right"
+                        type="text"
+                        inputMode="numeric"
+                        aria-label={`Valor do imóvel ${idx + 1}`}
+                        value={formatReais(Number(i.valor))}
+                        onChange={(e) => setImoveisForm(imoveisForm.map((x, j) => j === idx ? { ...x, valor: parseReaisInput(e.target.value) } : x))}
+                      />
                     </td>
                     <td className="px-4 py-3">
                       {i._novo && (
@@ -1230,22 +1313,17 @@ export function AdminPropostaDetalhe() {
               </tbody>
             </table>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-silver-50 text-left text-xs uppercase text-silver-500">
-                <tr><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Endereço</th><th className="px-4 py-3">Cidade/UF</th><th className="px-4 py-3 text-right">Valor</th></tr>
-              </thead>
-              <tbody>
-                {imoveis.map((i) => (
-                  <tr key={i.id} className="border-t border-silver-100">
-                    <td className="px-4 py-3 capitalize">{i.tipo} {i.principal && <span className="ml-1 badge bg-gold/15 text-red-600
-                    ">Principal</span>}</td>
-                    <td className="px-4 py-3">{[i.logradouro, i.numero, i.bairro].filter(Boolean).join(', ') || '—'}</td>
-                    <td className="px-4 py-3">{[i.cidade, i.estado].filter(Boolean).join('/') || '—'}</td>
-                    <td className="px-4 py-3 text-right font-medium">{brl(Number(i.valor) * 100)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="proposal-properties">
+              {imoveis.map((i) => (
+                <article className="proposal-property" key={i.id}>
+                  <div className="proposal-property__visual"><Building2 aria-hidden="true" className="h-9 w-9" /><span>{i.tipo.replace(/_/g, ' ')}</span></div>
+                  <div className="proposal-property__body"><div className="proposal-person-heading"><h3>{[i.logradouro, i.numero].filter(Boolean).join(', ') || 'Endereço não informado'}</h3>{i.principal && <span className="proposal-principal">Principal</span>}</div>
+                    <p>{[i.bairro, i.cidade, i.estado].filter(Boolean).join(' · ') || 'Localização não informada'}</p>
+                    <dl className="proposal-details"><Row k="Tipo" v={i.tipo.replace(/_/g, ' ')} /><Row k="Valor informado" v={i.valor != null ? brl(Number(i.valor) * 100) : '—'} /></dl>
+                  </div>
+                </article>
+              ))}
+            </div>
           )}
           </div>
         </div>
@@ -1386,14 +1464,17 @@ export function AdminPropostaDetalhe() {
             </div>
             {comissaoHistoricaMut.error && <p className="mt-2 text-xs text-danger">{comissaoHistoricaMut.error.message}</p>}
           </div>}
+          <label className="block text-xs text-silver-600">Buscar no histórico<input className="input mt-2" type="search" value={buscaHistorico} onChange={e => setBuscaHistorico(e.target.value)} placeholder="Status, motivo ou data" /></label>
           <div className="card overflow-x-auto">
-          {!historico ? (
+          {historicoError ? (<p role="alert" className="p-5 text-sm text-danger">Não foi possível carregar o histórico. Tente novamente.</p>) : !historico ? (
             <div className="p-10 text-center text-sm text-silver-500">Carregando…</div>
           ) : historico.length === 0 ? (
             <div className="p-10 text-center text-sm text-silver-500">Sem alterações de status.</div>
+          ) : historicoFiltrado.length === 0 ? (
+            <p className="p-10 text-center text-sm text-silver-500">Nenhum evento corresponde à busca.</p>
           ) : (
             <ol className="space-y-3 p-4">
-              {historico.map((h) => (
+              {historicoFiltrado.map((h) => (
                 <li key={h.id} className="flex items-start gap-3 border-l-2 border-gold/40 pl-4">
                   <div className="flex-1">
                     <p className="text-sm">
@@ -1414,24 +1495,33 @@ export function AdminPropostaDetalhe() {
         </div>
       )}
       </div>
-    </>
-  )
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="card p-5">
-      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-silver-500">{title}</h3>
-      <dl className="space-y-3 text-sm">{children}</dl>
     </div>
   )
 }
 
-function Row({ k, v }: { k: string; v: React.ReactNode }) {
+function Section({ title, children, className = '' }: { title: string; children: React.ReactNode; className?: string }) {
+  return (
+    <section className={`card p-5 proposal-section ${className}`}>
+      <h3>{title}</h3>
+      <dl className="space-y-3 text-sm">{children}</dl>
+    </section>
+  )
+}
+
+function Row({ k, v, copy = false }: { k: string; v: React.ReactNode; copy?: boolean }) {
+  const [copyStatus, setCopyStatus] = useState('')
+  async function copyValue() {
+    try {
+      await navigator.clipboard.writeText(String(v))
+      setCopyStatus('Copiado')
+    } catch {
+      setCopyStatus('Não foi possível copiar')
+    }
+  }
   return (
     <div className="flex items-center justify-between border-b border-silver-100 pb-2 last:border-0">
       <dt className="text-silver-600">{k}</dt>
-      <dd className="font-medium text-silver-900">{v}</dd>
+      <dd className={`font-medium text-silver-900${copy ? ' proposal-copy-value' : ''}`}>{v}{copy && typeof v === 'string' && v !== '—' && <button type="button" className="btn-no-liquid proposal-copy-button" onClick={() => void copyValue()} aria-label={`Copiar ${k}`}><Copy className="h-3 w-3" /></button>}{copyStatus && <span className="proposal-copy-status" role="status">{copyStatus}</span>}</dd>
     </div>
   )
 }

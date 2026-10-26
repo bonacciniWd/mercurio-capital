@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Mail, Copy, Check, Trash2, Loader2, Users, AlertTriangle, Network } from 'lucide-react'
+import { Plus, Mail, Copy, Check, Trash2, Loader2, Users, AlertTriangle, Network, Building2, X, Grip } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { RedeFlowCanvas, type RedeGraph } from '@/components/rede/RedeFlow'
 import { publicAppUrl } from '@/lib/publicUrl'
+import '../admin/rede.css'
 
 interface Equipe {
   id: string
@@ -69,6 +70,7 @@ export function PartnerEquipe() {
   const [novaEquipeNome, setNovaEquipeNome] = useState('')
   const [novaEquipeIsolada, setNovaEquipeIsolada] = useState(false)
   const [viewMode, setViewMode] = useState<'lista' | 'mapa'>('lista')
+  const [selectedMapNodeId, setSelectedMapNodeId] = useState<string | null>(null)
   const [selectedEquipe, setSelectedEquipe] = useState<string | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -184,6 +186,7 @@ export function PartnerEquipe() {
   const membros = membrosQuery.data ?? []
   const convites = convitesQuery.data ?? []
   const canViewMapa = session?.role === 'partner'
+  const selectedMapNode = mapaQuery.data?.nodes.find(node => node.id === selectedMapNodeId) ?? null
 
   return (
     <>
@@ -193,11 +196,11 @@ export function PartnerEquipe() {
           <p className="text-sm text-silver-600">Gerencie equipes e convide membros para sua operação.</p>
         </div>
         <div className="flex gap-2">
-          <button className="btn-outline" onClick={() => setCreatingEquipe(v => !v)}>
+          <button className="btn-no-liquid" onClick={() => setCreatingEquipe(v => !v)}>
             <Users className="h-4 w-4" /> Nova equipe
           </button>
           <button
-            className="btn-gold"
+            className="btn-no-liquid"
             disabled={equipes.length === 0}
             onClick={() => {
               setSelectedEquipe(equipes[0]?.id ?? null)
@@ -212,13 +215,13 @@ export function PartnerEquipe() {
 
       <div className="mb-6 inline-flex overflow-hidden rounded-md gap-2 border-silver-200 bg-white shadow-sm">
         <button
-          className={`px-3 py-2 text-sm font-medium ${viewMode === 'lista' ? 'bg-navy text-white' : 'text-silver-700 hover:bg-silver-50'}`}
+          className={`btn-no-liquid px-3 py-2 text-sm font-medium ${viewMode === 'lista' ? 'bg-navy text-white' : 'text-silver-700 hover:bg-silver-50'}`}
           onClick={() => setViewMode('lista')}
         >
           Lista
         </button>
         <button
-          className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium ${viewMode === 'mapa' ? 'bg-navy text-white' : 'text-silver-700 hover:bg-silver-50 disabled:cursor-not-allowed disabled:text-silver-400 disabled:hover:bg-white'}`}
+          className={`btn-no-liquid inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium ${viewMode === 'mapa' ? 'bg-navy text-white' : 'text-silver-700 hover:bg-silver-50 disabled:cursor-not-allowed disabled:text-silver-400 disabled:hover:bg-white'}`}
           onClick={() => setViewMode('mapa')}
           disabled={!canViewMapa}
           title={canViewMapa ? 'Visualizar mapa da equipe' : 'Somente partner pode visualizar o mapa'}
@@ -242,7 +245,7 @@ export function PartnerEquipe() {
               Isolamento estrito
             </label>
             <button
-              className="btn-gold"
+              className="btn-no-liquid btn-gold"
               disabled={criarEquipe.isPending || novaEquipeNome.trim().length < 2}
               onClick={() => criarEquipe.mutate()}
             >
@@ -273,9 +276,9 @@ export function PartnerEquipe() {
             </select>
           </div>
           <div className="mt-3 flex justify-end gap-2">
-            <button className="btn-ghost" onClick={() => { setInviteOpen(false); setLastInviteResult(null) }}>Fechar</button>
+            <button className="btn-no-liquid btn-ghost" onClick={() => { setInviteOpen(false); setLastInviteResult(null) }}>Fechar</button>
             <button
-              className="btn-gold"
+              className="btn-no-liquid btn-gold"
               disabled={convidar.isPending || !selectedEquipe || inviteEmail.length < 5}
               onClick={() => convidar.mutate()}
             >
@@ -288,7 +291,7 @@ export function PartnerEquipe() {
               <div className="mt-2 flex items-center gap-2">
                 <input readOnly className="input flex-1 font-mono text-xs" value={lastInviteResult.url} />
                 <button
-                  className="btn-outline"
+                  className="btn-no-liquid btn-outline"
                   onClick={async () => {
                     await navigator.clipboard.writeText(lastInviteResult.url)
                     setCopied(true)
@@ -332,37 +335,82 @@ export function PartnerEquipe() {
       )}
 
       {viewMode === 'mapa' ? (
-        <div className="card overflow-hidden p-0">
-          <div className="flex flex-wrap items-center gap-4 border-b border-silver-100 px-4 py-2 text-xs">
-            <span className="inline-flex items-center gap-1.5">
-              <Users className="h-3 w-3 text-success" /> Parceiro
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Users className="h-3 w-3 text-gold-700" /> Equipe
-            </span>
-            {mapaQuery.data && (
-              <span className="ml-auto text-silver-500">
-                {mapaQuery.data.nodes.length} nós · {mapaQuery.data.edges.length} conexões
-              </span>
-            )}
-          </div>
-
+        <section className="admin-network partner-team-network" aria-label="Mapa da equipe">
           {!canViewMapa ? (
-            <div className="flex h-[520px] items-center justify-center px-6 text-sm text-silver-500">
+            <div className="network-empty">
+              <Network size={30} />
+              <strong>Mapa disponível para o parceiro titular</strong>
               A visualização de mapa é exclusiva para o parceiro titular da conta.
             </div>
           ) : mapaQuery.isLoading ? (
-            <div className="flex h-[520px] items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-silver-500" />
+            <div className="network-empty" role="status">
+              <Loader2 className="network-spin" size={25} />
+              <span>Carregando mapa da equipe…</span>
             </div>
           ) : mapaQuery.error ? (
-            <div className="flex h-[520px] items-center justify-center px-6 text-sm text-danger">
-              Erro ao carregar o mapa: {(mapaQuery.error as Error).message}
+            <div className="network-empty" role="alert">
+              <strong>Não foi possível carregar o mapa</strong>
+              <span>{(mapaQuery.error as Error).message}</span>
+              <button className="btn-no-liquid network-button" type="button" onClick={() => void mapaQuery.refetch()}>
+                Tentar novamente
+              </button>
             </div>
           ) : (
-            <RedeFlowCanvas graph={mapaQuery.data ?? { nodes: [], edges: [] }} height={520} />
+            <div className="network-workspace" data-inspector={Boolean(selectedMapNode)}>
+              <div className="network-map-panel">
+                <div className="network-map-heading">
+                  <strong><Network size={15} /> Minha equipe</strong>
+                  <span>Arraste os cards para organizar a visualização</span>
+                </div>
+                <RedeFlowCanvas
+                  graph={mapaQuery.data ?? { nodes: [], edges: [] }}
+                  variant="partner"
+                  selectedId={selectedMapNodeId}
+                  onSelect={setSelectedMapNodeId}
+                />
+              </div>
+              {selectedMapNode && (
+                <aside className="network-inspector" aria-label="Detalhes do item selecionado no mapa">
+                  <header>
+                    <span className="network-eyebrow">Detalhes do mapa</span>
+                    <button className="btn-no-liquid network-close" type="button" aria-label="Fechar detalhes" onClick={() => setSelectedMapNodeId(null)}>
+                      <X size={17} />
+                    </button>
+                  </header>
+                  <span className="network-person-icon">
+                    {selectedMapNode.tipo === 'partner' ? <Building2 size={24} /> : <Users size={24} />}
+                  </span>
+                  <h2>{selectedMapNode.label}</h2>
+                  <p>{selectedMapNode.tipo === 'partner' ? 'Parceiro titular da conta' : 'Equipe da sua operação'}</p>
+                  <dl>
+                    <div>
+                      <dt>Tipo de vínculo</dt>
+                      <dd>{selectedMapNode.tipo === 'partner' ? 'Parceiro' : 'Equipe'}</dd>
+                    </div>
+                    {selectedMapNode.tipo === 'partner' ? (
+                      <>
+                        <div>
+                          <dt>Status</dt>
+                          <dd>{{ approved: 'Aprovado', pending: 'Pendente', rejected: 'Recusado', suspended: 'Suspenso' }[selectedMapNode.status ?? 'pending'] ?? 'Sem status'}</dd>
+                        </div>
+                        <div>
+                          <dt>Propostas originadas</dt>
+                          <dd>{selectedMapNode.propostas ?? 0}</dd>
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <dt>Membros ativos</dt>
+                        <dd>{selectedMapNode.membros ?? 0}</dd>
+                      </div>
+                    )}
+                  </dl>
+                  <div className="network-note"><Grip size={13} /> Arrastar altera apenas a posição visual; não muda os vínculos da equipe.</div>
+                </aside>
+              )}
+            </div>
           )}
-        </div>
+        </section>
       ) : (
         <>
           <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -393,7 +441,7 @@ export function PartnerEquipe() {
                             {m.papel_equipe === 'admin_equipe' ? 'Admin' : 'Membro'}
                           </span>
                           <button
-                            className="rounded p-1 text-silver-500 hover:bg-white hover:text-danger"
+                            className="btn-no-liquid rounded p-1 text-silver-500 hover:bg-white hover:text-danger"
                             title="Remover"
                             onClick={() => {
                               if (confirm(`Remover ${m.nome_completo} da equipe?`)) {

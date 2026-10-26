@@ -6,6 +6,7 @@ export const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Rascunho',
   pre_analise: 'Pré-análise',
   analise_credito: 'Análise de Crédito',
+  pre_aprovado: 'Pré-aprovado',
   analise_imovel: 'Análise de Imóvel',
   analise_juridica: 'Análise Jurídica',
   comite: 'Comitê',

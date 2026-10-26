@@ -63,6 +63,20 @@ Deno.serve(async (req) => {
     return jsonResponse({ ...result, session: null, reason: 'cliente_sem_email' })
   }
 
+  if (cliente.usuario_id) {
+    const { data: linkedMirror, error: linkedMirrorErr } = await admin
+      .from('usuarios')
+      .select('id, role')
+      .eq('id', cliente.usuario_id)
+      .maybeSingle()
+    if (linkedMirrorErr) {
+      return jsonResponse({ ...result, session: null, reason: 'vinculo_cliente_falhou' }, 500)
+    }
+    if (linkedMirror && linkedMirror.role !== 'client') {
+      return jsonResponse({ ...result, session: null, reason: 'usuario_papel_incompativel' }, 409)
+    }
+  }
+
   // 3) Gera sessão via Supabase Auth (magic link nativo).
   //    Se o usuário ainda não existe, generateLink com type=magiclink cria conta + envia.
   //    Retornamos hashed_token + email para o frontend chamar verifyOtp.
@@ -73,8 +87,101 @@ Deno.serve(async (req) => {
       redirectTo: `${SITE_URL}/c`,
     },
   })
-  if (linkErr || !link.properties) {
+  if (linkErr || !link?.properties || !link.user?.id) {
     return jsonResponse({ ...result, session: null, reason: 'gen_link_falhou', detail: linkErr?.message })
+  }
+
+  // A conta do Auth precisa ficar vinculada ao cadastro comercial antes de a
+  // sessão ser entregue ao navegador. Sem esse vínculo, public.me() não
+  // consegue hidratar o perfil e as políticas RLS não encontram propostas.
+  const authUser = link.user
+  const metadata = (authUser.user_metadata ?? {}) as Record<string, unknown>
+  const appMetadata = (authUser.app_metadata ?? {}) as Record<string, unknown>
+  const metadataRole = typeof appMetadata.role === 'string'
+    ? appMetadata.role
+    : typeof metadata.role === 'string'
+      ? metadata.role
+      : 'client'
+
+  const { data: mirror, error: mirrorErr } = await admin
+    .from('usuarios')
+    .select('id, role')
+    .eq('id', authUser.id)
+    .maybeSingle()
+
+  if (mirrorErr) {
+    return jsonResponse({ ...result, session: null, reason: 'vinculo_cliente_falhou' }, 500)
+  }
+
+  const effectiveRole = mirror?.role ?? metadataRole
+  if (effectiveRole !== 'client') {
+    return jsonResponse({ ...result, session: null, reason: 'usuario_papel_incompativel' }, 409)
+  }
+
+  if (!mirror) {
+    const { error: mirrorInsertErr } = await admin.from('usuarios').insert({
+      id: authUser.id,
+      nome_completo: cliente.nome_completo || authUser.email?.split('@')[0] || 'Cliente',
+      email: authUser.email ?? cliente.email,
+      role: 'client',
+      telefone: null,
+      telefone_ddi: '55',
+      ativo: true,
+    })
+    if (mirrorInsertErr && mirrorInsertErr.code !== '23505') {
+      return jsonResponse({ ...result, session: null, reason: 'vinculo_cliente_falhou' }, 500)
+    }
+  }
+
+  const { data: anotherClient, error: anotherClientErr } = await admin
+    .from('clientes')
+    .select('id')
+    .eq('usuario_id', authUser.id)
+    .neq('id', result.cliente_id)
+    .maybeSingle()
+
+  if (anotherClientErr) {
+    return jsonResponse({ ...result, session: null, reason: 'vinculo_cliente_falhou' }, 500)
+  }
+  if (anotherClient) {
+    return jsonResponse({ ...result, session: null, reason: 'usuario_ja_vinculado' }, 409)
+  }
+
+  if (cliente.usuario_id && cliente.usuario_id !== authUser.id) {
+    return jsonResponse({ ...result, session: null, reason: 'cliente_ja_vinculado' }, 409)
+  }
+
+  if (!cliente.usuario_id) {
+    const { data: linkedClient, error: linkClientErr } = await admin
+      .from('clientes')
+      .update({ usuario_id: authUser.id })
+      .eq('id', result.cliente_id)
+      .is('usuario_id', null)
+      .select('id')
+      .maybeSingle()
+
+    if (linkClientErr) {
+      return jsonResponse({ ...result, session: null, reason: 'vinculo_cliente_falhou' }, 500)
+    }
+
+    if (!linkedClient) {
+      const { data: currentClient, error: currentClientErr } = await admin
+        .from('clientes')
+        .select('usuario_id')
+        .eq('id', result.cliente_id)
+        .single()
+      if (currentClientErr || currentClient?.usuario_id !== authUser.id) {
+        return jsonResponse({ ...result, session: null, reason: 'cliente_ja_vinculado' }, 409)
+      }
+    }
+
+    await admin.from('audit_log').insert({
+      usuario_id: authUser.id,
+      acao: 'cliente_usuario_vinculado',
+      entidade: 'clientes',
+      entidade_id: result.cliente_id,
+      payload_depois: { usuario_id: authUser.id, origem: 'magic_link_consume' },
+    })
   }
 
   return jsonResponse({

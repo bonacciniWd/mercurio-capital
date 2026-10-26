@@ -19,6 +19,7 @@ const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Em rascunho',
   pre_analise: 'Pré-análise',
   analise_credito: 'Análise de crédito',
+  pre_aprovado: 'Pré-aprovado',
   analise_imovel: 'Análise do imóvel',
   analise_juridica: 'Análise jurídica',
   comite: 'Comitê',

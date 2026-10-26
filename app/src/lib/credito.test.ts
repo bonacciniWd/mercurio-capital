@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcularFinanciamento, calcularLTV } from './credito'
+import { calcularFinanciamento, calcularLTV, somarValoresImoveis } from './credito'
 
 describe('calcularFinanciamento', () => {
   it('Price: parcela constante e soma fecha com valor + juros', () => {
@@ -93,5 +93,27 @@ describe('calcularLTV', () => {
   })
   it('imóvel zero → 0', () => {
     expect(calcularLTV(100, 0)).toBe(0)
+  })
+})
+
+describe('somarValoresImoveis', () => {
+  it('soma o valor de todos os imóveis em reais com precisão de centavos', () => {
+    const total = somarValoresImoveis([
+      { valor: 350_000.25 },
+      { valor: '149999.75' },
+    ])
+
+    expect(total).toBe(500_000)
+    expect(calcularLTV(250_000, total)).toBe(0.5)
+  })
+
+  it('ignora valores ausentes ou inválidos sem produzir NaN', () => {
+    expect(somarValoresImoveis([
+      { valor: null },
+      { valor: undefined },
+      { valor: 'inválido' },
+      { valor: 100.1 },
+      { valor: 0.2 },
+    ])).toBe(100.3)
   })
 })

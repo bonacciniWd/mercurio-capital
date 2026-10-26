@@ -25,6 +25,8 @@
 15. [Pre-flight Apple para release desktop macOS](#15-pre-flight-apple-para-release-desktop-macos)
 16. [Governança de release desktop/mobile (go/no-go, rollback e pós-release)](#16-governança-de-release-desktopmobile-go-no-go-rollback-e-pós-release)
 17. [Provisionamento do perfil Admin Jurídico](#17-provisionamento-do-perfil-admin-juridico)
+18. [Dashboard global: distribuição por fundos](#18-dashboard-global-distribuição-por-fundos)
+19. [Ativação e login do cliente](#19-ativação-e-login-do-cliente)
 
 ---
 
@@ -86,6 +88,18 @@ Pipeline padrão (Vercel/Cloudflare Pages):
 - `main` → produção.
 - Pré-deploy: `cd app && npm ci && npx tsc --noEmit && npm run build`.
 - Smoke pós-deploy: login admin + abrir `/admin` + verificar lazy chunks carregando.
+
+Na Vercel, o **Root Directory do projeto é `app` relativo à raiz Git**. O CLI
+deve ser chamado a partir da raiz do repositório. Executá-lo dentro de `app/`
+faz o CLI combinar o diretório atual com o Root Directory e procurar
+`app/app`, falhando antes do upload. Para evitar essa repetição, use o wrapper
+que sempre muda para a raiz Git, mesmo se iniciado de outra pasta:
+
+```bash
+bash scripts/deploy-vercel-production.sh
+```
+
+O equivalente manual é `cd <raiz-do-repositorio> && vercel deploy --prod --yes`.
 
 ---
 
@@ -149,6 +163,9 @@ select id, destinatario, assunto, status, tentativas, ultimo_erro,
 - Bounces alto → checar `email_bounces_inbox`, suspender envios.
 - Template de convite removido/inativo no admin (`convite_equipe_v1`) — a RPC possui fallback, mas revisar catálogo para manter padronização visual.
 - Templates de proposta removidos/inativos (`proposta_cliente_magic_link_v1`, `proposta_status_changed_v1`) → enqueue retorna falha/não cria item; reativar no catálogo.
+- Reemissão manual da proposta usa `magic-link-issue` com `send_email=true` e a
+  RPC `enqueue_proposta_magic_link_reissue_email`; o evento esperado na fila é
+  `proposta_magic_link_reissue`.
 
 **Ação**:
 - Resetar itens travados: `update email_outbox set status='pendente' where status='processando' and agendado_para < now() - interval '10 min';`
@@ -162,6 +179,12 @@ select id, destinatario, assunto, status, tentativas, ultimo_erro,
 4. Clicar em **Enfileirar teste** e confirmar `evento=template_teste` na `email_outbox`.
 5. Executar/aguardar o dispatcher e validar `status=enviado` ou `ultimo_erro` claro.
 6. O teste operacional de convite continua disponível em Configurações e cria convite real via `partner_invite_membro`.
+
+Na página de detalhe da proposta, **Reemitir magic link** gera um novo token,
+invalida os anteriores e enfileira o mesmo template transacional para o e-mail
+do cliente. A tela mantém o link copiável como fallback. Se aparecer “e-mail
+não foi enfileirado”, consultar `ultimo_erro` da linha correspondente em
+`email_outbox` e usar o link manual enquanto o dispatcher/Resend é corrigido.
 
 Templates críticos não podem ser removidos, inativados nem mudar de código/canal. O conteúdo e a lista de variáveis podem ser atualizados; divergências de placeholders aparecem como aviso no editor.
 
@@ -767,6 +790,75 @@ Esperado:
 **Pós-provisionamento**:
 1. Forçar novo login para refresh de JWT/claims.
 2. Registrar no changelog operacional: responsável, data/hora e evidências de validação.
+
+## 18. Dashboard global: distribuição por fundos
+
+**Regra operacional**: uma proposta pode ser atribuída a vários fundos para
+representação e cobertura. Os valores financeiros da operação entram uma única
+vez, no primeiro fundo que atingir `status_fundo = 'aprovado'`. Aprovações
+posteriores não duplicam o volume.
+
+**Validação**:
+
+- use o mesmo período e filtros de parceiro, equipe e fundo do Dashboard;
+- confira `Operações representadas` para a cobertura de atribuições;
+- confira `Operações únicas` e os volumes para a atribuição financeira;
+- propostas sem fundo vencedor aparecem no aviso operacional e não entram nos
+  volumes por fundo;
+- propostas legadas sem evento de aprovação usam `proposta_fundos.updated_at`
+  como fallback; novas aprovações preservam `aprovado_em`.
+
+**Smoke test**:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f supabase/smoke-tests/fase-35-dashboard-fundos.sql
+```
+
+O resultado esperado é `FASE 35 SMOKE: OK`. A RPC
+`admin_dashboard_fundos_analytics` é administrativa e não deve ser exposta a
+parceiros ou clientes.
+
+## 19. Ativação e login do cliente
+
+**Modelo**: o registro em `public.clientes` é o cadastro comercial. Para
+acessar `/c`, o cliente precisa de uma conta em `auth.users`, do espelho em
+`public.usuarios` com `role = 'client'` e de `clientes.usuario_id` apontando
+para o mesmo UUID.
+
+**Diagnóstico somente leitura**:
+
+```sql
+select
+  c.id as cliente_id,
+  c.usuario_id,
+  au.id as auth_id,
+  au.email,
+  au.email_confirmed_at,
+  u.role,
+  u.ativo
+from public.clientes c
+left join auth.users au on lower(au.email) = lower(c.email)
+left join public.usuarios u on u.id = au.id
+where lower(c.email) = lower('cliente@exemplo.com');
+```
+
+Cliente não se auto-registra. O caminho inicial é o magic link da proposta;
+depois de ativar a conta, a senha pode ser definida pela recuperação de acesso.
+Não associar manualmente uma conta admin, partner ou team_member a um cliente.
+
+O link da proposta abre primeiro `/c/proposta/:token` para mostrar o resumo sem
+consumir o token. O botão **Entrar no portal** chama a Edge Function
+`magic-link-consume`; a autenticação final deve seguir o `action_link` nativo do
+Supabase no navegador. Não testar esse fluxo com o template
+`convite_equipe_v1`, pois ele pertence ao módulo `/convite` e cria acesso de
+parceiro/equipe. Se o e-mail já estiver associado a outro papel, a ativação do
+cliente deve ser rejeitada e deve-se usar um e-mail próprio de cliente.
+
+Se aparecer `verify 403` e, em seguida, `magic-link-consume 400`, não repetir o
+mesmo link: a primeira tentativa pode ter consumido o token customizado. Gere
+uma nova emissão na proposta e teste em uma janela anônima, sem sessão de
+parceiro ou equipe pré-existente.
 
 ## Runbook — Wizard Nova Proposta / Validação CPF-CNPJ (2026-07-22)
 

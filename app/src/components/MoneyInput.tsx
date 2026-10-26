@@ -17,7 +17,7 @@ export function parseReaisInput(raw: string): number {
 }
 
 export function MoneyInput({
-  label, value, onChange, disabled, required, hint,
+  label, value, onChange, disabled, required, hint, inputClassName = '',
 }: {
   label: string
   value: number
@@ -25,15 +25,18 @@ export function MoneyInput({
   disabled?: boolean
   required?: boolean
   hint?: string
+  inputClassName?: string
 }) {
   const [focused, setFocused] = useState(false)
+  const inputId = `money-input-${label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
   const display = value > 0 || focused ? formatReais(value) : ''
 
   return (
     <div>
-      <label className="label">{label}</label>
+      <label className="label" htmlFor={inputId}>{label}{required ? ' *' : ''}</label>
       <input
-        className="input font-medium"
+        id={inputId}
+        className={`input font-medium ${inputClassName}`}
         type="text"
         inputMode="numeric"
         value={display}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import ReCAPTCHA from 'react-google-recaptcha'
+import { executeRecaptchaV3, loadRecaptchaV3, PROTOCOL_RECAPTCHA_ACTION } from '@/lib/recaptchaV3'
 import { Logo } from '@/components/Logo'
 import { StatusBadge } from '@/components/Badge'
 import { Search, AlertCircle, Loader2, ShieldAlert } from 'lucide-react'
@@ -17,6 +17,7 @@ const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Em rascunho',
   pre_analise: 'Em pré-análise',
   analise_credito: 'Em análise de crédito',
+  pre_aprovado: 'Pré-aprovado',
   analise_imovel: 'Em análise do imóvel',
   analise_juridica: 'Em análise jurídica',
   comite: 'Em comitê',
@@ -34,6 +35,7 @@ const STATUS_LABEL: Record<string, string> = {
 const STEPS: { key: string; label: string }[] = [
   { key: 'pre_analise', label: 'Recebida' },
   { key: 'analise_credito', label: 'Análise de crédito' },
+  { key: 'pre_aprovado', label: 'Pré-aprovado' },
   { key: 'comite', label: 'Comitê' },
   { key: 'emissao_contrato', label: 'Contrato' },
   { key: 'recurso_liberado', label: 'Recurso liberado' },
@@ -61,53 +63,62 @@ interface Resultado {
   historico?: { status_novo: string; status_anterior: string | null; created_at: string }[]
 }
 
-const RECAPTCHA_SITEKEY =
-  (import.meta.env.VITE_RECAPTCHA_SITEKEY as string | undefined)
-  || (import.meta.env.VITE_HCAPTCHA_SITEKEY as string | undefined)
-  || ''
-
 export function Protocolo() {
+  const recaptchaSiteKey =
+    (import.meta.env.VITE_RECAPTCHA_SITEKEY as string | undefined) || ''
   const { codigo: codigoParam } = useParams()
   const [codigo, setCodigo] = useState(codigoParam ?? '')
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const [captchaReady, setCaptchaReady] = useState(false)
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [resultado, setResultado] = useState<Resultado | null>(null)
 
-  const captchaEnabled = RECAPTCHA_SITEKEY.trim().length > 0
+  const captchaEnabled = recaptchaSiteKey.trim().length > 0
+
+  useEffect(() => {
+    if (!captchaEnabled) return
+    let active = true
+    void loadRecaptchaV3(recaptchaSiteKey).then(() => { if (active) setCaptchaReady(true) }).catch(() => {
+      if (active) setErro('Verificação de segurança indisponível. Tente novamente mais tarde.')
+    })
+    return () => { active = false }
+  }, [captchaEnabled, recaptchaSiteKey])
 
   async function consultar(cod: string) {
     setLoading(true)
     setErro(null)
     setResultado(null)
     try {
-      if (captchaEnabled && !captchaToken) {
-        throw new Error('Conclua a verificação anti-bot antes de consultar.')
-      }
-      const { data, error } = await supabase.rpc('public_consulta_protocolo', {
-        p_codigo: cod.trim(),
-        p_captcha_token: captchaToken,
+      if (!captchaEnabled) throw new Error('Verificação anti-bot indisponível. Tente novamente mais tarde.')
+      if (!captchaReady) throw new Error('Verificação de segurança ainda está carregando.')
+      const captchaToken = await executeRecaptchaV3(recaptchaSiteKey, PROTOCOL_RECAPTCHA_ACTION)
+      const { data, error } = await supabase.functions.invoke('public-consulta-protocolo', {
+        body: { codigo: cod.trim(), captcha_token: captchaToken },
       })
-      if (error) {
-        if (error.message?.includes('rate_limited')) {
-          throw new Error('Muitas consultas seguidas. Aguarde alguns segundos.')
+      if (error || data?.error) {
+        let code = data?.error
+        if (error && 'context' in error && error.context instanceof Response) {
+          try { code = (await error.context.json()).error } catch { /* generic message below */ }
         }
-        throw new Error(error.message)
+        const messages: Record<string, string> = {
+          rate_limited: 'Muitas consultas seguidas. Aguarde um minuto.',
+          captcha_invalid: 'Não foi possível validar a segurança. Tente novamente.',
+          captcha_required: 'Verificação de segurança necessária para consultar.',
+          invalid_codigo: 'Informe um protocolo válido.',
+        }
+        throw new Error(messages[code] ?? 'Consulta indisponível. Tente novamente mais tarde.')
       }
       setResultado(data as Resultado)
-    } catch (err: any) {
-      setErro(err?.message ?? 'Falha ao consultar protocolo.')
+    } catch (err: unknown) {
+      setErro((err instanceof Error ? err.message : null) ?? 'Falha ao consultar protocolo.')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    if (codigoParam) {
-      void consultar(codigoParam)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setCodigo(codigoParam ?? '')
+    setResultado(null)
   }, [codigoParam])
 
   const currentStepIdx = resultado?.status
@@ -130,6 +141,7 @@ export function Protocolo() {
               <label className="label">Número do protocolo</label>
               <input
                 className="input font-mono"
+                maxLength={80}
                 placeholder="MC-2024-XXXXXX"
                 value={codigo}
                 onChange={(e) => {
@@ -141,39 +153,21 @@ export function Protocolo() {
             </div>
 
             {captchaEnabled ? (
-              <div className="rounded-lg border border-silver-200 bg-silver-50 p-3">
-                <div className="mb-2 text-center text-xs text-silver-500">
-                  Complete a verificação anti-bot para consultar o protocolo.
-                </div>
-                <div className="flex justify-center">
-                  <ReCAPTCHA
-                    sitekey={RECAPTCHA_SITEKEY}
-                    asyncScriptOnLoad={() => setCaptchaReady(true)}
-                    onChange={(token: string | null) => {
-                      setCaptchaToken(token)
-                      if (token) setErro(null)
-                    }}
-                    onExpired={() => setCaptchaToken(null)}
-                    onErrored={() => {
-                      setCaptchaToken(null)
-                      setErro('Não foi possível validar o captcha. Tente novamente.')
-                    }}
-                  />
-                </div>
-                {!captchaReady && (
-                  <p className="mt-2 text-center text-[11px] text-silver-500">Carregando verificação...</p>
-                )}
+              <div className="rounded-lg border border-silver-200 bg-silver-50 p-3 text-center text-xs text-silver-500">
+                {captchaReady
+                  ? 'Verificação automática de segurança ativa.'
+                  : 'Carregando verificação de segurança...'}
               </div>
             ) : (
               <div className="rounded-lg border border-silver-200 bg-silver-50 p-3 text-center text-xs text-silver-500">
-                Verificação anti-bot desabilitada (defina <code>VITE_RECAPTCHA_SITEKEY</code>).
+                Verificação anti-bot indisponível. Tente novamente mais tarde.
               </div>
             )}
 
             <button
               type="submit"
               className="btn-gold w-full"
-              disabled={loading || (captchaEnabled && !captchaToken)}
+              disabled={loading || !captchaEnabled || !captchaReady}
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               Consultar
@@ -285,6 +279,7 @@ function statusReachesStep(currentStatus: string, stepKey: string): boolean {
     'simulacao',
     'pre_analise',
     'analise_credito',
+    'pre_aprovado',
     'analise_imovel',
     'analise_juridica',
     'comite',

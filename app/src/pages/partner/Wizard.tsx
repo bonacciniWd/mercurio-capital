@@ -1,12 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Building, Home as HomeIcon, Hammer, Check, Plus, Trash2, MapPin, ChevronDown, Copy, Loader2, RefreshCw, Search, ShieldCheck } from 'lucide-react'
+import { Building, Home as HomeIcon, Hammer, Check, Plus, Trash2, MapPin, ChevronDown, Copy, Loader2, RefreshCw, Search, ShieldCheck, FileDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
 import { MoneyInput } from '@/components/MoneyInput'
 import { SimuladorCredito, type SimuladorCreditoValues } from '@/components/SimuladorCredito'
+import { SimulacaoCreditoPdf } from '@/components/SimulacaoCreditoPdf'
+import { BrandLoading } from '@/components/BrandLoading'
+import { imprimirSimulacaoCreditoPdf } from '@/lib/simulacaoCreditoPdf'
 import { consumeSimulacaoDraft } from '@/lib/simulacaoDraft'
 import { publicAppUrl } from '@/lib/publicUrl'
 import {
@@ -271,6 +274,24 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
   const [result, setResult] = useState<SubmitResult | null>(null)
   const [adminPartnerId, setAdminPartnerId] = useState('')
 
+  const simulatorParamsQ = useQuery({
+    queryKey: ['simulador-parametros-publicos'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('simulador_parametros_publicos')
+      if (error) throw error
+      return data as { taxa_juros_mensal_default?: number | string | null } | null
+    },
+  })
+
+  useEffect(() => {
+    if (!isAdminMode) return
+    const rate = simulatorParamsQ.data?.taxa_juros_mensal_default
+    if (rate === null || rate === undefined || !Number.isFinite(Number(rate)) || Number(rate) < 0) return
+    setForm(current => current.taxa_juros_mensal === initialState.taxa_juros_mensal
+      ? { ...current, taxa_juros_mensal: Number(rate) }
+      : current)
+  }, [isAdminMode, simulatorParamsQ.data])
+
   const adminPartnersQ = useQuery({
     queryKey: ['admin-propostas-create-partners'],
     enabled: isAdminMode,
@@ -524,8 +545,8 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
         {step === 0 && <Step1 form={form} patch={patch} />}
         {step === 1 && <Step2 form={form} patchCliente={patchCliente} setForm={setForm} />}
         {step === 2 && <StepImoveis form={form} setForm={setForm} />}
-        {step === 3 && <Step4 form={form} patch={patch} valorImoveisTotal={valorImoveisTotal} />}
-        {step === 4 && <StepRevisao form={form} setForm={setForm} patch={patch} patchCliente={patchCliente} calc={calc} ltv={ltv} valorImoveisTotal={valorImoveisTotal} />}
+        {step === 3 && <Step4 form={form} patch={patch} valorImoveisTotal={valorImoveisTotal} isAdminMode={isAdminMode} />}
+        {step === 4 && <StepRevisao form={form} setForm={setForm} patch={patch} patchCliente={patchCliente} calc={calc} ltv={ltv} valorImoveisTotal={valorImoveisTotal} isAdminMode={isAdminMode} />}
       </div>
 
       {error && <div className="mt-4 rounded-md border border-danger/40 bg-danger/5 p-3 text-sm text-danger">{error}</div>}
@@ -544,6 +565,10 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
           </button>
         )}
       </div>
+
+      {submitMut.isPending && (
+        <BrandLoading message="Salvando a proposta e preparando o acesso do cliente." />
+      )}
     </div>
   )
 }
@@ -889,11 +914,12 @@ function EnderecoFields({ endereco, onChange }: {
 }
 
 function Step4({
-  form, patch, valorImoveisTotal,
+  form, patch, valorImoveisTotal, isAdminMode = false,
 }: {
   form: FormState
   patch: (p: Partial<FormState>) => void
   valorImoveisTotal: number
+  isAdminMode?: boolean
 }) {
   const values: SimuladorCreditoValues = {
     valor_solicitado: form.valor_solicitado,
@@ -915,6 +941,12 @@ function Step4({
         correcaoOptions={[['pos_fixado', 'IPCA']]}
         amortizacaoOptions={[['price', 'PRICE']]}
       />
+
+      {isAdminMode && <div className="no-print mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
+        <p className="max-w-2xl text-sm text-amber-950">Prévia sem IOF, TAC, registro e seguros. Esses encargos aguardam validação financeira e podem alterar parcelas e totais.</p>
+        <button type="button" className="btn-outline shrink-0" onClick={imprimirSimulacaoCreditoPdf}><FileDown className="h-4 w-4" /> Salvar prévia em PDF</button>
+        <SimulacaoCreditoPdf values={values} produto={produtoLabel(form.produto)} pessoaTipo={form.pessoa_tipo} />
+      </div>}
 
       <div className="mt-6 rounded-lg border border-silver-200 bg-silver-50 p-4">
         <label className="flex cursor-pointer items-start gap-3">
@@ -1286,7 +1318,7 @@ function ReviewSection({ title, summary, children }: { title: string; summary: R
 }
 
 function StepRevisao({
-  form, setForm, patch, patchCliente, calc, ltv, valorImoveisTotal,
+  form, setForm, patch, patchCliente, calc, ltv, valorImoveisTotal, isAdminMode,
 }: {
   form: FormState
   setForm: React.Dispatch<React.SetStateAction<FormState>>
@@ -1295,6 +1327,7 @@ function StepRevisao({
   calc: ReturnType<typeof calcularFinanciamento>
   ltv: number
   valorImoveisTotal: number
+  isAdminMode: boolean
 }) {
   const clienteNome = form.pessoa_tipo === 'PJ' ? (form.cliente.razao_social || form.cliente.nome_completo) : form.cliente.nome_completo
   const clienteDoc = form.pessoa_tipo === 'PJ' ? form.cliente.cnpj : form.cliente.cpf
@@ -1329,7 +1362,7 @@ function StepRevisao({
           title="Valores"
           summary={`LTV ${(ltv * 100).toFixed(1)}% · 1ª parcela ${brl(calc.primeiraParcela * 100)} · Renda mín. ${brl(calc.rendaMinima * 100)}${form.limite_50_aplicado ? ' · limite 50% aplicado' : ''}`}
         >
-          <Step4 form={form} patch={patch} valorImoveisTotal={valorImoveisTotal} />
+          <Step4 form={form} patch={patch} valorImoveisTotal={valorImoveisTotal} isAdminMode={isAdminMode} />
         </ReviewSection>
       </div>
 

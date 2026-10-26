@@ -1,10 +1,20 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Building2, Bell, Shield, Globe, Users, Save, TrendingUp, CheckCircle2, XCircle, Upload, Trash2, MailCheck, Loader2, Copy, Check, AlertTriangle, Workflow, Megaphone, FileText, Flag, Plug, ScrollText, Settings, Tags } from 'lucide-react'
+import { Building2, Bell, Shield, Globe, Users, Save, TrendingUp, CheckCircle2, XCircle, Upload, Trash2, MailCheck, Loader2, Copy, Check, AlertTriangle, Workflow, Megaphone, FileText, Flag, Plug, ScrollText, Settings, Tags, Plus, Calculator } from 'lucide-react'
 import { Badge } from '@/components/Badge'
 import { TwoFactorManager } from '@/components/TwoFactorManager'
 import { supabase } from '@/lib/supabase'
 import { publicAppUrl } from '@/lib/publicUrl'
+import { DEFAULT_SIMULATION_MESSAGE, type ConfigMensagensSimulador, type RegraMensagemSimulador } from '@/lib/mensagensSimulador'
+import { EquipeInterna } from '@/components/admin/EquipeInterna'
+import {
+  normalizarSimuladorParametros,
+  simuladorParametrosVazios,
+  validarSimuladorParametrosRascunho,
+  type BaseCalculoCusto,
+  type FaixaRegistroImovel,
+  type SimuladorParametros,
+} from '@/lib/simuladorParametros'
 
 const TABS = [
   { id: 'empresa', icon: Building2, label: 'Empresa' },
@@ -15,6 +25,7 @@ const TABS = [
   { id: 'dominio', icon: Globe, label: 'Domínio & marca' },
   { id: 'metas', icon: TrendingUp, label: 'Metas' },
   { id: 'classificador', icon: Settings, label: 'Classificador de leads' },
+  { id: 'simulador', icon: Calculator, label: 'Parâmetros do simulador' },
   { id: 'operacao', icon: Settings, label: 'Módulos operacionais' },
 ]
 
@@ -43,7 +54,7 @@ export function AdminConfiguracoes() {
           ))}
         </aside>
 
-        <div className="card p-6">
+        <div className="card min-w-0 p-6">
           {tab === 'empresa' && <EmpresaTab />}
           {tab === 'usuarios' && <UsuariosTab />}
           {tab === 'seguranca' && <SegurancaTab />}
@@ -51,12 +62,170 @@ export function AdminConfiguracoes() {
           {tab === 'emails' && <EmailTemplatesTab />}
           {tab === 'dominio' && <DominioTab />}
           {tab === 'metas' && <MetasTab />}
-          {tab === 'classificador' && <ClassificadorLeadsTab />}
+          {tab === 'classificador' && <><ClassificadorLeadsTab /><MensagensContatoSimulador /></>}
+          {tab === 'simulador' && <SimuladorParametrosTab />}
           {tab === 'operacao' && <ModulosOperacionaisTab />}
         </div>
       </div>
     </>
   )
+}
+
+type SimuladorConfigResponse = {
+  simulador_parametros?: unknown
+  taxa_juros_mensal_default?: number | string | null
+}
+
+function SimuladorParametrosTab() {
+  const [parameters, setParameters] = useState<SimuladorParametros>(() => simuladorParametrosVazios())
+  const [defaultRate, setDefaultRate] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    void supabase.rpc('admin_simulador_parametros_obter').then(({ data, error }) => {
+      if (!mounted) return
+      if (error) {
+        setFeedback({ ok: false, text: error.message })
+        setLoading(false)
+        return
+      }
+      const result = (data ?? {}) as SimuladorConfigResponse
+      const rate = result.taxa_juros_mensal_default
+      setParameters(normalizarSimuladorParametros(result.simulador_parametros))
+      setDefaultRate(rate === null || rate === undefined ? null : Number(rate))
+      setLoading(false)
+    })
+    return () => { mounted = false }
+  }, [])
+
+  const updateNumber = (section: 'iof' | 'tac' | 'seguros', key: string, raw: string) => {
+    const value = raw.trim() === '' ? null : Number(raw)
+    setParameters(current => ({
+      ...current,
+      [section]: { ...current[section], [key]: value },
+    }))
+    setFeedback(null)
+  }
+
+  const updateBase = (section: 'iof' | 'tac' | 'seguros', key: string, raw: string) => {
+    setParameters(current => ({
+      ...current,
+      [section]: { ...current[section], [key]: raw ? raw as BaseCalculoCusto : null },
+    }))
+    setFeedback(null)
+  }
+
+  function updateRange(index: number, patch: Partial<FaixaRegistroImovel>) {
+    setParameters(current => ({
+      ...current,
+      registro: {
+        faixas: current.registro.faixas.map((range, rangeIndex) => rangeIndex === index ? { ...range, ...patch } : range),
+      },
+    }))
+    setFeedback(null)
+  }
+
+  async function saveDraft() {
+    if (defaultRate === null || !Number.isFinite(defaultRate) || defaultRate < 0 || defaultRate > 100) {
+      setFeedback({ ok: false, text: 'Informe uma taxa padrão entre 0 e 100% a.m.' })
+      return
+    }
+    const validation = validarSimuladorParametrosRascunho(parameters)
+    if (validation) {
+      setFeedback({ ok: false, text: validation })
+      return
+    }
+
+    setSaving(true)
+    setFeedback(null)
+    const { data, error } = await supabase.rpc('admin_simulador_parametros_salvar', {
+      p_parametros: parameters,
+      p_taxa_juros_mensal_default: defaultRate,
+    })
+    setSaving(false)
+    if (error) {
+      setFeedback({ ok: false, text: error.message })
+      return
+    }
+    const saved = (data ?? {}) as SimuladorConfigResponse
+    setParameters(normalizarSimuladorParametros(saved.simulador_parametros))
+    setDefaultRate(saved.taxa_juros_mensal_default === null || saved.taxa_juros_mensal_default === undefined ? defaultRate : Number(saved.taxa_juros_mensal_default))
+    setFeedback({ ok: true, text: 'Rascunho salvo e auditado. Nenhum encargo foi ativado no cálculo.' })
+  }
+
+  if (loading) return <div className="flex items-center gap-2 py-8 text-sm text-silver-500"><Loader2 className="h-4 w-4 animate-spin" /> Carregando parâmetros…</div>
+
+  const baseOptions: Array<[BaseCalculoCusto, string]> = [
+    ['credito_liquido', 'Crédito líquido'],
+    ['principal_bruto', 'Principal bruto'],
+    ['saldo_devedor', 'Saldo devedor'],
+    ['valor_garantia', 'Valor da garantia'],
+  ]
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="font-semibold text-navy">Premissas financeiras</h2>
+          <p className="mt-1 text-sm text-silver-500">Parâmetros em rascunho para revisão da equipe financeira.</p>
+        </div>
+        <span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">Aguardando validação financeira</span>
+      </div>
+
+      <div className="mt-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
+        Salvar aqui registra um rascunho. IOF, TAC, registro e seguros continuam fora do cálculo e não podem ser apresentados como premissas confirmadas até a validação das fórmulas e dos valores pela equipe financeira.
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <ParameterNumber label="Taxa mensal padrão (% a.m.)" value={defaultRate} onChange={raw => { setDefaultRate(raw.trim() === '' ? null : Number(raw)); setFeedback(null) }} />
+        <ParameterNumber label="IOF adicional (%)" value={parameters.iof.percentual_adicional} onChange={value => updateNumber('iof', 'percentual_adicional', value)} />
+        <ParameterNumber label="IOF diário (%)" value={parameters.iof.percentual_diario} onChange={value => updateNumber('iof', 'percentual_diario', value)} />
+        <ParameterNumber label="IOF: limite de dias" value={parameters.iof.limite_dias} step="1" onChange={value => updateNumber('iof', 'limite_dias', value)} />
+        <ParameterBase label="Base do IOF" value={parameters.iof.base} options={baseOptions} onChange={value => updateBase('iof', 'base', value)} />
+        <ParameterNumber label="TAC (%)" value={parameters.tac.percentual} onChange={value => updateNumber('tac', 'percentual', value)} />
+        <ParameterNumber label="TAC mínima (R$)" value={parameters.tac.minimo_reais} step="0.01" onChange={value => updateNumber('tac', 'minimo_reais', value)} />
+        <ParameterBase label="Base da TAC" value={parameters.tac.base} options={baseOptions} onChange={value => updateBase('tac', 'base', value)} />
+        <ParameterNumber label="Seguro MIP mensal (%)" value={parameters.seguros.mip_percentual_mensal} onChange={value => updateNumber('seguros', 'mip_percentual_mensal', value)} />
+        <ParameterBase label="Base do MIP" value={parameters.seguros.mip_base} options={baseOptions} onChange={value => updateBase('seguros', 'mip_base', value)} />
+        <ParameterNumber label="Seguro DFI mensal (%)" value={parameters.seguros.dfi_percentual_mensal} onChange={value => updateNumber('seguros', 'dfi_percentual_mensal', value)} />
+        <ParameterBase label="Base do DFI" value={parameters.seguros.dfi_base} options={baseOptions} onChange={value => updateBase('seguros', 'dfi_base', value)} />
+      </div>
+
+      <section className="mt-6 rounded-lg border border-silver-200 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h3 className="font-semibold text-navy">Tarifas de registro por faixa</h3><p className="text-xs text-silver-500">Preencha valores somente conforme a tabela aprovada pelo Financeiro.</p></div>
+          <button type="button" className="btn-outline min-h-9 px-3 text-xs" onClick={() => setParameters(current => ({ ...current, registro: { faixas: [...current.registro.faixas, { uf: '', valor_minimo: null, valor_maximo: null, tarifa: null }] } }))}>
+            <Plus className="h-4 w-4" /> Adicionar faixa
+          </button>
+        </div>
+        {parameters.registro.faixas.length === 0
+          ? <p className="mt-4 text-sm text-silver-500">Nenhuma faixa cadastrada.</p>
+          : <div className="mt-4 space-y-3">{parameters.registro.faixas.map((range, index) => (
+            <div key={`faixa-${index}`} className="grid gap-3 rounded-lg bg-silver-50 p-3 sm:grid-cols-4">
+              <div><label className="label">UF ou * (geral)</label><input className="input" maxLength={2} value={range.uf} onChange={event => updateRange(index, { uf: event.target.value.toUpperCase() })} /></div>
+              <ParameterNumber label="Valor mínimo (R$)" value={range.valor_minimo} step="0.01" onChange={value => updateRange(index, { valor_minimo: value === '' ? null : Number(value) })} />
+              <ParameterNumber label="Valor máximo (R$)" value={range.valor_maximo} step="0.01" onChange={value => updateRange(index, { valor_maximo: value === '' ? null : Number(value) })} hint="Em branco = sem limite superior." />
+              <div className="flex items-end gap-2"><div className="min-w-0 flex-1"><ParameterNumber label="Tarifa (R$)" value={range.tarifa} step="0.01" onChange={value => updateRange(index, { tarifa: value === '' ? null : Number(value) })} /></div><button type="button" className="btn-outline min-h-10 px-3 text-danger" aria-label={`Remover faixa ${index + 1}`} onClick={() => setParameters(current => ({ ...current, registro: { faixas: current.registro.faixas.filter((_, rangeIndex) => rangeIndex !== index) } }))}><Trash2 className="h-4 w-4" /></button></div>
+            </div>
+          ))}</div>}
+      </section>
+
+      <p className="mt-4 text-xs text-silver-500">Versão do rascunho: {parameters.versao} · Os campos não representam fórmulas aprovadas e não alteram parcelas enquanto a validação estiver pendente.</p>
+      {feedback && <p role="status" className={`mt-4 text-sm font-medium ${feedback.ok ? 'text-success' : 'text-danger'}`}>{feedback.text}</p>}
+      <div className="mt-5 flex justify-end"><button type="button" className="btn-gold" onClick={() => void saveDraft()} disabled={saving}><Save className="h-4 w-4" />{saving ? 'Salvando…' : 'Salvar rascunho'}</button></div>
+    </div>
+  )
+}
+
+function ParameterNumber({ label, value, onChange, step = '0.0001', hint }: { label: string; value: number | null; onChange: (value: string) => void; step?: string; hint?: string }) {
+  return <div><label className="label">{label}</label><input className="input" type="number" min="0" step={step} value={value ?? ''} onChange={event => onChange(event.target.value)} />{hint && <p className="mt-1 text-xs text-silver-500">{hint}</p>}</div>
+}
+
+function ParameterBase({ label, value, options, onChange }: { label: string; value: BaseCalculoCusto | null; options: Array<[BaseCalculoCusto, string]>; onChange: (value: string) => void }) {
+  return <div><label className="label">{label}</label><select className="input" value={value ?? ''} onChange={event => onChange(event.target.value)}><option value="">A definir pelo Financeiro</option>{options.map(([key, title]) => <option key={key} value={key}>{title}</option>)}</select></div>
 }
 
 type ClassificadorConfig = {
@@ -143,6 +312,71 @@ function ClassificadorLeadsTab() {
       )}
     </div>
   )
+}
+
+function MensagensContatoSimulador() {
+  const [config, setConfig] = useState<ConfigMensagensSimulador | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+
+  useEffect(() => {
+    void (async () => {
+      const { data, error } = await supabase.from('config_mensagens_simulador').select('fallback, regras').eq('id', true).maybeSingle()
+      if (error) {
+        setMessage({ ok: false, text: 'Não foi possível carregar as mensagens de contato.' })
+        return
+      }
+      if (data) setConfig(data as ConfigMensagensSimulador)
+      else setConfig({ fallback: DEFAULT_SIMULATION_MESSAGE, regras: [] })
+    })()
+  }, [])
+
+  function patchRule(id: string, patch: Partial<RegraMensagemSimulador>) {
+    setConfig(current => current ? { ...current, regras: current.regras.map(rule => rule.id === id ? { ...rule, ...patch } : rule) } : current)
+  }
+
+  function addRule() {
+    if (!config || config.regras.length >= 20) return
+    const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `regra-${Date.now()}`
+    setConfig({ ...config, regras: [...config.regras, { id, ativo: true, prioridade: config.regras.length + 1, tipo_simulacao: 'todos', valor_minimo: null, valor_maximo: null, mensagem: DEFAULT_SIMULATION_MESSAGE }] })
+  }
+
+  async function save() {
+    if (!config) return
+    setBusy(true)
+    setMessage(null)
+    const { data, error } = await supabase.rpc('admin_config_mensagens_simulador_atualizar', { p_config: config })
+    setBusy(false)
+    if (error) {
+      setMessage({ ok: false, text: 'Não foi possível salvar. Verifique as faixas de valor e os campos da mensagem.' })
+      return
+    }
+    setConfig(data as ConfigMensagensSimulador)
+    setMessage({ ok: true, text: 'Mensagens e condições salvas.' })
+  }
+
+  return <section className="mt-8 border-t border-silver-200 pt-7">
+    <h2 className="text-lg font-semibold text-navy">Mensagens de contato do simulador</h2>
+    <p className="mt-1 max-w-3xl text-sm text-silver-600">Configure a mensagem sugerida no botão de WhatsApp da equipe interna. As condições só selecionam um texto; abrir o WhatsApp não envia a mensagem automaticamente. A primeira regra correspondente, pela prioridade menor, será usada.</p>
+    {message && <div className={`mt-4 rounded-lg border p-3 text-sm ${message.ok ? 'border-success/30 bg-success/5 text-success' : 'border-danger/30 bg-danger/5 text-danger'}`}>{message.text}</div>}
+    {!config ? <div className="py-8 text-sm text-silver-500">Carregando mensagens…</div> : <div className="mt-5 space-y-5">
+      <label className="label">Mensagem padrão<textarea className="input mt-1 min-h-24 py-3" maxLength={2000} value={config.fallback} onChange={event => setConfig({ ...config, fallback: event.target.value })} /></label>
+      <p className="-mt-3 text-xs text-silver-500">Variáveis: <code>{'{{nome}}'}</code>, <code>{'{{tipo_calculadora}}'}</code> e <code>{'{{valor_simulado}}'}</code>.</p>
+      <div className="space-y-4">
+        {config.regras.map((rule, index) => <div key={rule.id} className="rounded-xl border border-silver-200 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-semibold text-navy">Regra {index + 1}</h3><div className="flex items-center gap-3"><label className="flex items-center gap-2 text-sm text-silver-700"><input type="checkbox" checked={rule.ativo} onChange={event => patchRule(rule.id, { ativo: event.target.checked })} /> Ativa</label><button type="button" className="btn-outline min-h-9 px-3 text-xs text-red-700" onClick={() => setConfig({ ...config, regras: config.regras.filter(item => item.id !== rule.id) })}><Trash2 className="h-3.5 w-3.5" /> Remover</button></div></div>
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
+            <label className="label">Prioridade<input className="input mt-1" type="number" min="0" max="10000" step="1" value={rule.prioridade} onChange={event => patchRule(rule.id, { prioridade: Number(event.target.value) })} /></label>
+            <label className="label">Calculadora<select className="input mt-1" value={rule.tipo_simulacao} onChange={event => patchRule(rule.id, { tipo_simulacao: event.target.value as RegraMensagemSimulador['tipo_simulacao'] })}><option value="todos">Todas</option><option value="home_equity">Home Equity</option><option value="amortizacao">Amortização</option></select></label>
+            <label className="label">Valor mínimo<input className="input mt-1" type="number" min="0" step="10000" value={rule.valor_minimo ?? ''} placeholder="Sem mínimo" onChange={event => patchRule(rule.id, { valor_minimo: event.target.value === '' ? null : Number(event.target.value) })} /></label>
+            <label className="label">Valor máximo<input className="input mt-1" type="number" min="0" step="10000" value={rule.valor_maximo ?? ''} placeholder="Sem máximo" onChange={event => patchRule(rule.id, { valor_maximo: event.target.value === '' ? null : Number(event.target.value) })} /></label>
+          </div>
+          <label className="label mt-4 block">Mensagem<textarea className="input mt-1 min-h-24 py-3" maxLength={2000} value={rule.mensagem} onChange={event => patchRule(rule.id, { mensagem: event.target.value })} /></label>
+        </div>)}
+      </div>
+      <div className="flex flex-wrap gap-3"><button type="button" className="btn-outline min-h-10 px-4" disabled={config.regras.length >= 20} onClick={addRule}><Plus className="h-4 w-4" /> Adicionar condição</button><button type="button" className="btn-gold min-h-10" disabled={busy} onClick={() => void save()}><Save className="h-4 w-4" />{busy ? 'Salvando…' : 'Salvar mensagens'}</button></div>
+    </div>}
+  </section>
 }
 
 function ModulosOperacionaisTab() {
@@ -505,10 +739,11 @@ function UsuariosTab() {
 
   return (
     <>
+      <EquipeInterna />
       <div className="mb-5">
         <h2 className="font-semibold text-navy">Usuários internos</h2>
         <p className="text-xs text-silver-500">
-          Configure quem participa da distribuição de leads. O nível e a capacidade ficam registrados para o roteamento ponderado.
+          Distribuição de leads e capacidade operacional. Estes parâmetros permanecem separados dos cargos e da hierarquia organizacional acima.
         </p>
       </div>
 

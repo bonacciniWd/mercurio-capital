@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
 import { Loader2, AlertTriangle, FileText, ArrowRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -16,6 +16,7 @@ const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Em rascunho',
   pre_analise: 'Em pré-análise',
   analise_credito: 'Em análise de crédito',
+  pre_aprovado: 'Pré-aprovado',
   analise_imovel: 'Em análise do imóvel',
   analise_juridica: 'Em análise jurídica',
   comite: 'Em comitê',
@@ -41,9 +42,60 @@ interface Peek {
   expires_at: string
 }
 
+type MagicLinkConsumePayload = {
+  session?: {
+    action_link?: string
+    email?: string
+  }
+  reason?: string
+  error?: string
+  detail?: string
+}
+
+function isSafeAuthActionLink(value: string | undefined): value is string {
+  if (!value) return false
+
+  try {
+    const link = new URL(value)
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
+    const supabaseOrigin = supabaseUrl ? new URL(supabaseUrl).origin : null
+    return link.protocol === 'https:'
+      && (!supabaseOrigin || link.origin === supabaseOrigin)
+      && link.pathname.endsWith('/auth/v1/verify')
+  } catch {
+    return false
+  }
+}
+
+async function readMagicLinkError(error: unknown): Promise<MagicLinkConsumePayload> {
+  const context = (error as { context?: Response } | null)?.context
+  if (!context || typeof context.clone !== 'function') return {}
+
+  try {
+    return await context.clone().json() as MagicLinkConsumePayload
+  } catch {
+    return {}
+  }
+}
+
+function describeMagicLinkError(payload: MagicLinkConsumePayload): string {
+  if (payload.reason === 'usuario_papel_incompativel') {
+    return 'Este e-mail já pertence a uma conta de parceiro ou equipe. Use outro e-mail para ativar o cliente.'
+  }
+  if (payload.reason === 'usuario_ja_vinculado' || payload.reason === 'cliente_ja_vinculado') {
+    return 'Este cliente já está vinculado a outra conta. Solicite a correção ao administrador.'
+  }
+  if (payload.error === 'token_invalido') {
+    return 'Este link já foi usado ou expirou. Solicite uma nova emissão ao parceiro.'
+  }
+  if (payload.error === 'rate_limited') {
+    return 'Muitas tentativas em sequência. Aguarde um minuto e tente novamente.'
+  }
+  return 'Não foi possível iniciar a sessão do cliente. Solicite uma nova emissão do link.'
+}
+
 export function ClienteProposta() {
   const { token } = useParams<{ token: string }>()
-  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [peek, setPeek] = useState<Peek | null>(null)
@@ -145,19 +197,22 @@ export function ClienteProposta() {
                     const { data, error: fnErr } = await supabase.functions.invoke('magic-link-consume', {
                       body: { token },
                     })
-                    if (fnErr) throw new Error(fnErr.message)
-                    const payload = data as { session?: { hashed_token?: string; email?: string }; reason?: string }
-                    if (payload?.session?.hashed_token) {
-                      const { error: otpErr } = await supabase.auth.verifyOtp({
-                        token_hash: payload.session.hashed_token,
-                        type: 'magiclink',
-                      })
-                      if (otpErr) throw new Error(otpErr.message)
-                      navigate('/c', { replace: true })
+                    if (fnErr) {
+                      const errorPayload = await readMagicLinkError(fnErr)
+                      throw new Error(describeMagicLinkError(errorPayload))
+                    }
+
+                    const payload = data as MagicLinkConsumePayload | null
+                    if (isSafeAuthActionLink(payload?.session?.action_link)) {
+                      // O action_link é validado pelo Supabase Auth no navegador.
+                      // Isso evita uma segunda chamada client-side a /verify, que
+                      // podia falhar com 403 depois de o token customizado já ter
+                      // sido consumido.
+                      window.location.replace(payload.session.action_link)
                       return
                     }
-                    // fallback: cliente sem email ou falha em generateLink — manda para login manual
-                    navigate(`/c/login?token=${encodeURIComponent(token)}`)
+
+                    throw new Error(describeMagicLinkError(payload ?? {}))
                   } catch (err) {
                     setConsumeError(err instanceof Error ? err.message : 'Falha ao entrar.')
                   } finally {

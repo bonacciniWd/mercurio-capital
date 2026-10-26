@@ -1,0 +1,160 @@
+{
+	"info": {
+		"_postman_id": "ab41e8d1-3aae-4e71-9066-9ae6e7700765",
+		"name": "RELATORIO_AVANCADO_TOP_SCORE_PF",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "8412939"
+	},
+	"item": [
+		{
+			"name": "RELATORIO_AVANCADO_TOP_SCORE_PF",
+			"item": [
+				{
+					"name": "HOMOLOGAÇÃO",
+					"item": [
+						{
+							"name": "VALIDAÇÃO CREDENCIAL",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											""
+										],
+										"type": "text/javascript",
+										"packages": {}
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "basic",
+									"basic": [
+										{
+											"key": "password",
+											"value": "cliente-secret",
+											"type": "string"
+										},
+										{
+											"key": "username",
+											"value": "client-id",
+											"type": "string"
+										},
+										{
+											"key": "saveHelperData",
+											"value": true,
+											"type": "boolean"
+										},
+										{
+											"key": "showPassword",
+											"value": false,
+											"type": "boolean"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "https://uat-api.serasaexperian.com.br/security/iam/v1/client-identities/login",
+									"protocol": "https",
+									"host": [
+										"uat-api",
+										"serasaexperian",
+										"com",
+										"br"
+									],
+									"path": [
+										"security",
+										"iam",
+										"v1",
+										"client-identities",
+										"login"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "CONSULTA",
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "AcessToken",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [
+									{
+										"key": "X-Document-Id",
+										"value": "00000001244",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									},
+									{
+										"key": "",
+										"value": "",
+										"type": "text",
+										"disabled": true
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "https://uat-api.serasaexperian.com.br/credit-services/person-information-report/v1/creditreport?reportName=RELATORIO_AVANCADO_TOP_SCORE_PF",
+									"protocol": "https",
+									"host": [
+										"uat-api",
+										"serasaexperian",
+										"com",
+										"br"
+									],
+									"path": [
+										"credit-services",
+										"person-information-report",
+										"v1",
+										"creditreport"
+									],
+									"query": [
+										{
+											"key": "reportName",
+											"value": "RELATORIO_AVANCADO_TOP_SCORE_PF"
+										},
+										{
+											"key": "optionalFeatures",
+											"value": "",
+											"disabled": true
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		}
+	]
+}

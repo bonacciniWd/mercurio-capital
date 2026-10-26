@@ -25,6 +25,9 @@ import { RedefinirSenha } from '@/pages/public/RedefinirSenha'
 import { ClienteProposta } from '@/pages/public/ClienteProposta'
 import { ConviteMembro } from '@/pages/public/ConviteMembro'
 import { PartnerBootstrap } from '@/pages/public/PartnerBootstrap'
+import { PoliticaPrivacidade } from '@/pages/public/PoliticaPrivacidade'
+import { Simulador } from '@/pages/public/Simulador'
+import { CreditoParaConstrucao } from '@/pages/CreditoParaConstrucao'
 
 import { ClientHome } from '@/pages/client/Home'
 import { ClientPropostaDetalhe } from '@/pages/client/PropostaDetalhe'
@@ -70,6 +73,7 @@ const AdminPartnerEquipes  = lazy(() => import('@/pages/admin/PartnerEquipes').t
 const AdminPropostas       = lazy(() => import('@/pages/admin/Propostas').then(m => ({ default: m.AdminPropostas })))
 const AdminPropostaDetalhe = lazy(() => import('@/pages/admin/PropostaDetalhe').then(m => ({ default: m.AdminPropostaDetalhe })))
 const AdminRelatorios      = lazy(() => import('@/pages/admin/Relatorios').then(m => ({ default: m.AdminRelatorios })))
+const AdminLeadsSimulacoes = lazy(() => import('@/pages/admin/LeadsSimulacoes').then(m => ({ default: m.AdminLeadsSimulacoes })))
 const AdminConfiguracoes   = lazy(() => import('@/pages/admin/Configuracoes').then(m => ({ default: m.AdminConfiguracoes })))
 const AdminUniversidade    = lazy(() => import('@/pages/admin/Universidade').then(m => ({ default: m.AdminUniversidade })))
 const AdminMilestones      = lazy(() => import('@/pages/admin/Milestones').then(m => ({ default: m.AdminMilestones })))
@@ -124,10 +128,14 @@ const appRoutes = [
       },
       { path: '/protocolo', element: <Protocolo /> },
       { path: '/protocolo/:codigo', element: <Protocolo /> },
+      { path: '/credito-para-construcao', element: <CreditoParaConstrucao /> },
+      { path: '/politica-de-privacidade', element: <PoliticaPrivacidade /> },
+      { path: '/simulador', element: <Simulador /> },
       { path: '/magic/:token', element: <MagicLink /> },
       { path: '/c/proposta/:token', element: <ClienteProposta /> },
       { path: '/convite/:token', element: <ConviteMembro /> },
       { path: '/auth/partner-bootstrap', element: <PartnerBootstrap /> },
+      { path: '/auth/admin-bootstrap', element: <PartnerBootstrap /> },
       { path: '/redefinir-senha', element: <RedefinirSenha /> },
       {
         element: <RequireAuth />,
@@ -217,6 +225,7 @@ const appRoutes = [
                       { path: 'propostas', element: <AdminPropostas /> },
                       { path: 'propostas/nova', element: <PartnerWizard mode="admin" /> },
                       { path: 'propostas/:id', element: <AdminPropostaDetalhe /> },
+                      { path: 'leads/simulacoes', element: <AdminLeadsSimulacoes /> },
                       { path: 'financeiro/carteiras', element: <AdminCarteiras /> },
                       { path: 'financeiro/precos', element: <AdminPrecos /> },
                       { path: 'financeiro', element: <AdminFinanceiro /> },

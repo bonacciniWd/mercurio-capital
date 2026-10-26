@@ -25,6 +25,7 @@ interface MesRow { partner_id: string; mes: string; quantidade: number; ganhas: 
 const FUNIL_STAGES: { label: string; matches: string[]; color: string }[] = [
   { label: 'Pré-análise', matches: ['pre_analise'], color: '#737373' },
   { label: 'Crédito', matches: ['analise_credito'], color: '#F87171' },
+  { label: 'Pré-aprovado', matches: ['pre_aprovado'], color: '#16A34A' },
   { label: 'Jurídica', matches: ['analise_juridica'], color: '#F59E0B' },
   { label: 'Comitê', matches: ['comite'], color: '#A78BFA' },
   { label: 'Assinatura', matches: ['aguardando_assinatura', 'em_registro'], color: '#38BDF8' },

@@ -17,6 +17,7 @@ const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Em rascunho',
   pre_analise: 'Pré-análise',
   analise_credito: 'Análise de crédito',
+  pre_aprovado: 'Pré-aprovado',
   analise_imovel: 'Análise do imóvel',
   analise_juridica: 'Análise jurídica',
   comite: 'Comitê',
@@ -31,7 +32,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const STEP_ORDER: string[] = [
-  'simulacao', 'pre_analise', 'analise_credito', 'analise_imovel', 'analise_juridica',
+  'simulacao', 'pre_analise', 'analise_credito', 'pre_aprovado', 'analise_imovel', 'analise_juridica',
   'comite', 'emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado',
 ]
 

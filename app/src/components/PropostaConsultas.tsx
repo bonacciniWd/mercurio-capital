@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Loader2, AlertTriangle, CheckCircle2, XCircle, RotateCcw, Eye,
+  Loader2, AlertTriangle, CheckCircle2, XCircle, RotateCcw, Eye, Clock3,
   Building2, ShieldCheck, Scale, Globe, FileSearch, Landmark, Play, ArrowRight,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
+import { BrandLoading } from '@/components/BrandLoading'
 
 const TIPO_LABEL: Record<string, string> = {
   bacen_cpf: 'Bacen CPF',
@@ -22,8 +23,8 @@ const TIPO_LABEL: Record<string, string> = {
 const TIPO_META: Record<string, { Icon: typeof Building2; cor: string; grupo: string; hint: string }> = {
   bacen_cpf:               { Icon: Landmark,    cor: 'text-blue-600 bg-blue-50',    grupo: 'Banco Central', hint: 'Relacionamentos bancários PF' },
   bacen_cnpj:              { Icon: Landmark,    cor: 'text-blue-600 bg-blue-50',    grupo: 'Banco Central', hint: 'Relacionamentos bancários PJ' },
-  serasa_pf:               { Icon: ShieldCheck, cor: 'text-orange-600 bg-orange-50', grupo: 'Serasa',       hint: 'Verificação cadastral PF' },
-  serasa_pj:               { Icon: ShieldCheck, cor: 'text-orange-600 bg-orange-50', grupo: 'Serasa',       hint: 'Verificação cadastral PJ' },
+  serasa_pf:               { Icon: ShieldCheck, cor: 'text-orange-600 bg-orange-50', grupo: 'Serasa',       hint: 'Relatório avançado PF com Score' },
+  serasa_pj:               { Icon: ShieldCheck, cor: 'text-orange-600 bg-orange-50', grupo: 'Serasa',       hint: 'Relatório avançado analítico PJ' },
   jusbrasil_cnpj:          { Icon: Scale,       cor: 'text-purple-600 bg-purple-50', grupo: 'Jusbrasil',    hint: 'Processos judiciais CNPJ' },
   escavador_cnpj:          { Icon: Scale,       cor: 'text-purple-600 bg-purple-50', grupo: 'Escavador',    hint: 'Processos e sócios CNPJ' },
   ri_digital_matricula:    { Icon: FileSearch,  cor: 'text-teal-600 bg-teal-50',    grupo: 'RI Digital',   hint: 'Matrícula e ônus do imóvel' },
@@ -40,7 +41,7 @@ interface Preco {
 interface LogRow {
   id: string
   tipo: string
-  status: 'em_andamento' | 'concluida' | 'falha' | 'estornada'
+  status: 'em_andamento' | 'concluida' | 'falha' | 'estornada' | 'reconciliacao_pendente'
   preco_centavos: number
   resumo: Record<string, unknown> | null
   erro: string | null
@@ -48,6 +49,8 @@ interface LogRow {
   iniciado_em: string
   concluido_em: string | null
   iniciado_por_nome: string | null
+  ambiente?: string | null
+  produto_relatorio?: string | null
 }
 
 interface Props {
@@ -60,6 +63,27 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
   const [erro, setErro] = useState<string | null>(null)
   const [executingTipo, setExecutingTipo] = useState<string | null>(null)
   const [detalheLog, setDetalheLog] = useState<string | null>(null)
+  const [tipoAutorizando, setTipoAutorizando] = useState<string | null>(null)
+  const [evidenciaId, setEvidenciaId] = useState('')
+  const [baseLegal, setBaseLegal] = useState<'procedimentos_preliminares_contrato' | 'protecao_do_credito'>('procedimentos_preliminares_contrato')
+  const authorizationKeys = useRef(new Map<string, string>())
+  const requestKeys = useRef(new Map<string, string>())
+
+  const evidenciasQuery = useQuery({
+    queryKey: ['consulta-evidencias-aprovadas', propostaId],
+    enabled: !!tipoAutorizando,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('proposta_documentos')
+        .select('id, tipo, categoria, created_at')
+        .eq('proposta_id', propostaId)
+        .eq('status', 'aprovado')
+        .eq('validado', true)
+        .not('storage_path', 'is', null)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data ?? []
+    },
+  })
 
   const precosQuery = useQuery({
     queryKey: ['consulta-precos'],
@@ -79,7 +103,7 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('v_consultas_proposta')
-        .select('id, tipo, status, preco_centavos, resumo, erro, provedor, iniciado_em, concluido_em, iniciado_por_nome')
+        .select('id, tipo, status, preco_centavos, resumo, erro, provedor, ambiente, produto_relatorio, iniciado_em, concluido_em, iniciado_por_nome')
         .eq('proposta_id', propostaId)
         .order('iniciado_em', { ascending: false })
       if (error) throw error
@@ -88,15 +112,37 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
   })
 
   const executar = useMutation({
-    mutationFn: async (tipo: string) => {
+    mutationFn: async (input: { tipo: string; documentoId: string; baseLegal: string }) => {
+      const { tipo, documentoId } = input
+      const scope = `${propostaId}:${tipo}`
+      const authorizationKey = authorizationKeys.current.get(scope) ?? crypto.randomUUID()
+      authorizationKeys.current.set(scope, authorizationKey)
+      const { data: authorizationId, error: authorizationError } = await supabase.rpc('consulta_autorizacao_registrar', {
+        p_proposta_id: propostaId,
+        p_tipo: tipo,
+        p_documento_evidencia_id: documentoId,
+        p_base_legal: input.baseLegal,
+        p_chave_registro: authorizationKey,
+      })
+      if (authorizationError || !authorizationId) {
+        throw new Error(authorizationError?.message ?? 'Não foi possível registrar a autorização documentada.')
+      }
+
+      const requestKey = requestKeys.current.get(scope) ?? crypto.randomUUID()
+      requestKeys.current.set(scope, requestKey)
       const { data, error } = await supabase.functions.invoke('consulta-executar', {
-        body: { proposta_id: propostaId, tipo },
+        body: {
+          proposta_id: propostaId,
+          tipo,
+          autorizacao_id: authorizationId,
+          chave_idempotencia: requestKey,
+        },
       })
 
       if (error) {
         let errorCode = ''
+        const ctx = (error as { context?: Response }).context
         try {
-          const ctx = (error as { context?: Response }).context
           if (ctx && typeof ctx.json === 'function') {
             const payload = await ctx.json() as { error?: string }
             errorCode = payload.error ?? ''
@@ -109,22 +155,49 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
           saldo_insuficiente: 'Saldo insuficiente — recarregue a carteira.',
           wallet_bloqueada: 'Carteira bloqueada pelo admin.',
           preco_nao_configurado: 'Preço não configurado para este tipo.',
-          falha_provedor: 'Falha no provedor — valor estornado.',
+          falha_provedor: 'Falha no provedor — confira o histórico e o estorno.',
           bacen_nao_configurado: 'Bacen ainda não configurado — nenhuma consulta foi realizada.',
           serasa_nao_configurado: 'Serasa ainda não configurado — nenhuma consulta foi realizada.',
+          documento_titular_invalido: 'O CPF/CNPJ da proposta está ausente ou inválido.',
+          autorizacao_documentada_obrigatoria: 'Registre a autorização usando um documento aprovado da proposta.',
+          autorizacao_documento_ou_titular_invalido: 'A autorização ou o documento aprovado não corresponde a esta proposta.',
+          serasa_relatorio_desativado: 'Este relatório Serasa está desativado para o ambiente atual.',
+          serasa_parametros_pj_pendentes: 'A configuração do relatório PJ ainda precisa de validação para este ambiente.',
+          serasa_cnpj_consultante_ausente: 'Configure o CNPJ da Mercúrio como correspondente no ambiente Serasa de produção.',
+          serasa_ambiente_ou_url_invalida: 'O ambiente Serasa não está configurado de forma segura.',
+          serasa_produto_nao_permitido: 'O produto Serasa configurado não está permitido para esta consulta.',
+          resultado_pendente_reconciliacao: 'A consulta foi enviada; o resultado aguarda reconciliação. Não repita agora.',
+          estorno_pendente_reconciliacao: 'O estorno aguarda reconciliação. Não repita agora.',
+          consulta_em_andamento: 'Esta consulta ainda está em processamento.',
+        }
+        if (ctx?.status && ctx.status >= 400 && ctx.status < 500) {
+          authorizationKeys.current.delete(scope)
+          requestKeys.current.delete(scope)
         }
         throw new Error(map[errorCode] ?? error.message ?? 'Falha ao executar consulta.')
       }
 
-      return data as { log_id: string; preco_centavos: number }
+      const response = data as { log_id?: string; preco_centavos?: number; error?: string; status?: string } | null
+      if (response?.error === 'consulta_em_reconciliacao') {
+        throw new Error('A consulta está em reconciliação. Não repita agora; acompanhe o histórico da proposta.')
+      }
+
+      authorizationKeys.current.delete(scope)
+      requestKeys.current.delete(scope)
+      return response as { log_id: string; preco_centavos: number }
     },
-    onMutate: (tipo) => { setExecutingTipo(tipo); setErro(null) },
+    onMutate: ({ tipo }) => { setExecutingTipo(tipo); setErro(null) },
     onSettled: () => setExecutingTipo(null),
     onSuccess: () => {
+      setTipoAutorizando(null)
       void qc.invalidateQueries({ queryKey: ['consultas-proposta', propostaId] })
       void qc.invalidateQueries({ queryKey: ['wallet-resumo'] })
     },
-    onError: (e) => setErro(e instanceof Error ? e.message : 'falha'),
+    onError: (e) => {
+      setErro(e instanceof Error ? e.message : 'falha')
+      void qc.invalidateQueries({ queryKey: ['consultas-proposta', propostaId] })
+      void qc.invalidateQueries({ queryKey: ['wallet-resumo'] })
+    },
   })
 
   const detalheQuery = useQuery({
@@ -132,8 +205,8 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
     enabled: !!detalheLog,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('logs_consultas')
-        .select('id, tipo, status, response, request, erro, provedor, iniciado_em, concluido_em, preco_centavos')
+        .from('v_consultas_proposta')
+        .select('id, tipo, status, resumo, erro, provedor, ambiente, produto_relatorio, iniciado_em, concluido_em, preco_centavos')
         .eq('id', detalheLog!)
         .single()
       if (error) throw error
@@ -224,8 +297,10 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
                               ? 'bg-danger'
                               : ultimo?.status === 'estornada'
                                 ? 'bg-silver-500'
-                                : ultimo?.status === 'em_andamento'
+                            : ultimo?.status === 'em_andamento'
                                   ? 'bg-blue-600'
+                                  : ultimo?.status === 'reconciliacao_pendente'
+                                    ? 'bg-amber-500'
                                   : 'bg-silver-400'
                         }`} />
                         Última: {ultimo ? statusLabel(ultimo.status) : 'não executada'}
@@ -236,7 +311,11 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
 
                     <button
                       type="button"
-                      onClick={() => executar.mutate(p.tipo)}
+                      onClick={() => {
+                        setTipoAutorizando(p.tipo)
+                        setEvidenciaId('')
+                        setBaseLegal('procedimentos_preliminares_contrato')
+                      }}
                       disabled={executar.isPending}
                       className="btn-no-liquid mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -313,13 +392,66 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
             {detalheQuery.isLoading ? (
               <Loader2 className="mx-auto h-5 w-5 animate-spin" />
             ) : detalheQuery.data ? (
-              <pre className="max-h-96 overflow-auto rounded bg-silver-50 p-3 text-xs">{JSON.stringify(detalheQuery.data, null, 2)}</pre>
+              <div className="max-h-96 overflow-auto rounded bg-silver-50 p-3 text-xs">
+                <p><strong>Provedor:</strong> {detalheQuery.data.provedor ?? '—'}</p>
+                <p><strong>Ambiente:</strong> {detalheQuery.data.ambiente ?? 'histórico anterior'}</p>
+                <p><strong>Produto:</strong> {detalheQuery.data.produto_relatorio ?? 'registro legado'}</p>
+                <p><strong>Status:</strong> {detalheQuery.data.status}</p>
+                <p className="mt-2 font-semibold">Resumo normalizado</p>
+                <pre className="mt-1 whitespace-pre-wrap">{JSON.stringify(detalheQuery.data.resumo ?? {}, null, 2)}</pre>
+              </div>
             ) : null}
             <div className="mt-3 flex justify-end">
               <button className="btn-outline" onClick={() => setDetalheLog(null)}>Fechar</button>
             </div>
           </div>
         </div>
+      )}
+
+      {tipoAutorizando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onClick={() => setTipoAutorizando(null)}>
+          <section className="card w-full max-w-lg p-5" role="dialog" aria-modal="true" aria-labelledby="consulta-autorizacao-titulo" onClick={event => event.stopPropagation()}>
+            <h3 id="consulta-autorizacao-titulo" className="text-lg font-bold text-navy">Autorização documentada</h3>
+            <p className="mt-2 text-sm text-silver-600">Selecione o documento aprovado da proposta que registra a autorização do titular para esta consulta Serasa.</p>
+            <label className="mt-4 block text-xs font-semibold text-silver-600" htmlFor="consulta-evidencia">Documento aprovado</label>
+            <select id="consulta-evidencia" className="input mt-1 w-full" value={evidenciaId} onChange={event => setEvidenciaId(event.target.value)}>
+              <option value="">Selecione um documento</option>
+              {(evidenciasQuery.data ?? []).map(document => (
+                <option key={document.id} value={document.id}>{document.tipo} · {new Date(document.created_at).toLocaleDateString('pt-BR')}</option>
+              ))}
+            </select>
+            {evidenciasQuery.isLoading && <p className="mt-2 text-xs text-silver-500">Carregando documentos...</p>}
+            {!evidenciasQuery.isLoading && (evidenciasQuery.data ?? []).length === 0 && (
+              <p className="mt-2 text-xs text-danger">Não há documento aprovado para comprovar a autorização. Anexe e aprove o documento antes de consultar.</p>
+            )}
+            <fieldset className="mt-4 space-y-2">
+              <legend className="text-xs font-semibold text-silver-600">Finalidade e base legal registrada</legend>
+              <label className="flex items-center gap-2 text-sm text-silver-700">
+                <input type="radio" name="consulta-base-legal" checked={baseLegal === 'procedimentos_preliminares_contrato'} onChange={() => setBaseLegal('procedimentos_preliminares_contrato')} />
+                Análise de crédito solicitada pelo titular · procedimentos preliminares
+              </label>
+              <label className="flex items-center gap-2 text-sm text-silver-700">
+                <input type="radio" name="consulta-base-legal" checked={baseLegal === 'protecao_do_credito'} onChange={() => setBaseLegal('protecao_do_credito')} />
+                Proteção do crédito
+              </label>
+            </fieldset>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" className="btn-outline" onClick={() => setTipoAutorizando(null)}>Cancelar</button>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={!evidenciaId || executar.isPending || evidenciasQuery.isLoading}
+                onClick={() => executar.mutate({ tipo: tipoAutorizando, documentoId: evidenciaId, baseLegal })}
+              >
+                {executar.isPending ? 'Consultando...' : 'Registrar e consultar'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {executar.isPending && (
+        <BrandLoading message="Consultando dados externos. Isso pode levar alguns instantes." />
       )}
     </div>
   )
@@ -331,6 +463,7 @@ function statusLabel(status: LogRow['status']) {
     concluida: 'concluída',
     falha: 'falha',
     estornada: 'estornada',
+    reconciliacao_pendente: 'reconciliação pendente',
   }
   return labels[status]
 }
@@ -354,6 +487,7 @@ function StatusPill({ status }: { status: LogRow['status'] }) {
     concluida: { label: 'Concluída', cls: 'bg-success/15 text-success', Icon: CheckCircle2 },
     falha: { label: 'Falha', cls: 'bg-danger/15 text-danger', Icon: XCircle },
     estornada: { label: 'Estornada', cls: 'bg-silver-200 text-silver-700', Icon: RotateCcw },
+    reconciliacao_pendente: { label: 'Em reconciliação', cls: 'bg-amber-100 text-amber-800', Icon: Clock3 },
   }
   const { label, cls, Icon } = cfg[status]
   return (

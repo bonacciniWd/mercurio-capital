@@ -1,8 +1,21 @@
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Play, Award, Filter, Loader2, Download, BookOpen } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  Award,
+  BookOpen,
+  CheckCircle2,
+  Clock3,
+  Download,
+  GraduationCap,
+  Loader2,
+  Play,
+  Search,
+  Sparkles,
+  Trophy,
+} from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import './universidade.css'
 
 type Tab = 'todos' | 'andamento' | 'concluidos' | 'certificados'
 
@@ -34,16 +47,27 @@ interface Certificado {
   curso: { titulo: string } | null
 }
 
+const EMPTY_CATALOGO: CatalogoItem[] = []
+
+const tabs: { id: Tab; label: string }[] = [
+  { id: 'todos', label: 'Todos os cursos' },
+  { id: 'andamento', label: 'Em andamento' },
+  { id: 'concluidos', label: 'Concluídos' },
+  { id: 'certificados', label: 'Certificados' },
+]
+
 export function UniversidadeLista() {
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>('todos')
-  const [catFiltro, setCatFiltro] = useState<string | null>(null)
+  const [catFiltro, setCatFiltro] = useState('')
+  const [busca, setBusca] = useState('')
 
   const catalogoQuery = useQuery({
     queryKey: ['lms-catalogo-partner'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('v_lms_catalogo').select('*')
+        .from('v_lms_catalogo')
+        .select('*')
         .in('publico', ['parceiro', 'ambos'])
         .order('ordem')
       if (error) throw error
@@ -68,14 +92,15 @@ export function UniversidadeLista() {
       const { error } = await supabase.rpc('lms_inscrever', { p_curso_id: cursoId })
       if (error) throw error
     },
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['lms-catalogo-partner'] }) },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['lms-catalogo-partner'] })
+    },
   })
 
   const baixarCert = useMutation({
     mutationFn: async (cert: Certificado) => {
       let path = cert.pdf_storage_path
       if (!path) {
-        // gera via edge function
         const { data, error } = await supabase.functions.invoke('certificado-gerar', {
           body: { certificado_id: cert.id },
         })
@@ -85,11 +110,11 @@ export function UniversidadeLista() {
           try {
             const ctx = (error as { context?: Response }).context
             if (ctx && typeof ctx.text === 'function') {
-              const text = await ctx.text()
-              if (text) message = text
+              const responseText = await ctx.text()
+              if (responseText) message = responseText
             }
           } catch {
-            /* ignore */
+            // A mensagem genérica continua sendo suficiente para a interface.
           }
           throw new Error(message)
         }
@@ -98,167 +123,260 @@ export function UniversidadeLista() {
         path = payload.storage_path ?? null
       }
 
-      if (!path) throw new Error('storage_path ausente no certificado.')
+      if (!path) throw new Error('Não foi possível localizar o arquivo do certificado.')
 
-      const { data, error } = await supabase.storage.from('lms-recursos')
-        .createSignedUrl(path!, 60 * 60)
+      const { data, error } = await supabase.storage
+        .from('lms-recursos')
+        .createSignedUrl(path, 60 * 60)
       if (error) throw error
-      window.open(data.signedUrl, '_blank')
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
     },
   })
 
-  const items = catalogoQuery.data ?? []
+  const items = catalogoQuery.data ?? EMPTY_CATALOGO
+  const certificados = certificadosQuery.data ?? []
+  const categorias = useMemo(
+    () => [...new Set(items.map((item) => item.categoria).filter((value): value is string => !!value))],
+    [items],
+  )
 
   const filtrados = useMemo(() => {
-    let xs = items
-    if (catFiltro) xs = xs.filter(c => c.categoria === catFiltro)
-    if (tab === 'andamento')   xs = xs.filter(c => c.inscricao_id && c.percentual_concluido > 0 && c.percentual_concluido < 100)
-    if (tab === 'concluidos')  xs = xs.filter(c => c.percentual_concluido >= 100)
-    if (tab === 'certificados') xs = xs.filter(c => c.certificado_id)
-    return xs
-  }, [items, tab, catFiltro])
+    const termo = busca.trim().toLocaleLowerCase('pt-BR')
+    return items.filter((curso) => {
+      const statusMatches =
+        tab === 'todos' ||
+        (tab === 'andamento' && !!curso.inscricao_id && curso.percentual_concluido > 0 && curso.percentual_concluido < 100) ||
+        (tab === 'concluidos' && curso.percentual_concluido >= 100) ||
+        (tab === 'certificados' && !!curso.certificado_id)
+      const categoryMatches = !catFiltro || curso.categoria === catFiltro
+      const searchMatches = !termo ||
+        `${curso.titulo} ${curso.descricao ?? ''} ${curso.categoria ?? ''}`
+          .toLocaleLowerCase('pt-BR')
+          .includes(termo)
+      return statusMatches && categoryMatches && searchMatches
+    })
+  }, [items, tab, catFiltro, busca])
 
-  const categorias = useMemo(() => {
-    const set = new Set<string>()
-    items.forEach(i => i.categoria && set.add(i.categoria))
-    return [...set]
-  }, [items])
-
-  const capaUrl = (p: string | null) =>
-    p ? supabase.storage.from('lms-capas').getPublicUrl(p).data.publicUrl : null
+  const emAndamento = items.filter(
+    (curso) => !!curso.inscricao_id && curso.percentual_concluido > 0 && curso.percentual_concluido < 100,
+  )
+  const matriculados = items.filter((curso) => !!curso.inscricao_id)
+  const progressoGeral = matriculados.length
+    ? Math.round(matriculados.reduce((total, curso) => total + curso.percentual_concluido, 0) / matriculados.length)
+    : 0
+  const cursoRetomada = emAndamento[0]
+  const capaUrl = (path: string | null) =>
+    path ? supabase.storage.from('lms-capas').getPublicUrl(path).data.publicUrl : null
 
   return (
-    <>
-      <div className="mb-6 overflow-hidden rounded-lg bg-gradient-to-bl from-zinc-800 via-zinc-950 to-black p-8 text-white">
-        <div className="flex items-center gap-3">
-          <Award className="h-12 w-12 text-red-600" />
-          <div>
-            <h1 className="text-2xl font-bold">Universidade Mercurio</h1>
-            <p className="text-sm text-white/80">Capacitação para parceiros de excelência.</p>
+    <div className="partner-university university-catalog">
+      <section className="uni-hero" aria-labelledby="uni-page-title">
+        <div className="uni-hero-copy">
+          <span className="uni-eyebrow"><Sparkles aria-hidden="true" size={15} /> Sua área de aprendizagem</span>
+          <h1 id="uni-page-title">Conhecimento para ir mais longe.</h1>
+          <p>Conteúdos para fortalecer sua atuação e apoiar cada etapa da jornada de crédito.</p>
+          {cursoRetomada ? (
+            <Link className="uni-resume" to={`/p/universidade/${cursoRetomada.id}/aula/primeira`}>
+              <span className="uni-resume-icon"><Play aria-hidden="true" size={17} fill="currentColor" /></span>
+              <span className="uni-resume-copy">
+                <small>Continue de onde parou</small>
+                <strong>{cursoRetomada.titulo}</strong>
+              </span>
+              <span className="uni-resume-action">Retomar aula <span aria-hidden="true">→</span></span>
+            </Link>
+          ) : (
+            <a className="uni-resume uni-resume-link" href="#partner-course-catalog">
+              <span className="uni-resume-icon"><BookOpen aria-hidden="true" size={18} /></span>
+              <span className="uni-resume-copy">
+                <small>Próximo passo</small>
+                <strong>{matriculados.length ? 'Explore os cursos disponíveis' : 'Escolha um curso para começar'}</strong>
+              </span>
+              <span className="uni-resume-action">Ver cursos <span aria-hidden="true">→</span></span>
+            </a>
+          )}
+        </div>
+
+        <div className="uni-hero-stats" aria-label="Seu progresso na Universidade">
+          <article className="uni-stat">
+            <span className="uni-stat-icon"><BookOpen aria-hidden="true" size={17} /></span>
+            <span><strong>{String(emAndamento.length).padStart(2, '0')}</strong><small>Cursos em andamento</small></span>
+          </article>
+          <article className="uni-stat">
+            <span className="uni-stat-icon"><Trophy aria-hidden="true" size={17} /></span>
+            <span><strong>{String(certificados.length).padStart(2, '0')}</strong><small>Certificados conquistados</small></span>
+          </article>
+          <div className="uni-overall-progress">
+            <div className="uni-progress-label">
+              <span><strong>Progresso geral</strong><small>{matriculados.length ? 'Continue no seu ritmo' : 'Seu progresso aparece após a primeira inscrição'}</small></span>
+              <b>{progressoGeral}%</b>
+            </div>
+            <div className="uni-progress-track" role="progressbar" aria-label="Progresso geral nos cursos matriculados" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressoGeral}>
+              <span style={{ width: `${progressoGeral}%` }} />
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="mb-5 flex flex-wrap items-center gap-1">
-        {([
-          { id: 'todos', label: 'Todos' },
-          { id: 'andamento', label: 'Em andamento' },
-          { id: 'concluidos', label: 'Concluídos' },
-          { id: 'certificados', label: 'Certificados' },
-        ] as const).map(t => (
-          <button key={t.id} onClick={() => setTab(t.id as Tab)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium ${tab === t.id ? 'bg-navy text-white' : 'text-silver-600 hover:bg-silver-100'}`}>
-            {t.label}
-          </button>
-        ))}
-        {categorias.length > 0 && (
-          <select className="ml-auto rounded-md border border-silver-200 px-3 py-1.5 text-sm bg-white"
-            value={catFiltro ?? ''} onChange={(e) => setCatFiltro(e.target.value || null)}>
-            <option value="">Todas as categorias</option>
-            {categorias.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        )}
-        {!categorias.length && (
-          <button className="ml-auto btn-outline opacity-50 cursor-not-allowed" disabled>
-            <Filter className="h-4 w-4" /> Categoria
-          </button>
-        )}
-      </div>
-
-      {catalogoQuery.isLoading && (
-        <div className="card p-8 text-center text-silver-500">
-          <Loader2 className="mx-auto h-6 w-6 animate-spin" /> Carregando…
+      <section className="uni-catalog-section" id="partner-course-catalog" aria-labelledby="uni-catalog-title">
+        <div className="uni-section-heading">
+          <div><span className="uni-section-kicker">Biblioteca</span><h2 id="uni-catalog-title">Meus cursos</h2></div>
+          <span className="uni-course-count">{filtrados.length} {filtrados.length === 1 ? 'curso' : 'cursos'}</span>
         </div>
-      )}
 
-      {!catalogoQuery.isLoading && filtrados.length === 0 && (
-        <div className="card p-12 text-center text-silver-500">
-          <BookOpen className="mx-auto mb-2 h-8 w-8" />
-          Nenhum curso disponível {tab !== 'todos' ? 'nesta visão' : 'no momento'}.
+        <div className="uni-toolbar">
+          <div className="uni-filters" role="group" aria-label="Filtrar cursos por andamento">
+            {tabs.map((item) => (
+              <button
+                className={`uni-filter btn-no-liquid${tab === item.id ? ' is-active' : ''}`}
+                key={item.id}
+                type="button"
+                aria-pressed={tab === item.id}
+                onClick={() => setTab(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="uni-toolbar-fields">
+            <label className="uni-search">
+              <Search aria-hidden="true" size={17} />
+              <span className="sr-only">Buscar curso</span>
+              <input value={busca} onChange={(event) => setBusca(event.target.value)} placeholder="Buscar curso" type="search" />
+            </label>
+            <label className="uni-category-select">
+              <GraduationCap aria-hidden="true" size={17} />
+              <span className="sr-only">Filtrar por categoria</span>
+              <select value={catFiltro} onChange={(event) => setCatFiltro(event.target.value)}>
+                <option value="">Todas as categorias</option>
+                {categorias.map((categoria) => <option key={categoria} value={categoria}>{categoria}</option>)}
+              </select>
+            </label>
+          </div>
         </div>
-      )}
 
-      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {filtrados.map(c => {
-          const inscrito = !!c.inscricao_id
-          const concluido = c.percentual_concluido >= 100
-          const capa = capaUrl(c.capa_storage_path)
-          return (
-            <div key={c.id} className="card group overflow-hidden transition hover:-translate-y-0.5 hover:shadow-md">
-              <Link to={`/p/universidade/${c.id}/aula/primeira`}
-                className="relative flex h-80 items-center justify-center overflow-hidden bg-gradient-to-br from-navy to-navy-700 text-white">
-                {capa
-                  ? <img src={capa} alt={c.titulo} className="absolute inset-0 h-full w-full object-cover" />
-                  : <Play className="h-10 w-10 opacity-80 group-hover:scale-110 transition" />}
-                {c.categoria && <span className="absolute left-3 top-3 badge bg-red-600 text-white">{c.categoria}</span>}
-                <span className="absolute right-3 top-3 badge bg-white/20 text-white capitalize">{c.nivel}</span>
-              </Link>
-              <div className="p-4">
-                <h3 className="font-semibold text-silver-900 line-clamp-2">{c.titulo}</h3>
-                <p className="mt-1 text-xs text-silver-500">
-                  {c.qtd_aulas} aulas · {formatDuracao(c.duracao_total_segundos)}
-                </p>
-                {inscrito && c.percentual_concluido > 0 && (
-                  <>
-                    <div className="mt-3 h-1.5 rounded-full bg-silver-200">
-                      <div className="h-full rounded-full bg-red-600" style={{ width: `${c.percentual_concluido}%` }} />
+        {catalogoQuery.isLoading && (
+          <div className="uni-state-card" role="status"><Loader2 className="uni-spin" aria-hidden="true" /><span>Carregando cursos…</span></div>
+        )}
+
+        {catalogoQuery.isError && (
+          <div className="uni-state-card uni-state-error" role="alert">
+            <BookOpen aria-hidden="true" />
+            <strong>Não foi possível carregar os cursos.</strong>
+            <span>Tente novamente em instantes.</span>
+            <button className="uni-button btn-no-liquid" type="button" onClick={() => void catalogoQuery.refetch()}>Tentar novamente</button>
+          </div>
+        )}
+
+        {!catalogoQuery.isLoading && !catalogoQuery.isError && filtrados.length > 0 && (
+          <div className="uni-course-grid">
+            {filtrados.map((curso, index) => {
+              const inscrito = !!curso.inscricao_id
+              const concluido = curso.percentual_concluido >= 100
+              const capa = capaUrl(curso.capa_storage_path)
+              const destino = `/p/universidade/${curso.id}/aula/primeira`
+              return (
+                <article className="uni-course-card" key={curso.id}>
+                  <Link className={`uni-course-cover uni-cover-${index % 4}`} to={destino} aria-label={`Abrir curso ${curso.titulo}`}>
+                    {capa ? <img src={capa} alt="" loading="lazy" /> : <BookOpen aria-hidden="true" size={34} />}
+                    <span className="uni-cover-mark" aria-hidden="true">UM</span>
+                    {curso.categoria && <span className="uni-cover-category">{curso.categoria}</span>}
+                    <span className="uni-cover-level">{curso.nivel}</span>
+                  </Link>
+
+                  <div className="uni-course-body">
+                    <span className={`uni-course-status${concluido ? ' is-complete' : inscrito ? ' is-progress' : ''}`}>
+                      {concluido ? <CheckCircle2 aria-hidden="true" size={13} /> : inscrito ? <Play aria-hidden="true" size={12} /> : <BookOpen aria-hidden="true" size={13} />}
+                      {concluido ? 'Concluído' : inscrito ? 'Em andamento' : 'Disponível'}
+                    </span>
+                    <h3><Link to={destino}>{curso.titulo}</Link></h3>
+                    {curso.descricao && <p className="uni-course-description">{curso.descricao}</p>}
+                    <div className="uni-course-meta">
+                      <span><BookOpen aria-hidden="true" size={14} /> {curso.qtd_aulas} {curso.qtd_aulas === 1 ? 'aula' : 'aulas'}</span>
+                      <span><Clock3 aria-hidden="true" size={14} /> {formatDuracao(curso.duracao_total_segundos)}</span>
                     </div>
-                    <p className="mt-1 text-xs text-silver-500">{Math.round(c.percentual_concluido)}% concluído</p>
-                  </>
-                )}
-                <div className="mt-3 flex gap-2">
-                  {!inscrito ? (
-                    <button className="btn-gold w-full text-sm" disabled={inscrever.isPending}
-                      onClick={() => inscrever.mutate(c.id)}>
-                      {inscrever.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                      Inscrever-se
-                    </button>
-                  ) : (
-                    <Link to={`/p/universidade/${c.id}/aula/primeira`} className="btn-outline w-full text-sm">
-                      {concluido ? 'Revisar' : 'Continuar'}
-                    </Link>
-                  )}
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
 
-      <div className="mt-8">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-silver-500">Meus certificados</h2>
-        {certificadosQuery.isLoading && (
-          <div className="card p-4 text-sm text-silver-500"><Loader2 className="inline h-4 w-4 animate-spin" /> Carregando…</div>
-        )}
-        {!certificadosQuery.isLoading && (certificadosQuery.data ?? []).length === 0 && (
-          <div className="card p-5 text-sm text-silver-500">Nenhum certificado ainda. Conclua um curso para receber o seu.</div>
-        )}
-        {(certificadosQuery.data ?? []).map(cert => (
-          <div key={cert.id} className="card flex items-center justify-between p-5 mb-2">
-            <div className="flex items-center gap-3">
-              <Award className="h-7 w-7 text-gold" />
-              <div>
-                <p className="font-semibold text-navy">{cert.curso?.titulo ?? 'Curso'}</p>
-                <p className="text-xs text-silver-500">
-                  Emitido em {new Date(cert.emitido_em).toLocaleDateString('pt-BR')} · Código {cert.codigo}
-                </p>
-              </div>
-            </div>
-            <button className="btn-outline" disabled={baixarCert.isPending} onClick={() => baixarCert.mutate(cert)}>
-              {baixarCert.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              Baixar
-            </button>
+                    {inscrito && (
+                      <div className="uni-card-progress">
+                        <div><span>{concluido ? 'Curso concluído' : 'Seu progresso'}</span><strong>{Math.round(curso.percentual_concluido)}%</strong></div>
+                        <div className="uni-progress-track" role="progressbar" aria-label={`Progresso em ${curso.titulo}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(curso.percentual_concluido)}>
+                          <span style={{ width: `${Math.max(0, Math.min(100, curso.percentual_concluido))}%` }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {inscrever.isError && inscrever.variables === curso.id && (
+                      <p className="uni-inline-error" role="alert">Não foi possível concluir a inscrição. Tente novamente.</p>
+                    )}
+                    {inscrito ? (
+                      <Link className="uni-course-action" to={destino}>{concluido ? 'Revisar curso' : 'Continuar curso'} <span aria-hidden="true">→</span></Link>
+                    ) : (
+                      <button
+                        className="uni-course-action btn-no-liquid"
+                        type="button"
+                        disabled={inscrever.isPending}
+                        onClick={() => inscrever.mutate(curso.id)}
+                      >
+                        {inscrever.isPending && inscrever.variables === curso.id ? <Loader2 className="uni-spin" aria-hidden="true" size={15} /> : <Play aria-hidden="true" size={14} />}
+                        Inscrever-se
+                      </button>
+                    )}
+                  </div>
+                </article>
+              )
+            })}
           </div>
-        ))}
-      </div>
-    </>
+        )}
+
+        {!catalogoQuery.isLoading && !catalogoQuery.isError && filtrados.length === 0 && (
+          <div className="uni-state-card">
+            <BookOpen aria-hidden="true" />
+            <strong>{items.length ? 'Nenhum curso corresponde aos filtros.' : 'Nenhum curso disponível no momento.'}</strong>
+            <span>{items.length ? 'Ajuste a busca, categoria ou andamento selecionado.' : 'Quando houver novos conteúdos para parceiros, eles aparecerão aqui.'}</span>
+            {items.length > 0 && (busca || catFiltro || tab !== 'todos') && (
+              <button className="uni-button btn-no-liquid" type="button" onClick={() => { setBusca(''); setCatFiltro(''); setTab('todos') }}>Limpar filtros</button>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="uni-certificate-section" aria-labelledby="uni-certificates-title">
+        <div className="uni-section-heading">
+          <div><span className="uni-section-kicker">Conquistas</span><h2 id="uni-certificates-title">Meus certificados</h2></div>
+          <Award aria-hidden="true" size={22} />
+        </div>
+        {certificadosQuery.isLoading && <div className="uni-certificate-empty" role="status"><Loader2 className="uni-spin" aria-hidden="true" /> Carregando certificados…</div>}
+        {certificadosQuery.isError && <div className="uni-certificate-empty uni-state-error" role="alert">Não foi possível carregar seus certificados.</div>}
+        {!certificadosQuery.isLoading && !certificadosQuery.isError && certificados.length === 0 && (
+          <div className="uni-certificate-empty">Conclua um curso para que seus certificados emitidos apareçam aqui.</div>
+        )}
+        {certificados.length > 0 && (
+          <div className="uni-certificates-list">
+            {certificados.map((certificado) => (
+              <article className="uni-certificate-card" key={certificado.id}>
+                <span className="uni-certificate-icon"><Award aria-hidden="true" size={22} /></span>
+                <div className="uni-certificate-copy">
+                  <strong>{certificado.curso?.titulo ?? 'Certificado de conclusão'}</strong>
+                  <span>Emitido em {new Date(certificado.emitido_em).toLocaleDateString('pt-BR')} · Código {certificado.codigo}</span>
+                </div>
+                <button className="uni-button uni-certificate-download btn-no-liquid" type="button" disabled={baixarCert.isPending} onClick={() => baixarCert.mutate(certificado)}>
+                  {baixarCert.isPending && baixarCert.variables?.id === certificado.id ? <Loader2 className="uni-spin" aria-hidden="true" size={15} /> : <Download aria-hidden="true" size={16} />}
+                  Baixar certificado
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
+        {baixarCert.isError && <p className="uni-inline-error" role="alert">Não foi possível abrir o certificado. Tente novamente.</p>}
+      </section>
+    </div>
   )
 }
 
-function formatDuracao(s: number): string {
-  if (!s) return '—'
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60)
-  if (h > 0) return `${h}h ${m}min`
-  return `${m}min`
+function formatDuracao(segundos: number): string {
+  if (!segundos) return 'Duração não informada'
+  const horas = Math.floor(segundos / 3600)
+  const minutos = Math.floor((segundos % 3600) / 60)
+  if (horas > 0) return `${horas}h ${minutos}min`
+  return `${minutos}min`
 }
-

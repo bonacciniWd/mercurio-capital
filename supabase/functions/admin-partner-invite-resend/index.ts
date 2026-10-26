@@ -93,12 +93,23 @@ Deno.serve(async (req) => {
     usuario_id: invite.usuario_id,
     assunto: 'Seu convite para acessar a Mercurio Capital',
     corpo: `
-      <p>Olá ${safeNome},</p>
-      <p>Reenviamos seu convite para acessar a Mercurio Capital.</p>
-      <p><a href="${safeLink}">Acessar convite</a></p>
-      <p>Se o botão não abrir, copie e cole este link no navegador:</p>
-      <p>${safeLink}</p>
-      <p>Mercurio Capital</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#171717;">
+        <tr><td align="center" style="padding:24px 12px;">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+            <tr><td style="padding:0;"><img src="https://www.mercuriocapitalsa.com.br/01.png" alt="Mercúrio Capital" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></td></tr>
+            <tr><td style="padding:32px 30px;color:#171717;">
+              <p style="margin:0 0 14px;color:#b91c1c;font-size:13px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">Convite para parceiro</p>
+              <h1 style="margin:0 0 16px;color:#171717;font-size:24px;line-height:1.3;">Olá, ${safeNome}!</h1>
+              <p style="margin:0 0 22px;color:#4b5563;font-size:16px;line-height:1.6;">Reenviamos seu convite para acessar a plataforma Mercúrio Capital.</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:26px auto;">
+                <tr><td align="center" bgcolor="#b91c1c" style="border-radius:6px;"><a href="${safeLink}" style="display:inline-block;padding:14px 24px;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;">ACEITAR CONVITE</a></td></tr>
+              </table>
+              <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">Se o botão não abrir, copie e cole este link no navegador:<br><a href="${safeLink}" style="color:#b91c1c;word-break:break-all;">${safeLink}</a></p>
+            </td></tr>
+            <tr><td style="padding:18px 24px;border-top:1px solid #e5e7eb;background-color:#fafafa;text-align:center;color:#6b7280;font-size:12px;">Mercúrio Capital · Crédito estruturado com clareza e responsabilidade.</td></tr>
+          </table>
+        </td></tr>
+      </table>
     `,
     origem: 'transacional',
     referencia_id: invite.invite_id,

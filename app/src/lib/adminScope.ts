@@ -17,6 +17,7 @@ const RESTRICTED_ADMIN_NAV_ALLOWLIST = new Set<string>([
   '/admin/rede',
   '/admin/kanban',
   '/admin/propostas',
+  '/admin/leads/simulacoes',
   '/admin/relatorios',
 ])
 
@@ -75,6 +76,10 @@ export function isAdminPathAllowed(pathname: string, nivel: AdminNivel): boolean
       return nivel === 'limitado'
     }
     // Detalhe de proposta (`propostas/:id`): limitado e juridico.
+    return true
+  }
+
+  if (segments.length === 2 && segments[0] === 'leads' && segments[1] === 'simulacoes') {
     return true
   }
 

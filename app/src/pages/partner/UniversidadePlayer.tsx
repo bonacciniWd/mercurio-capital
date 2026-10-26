@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Play, CheckCircle2, ArrowRight, Loader2, FileText } from 'lucide-react'
+import { ArrowLeft, Play, CheckCircle2, ArrowRight, Loader2, FileText, BookOpen } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import './universidade.css'
 
 type AulaTipo = 'video' | 'pdf' | 'quiz' | 'texto'
 
@@ -31,6 +32,8 @@ interface EstruturaRow {
 interface AulaFlat extends EstruturaRow {
   globalIndex: number
 }
+
+const EMPTY_ESTRUTURA: EstruturaRow[] = []
 
 // Carrega o Vimeo Player SDK via CDN apenas uma vez
 let vimeoLoader: Promise<unknown> | null = null
@@ -78,7 +81,7 @@ export function UniversidadePlayer() {
     },
   })
 
-  const rows = estruturaQuery.data ?? []
+  const rows = estruturaQuery.data ?? EMPTY_ESTRUTURA
   const aulas: AulaFlat[] = useMemo(() =>
     rows.map((r, i) => ({ ...r, globalIndex: i })), [rows])
 
@@ -89,6 +92,10 @@ export function UniversidadePlayer() {
   }, [aulas, aulaIdParam])
 
   const activeVimeoId = useMemo(() => normalizeVimeoId(activeAula?.vimeo_id), [activeAula?.vimeo_id])
+  const activeModuloId = activeAula?.modulo_id
+  const activeAulaId = activeAula?.aula_id
+  const activeAulaTipo = activeAula?.aula_tipo
+  const activePosition = activeAula?.posicao_segundos
 
   const proxima: AulaFlat | null = useMemo(() => {
     if (!activeAula) return null
@@ -97,8 +104,8 @@ export function UniversidadePlayer() {
 
   // Auto-expand active modulo
   useEffect(() => {
-    if (activeAula) setOpenModulos(prev => new Set(prev).add(activeAula.modulo_id))
-  }, [activeAula?.modulo_id])
+    if (activeModuloId) setOpenModulos(prev => new Set(prev).add(activeModuloId))
+  }, [activeModuloId])
 
   // ---------- mutation: marcar aula ----------
   const marcarAula = useMutation({
@@ -120,9 +127,10 @@ export function UniversidadePlayer() {
   // ---------- Vimeo tracking ----------
   const playerRef = useRef<HTMLIFrameElement | null>(null)
   const lastSavedRef = useRef<number>(0)
+  const marcarAulaMutation = marcarAula.mutate
 
   useEffect(() => {
-    if (!activeAula || activeAula.aula_tipo !== 'video' || !activeVimeoId) return
+    if (!activeAulaId || activeAulaTipo !== 'video' || !activeVimeoId) return
     let cleanup = () => {}
     let cancelled = false
     void loadVimeoSDK().then((Vimeo) => {
@@ -130,18 +138,18 @@ export function UniversidadePlayer() {
       // @ts-expect-error - dynamic Vimeo SDK
       const player = new Vimeo.Player(playerRef.current)
       // Restaura posição
-      if (activeAula.posicao_segundos && activeAula.posicao_segundos > 5) {
-        player.setCurrentTime(activeAula.posicao_segundos).catch(() => {})
+      if (activePosition && activePosition > 5) {
+        player.setCurrentTime(activePosition).catch(() => {})
       }
       const onTime = (data: { seconds: number }) => {
         const s = Math.floor(data.seconds)
         if (s - lastSavedRef.current >= 5) {
           lastSavedRef.current = s
-          marcarAula.mutate({ aula_id: activeAula.aula_id, posicao: s })
+          marcarAulaMutation({ aula_id: activeAulaId, posicao: s })
         }
       }
       const onEnded = () => {
-        marcarAula.mutate({ aula_id: activeAula.aula_id, concluida: true })
+        marcarAulaMutation({ aula_id: activeAulaId, concluida: true })
       }
       player.on('timeupdate', onTime)
       player.on('ended', onEnded)
@@ -152,7 +160,7 @@ export function UniversidadePlayer() {
     }).catch(() => { /* ignore */ })
     lastSavedRef.current = 0
     return () => { cancelled = true; cleanup() }
-  }, [activeAula?.aula_id, activeVimeoId])
+  }, [activeAulaId, activeAulaTipo, activePosition, activeVimeoId, marcarAulaMutation])
 
   // ---------- Curso aggregate ----------
   const curso = rows[0]
@@ -162,14 +170,17 @@ export function UniversidadePlayer() {
 
   // ---------- Recursos ----------
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const pdfStoragePath = activeAula?.pdf_storage_path
   useEffect(() => {
+    let cancelled = false
     setPdfUrl(null)
-    if (activeAula?.pdf_storage_path) {
+    if (pdfStoragePath) {
       supabase.storage.from('lms-recursos')
-        .createSignedUrl(activeAula.pdf_storage_path, 60 * 60)
-        .then(({ data }) => setPdfUrl(data?.signedUrl ?? null))
+        .createSignedUrl(pdfStoragePath, 60 * 60)
+        .then(({ data }) => { if (!cancelled) setPdfUrl(data?.signedUrl ?? null) })
     }
-  }, [activeAula?.pdf_storage_path])
+    return () => { cancelled = true }
+  }, [pdfStoragePath])
 
   // ---------- Modulos agrupados ----------
   const modulos = useMemo(() => {
@@ -182,166 +193,210 @@ export function UniversidadePlayer() {
   }, [aulas])
 
   if (estruturaQuery.isLoading) {
-    return <div className="card p-10 text-center text-silver-500"><Loader2 className="mx-auto h-6 w-6 animate-spin" /> Carregando…</div>
+    return (
+      <div className="partner-university uni-empty-player" role="status">
+        <Loader2 className="uni-spin" aria-hidden="true" /> Carregando aula…
+      </div>
+    )
+  }
+  if (estruturaQuery.isError) {
+    return (
+      <div className="partner-university uni-empty-player" role="alert">
+        <FileText aria-hidden="true" />
+        <strong>Não foi possível abrir este curso.</strong>
+        <span>Tente novamente em instantes.</span>
+        <button className="uni-button btn-no-liquid" type="button" onClick={() => void estruturaQuery.refetch()}>Tentar novamente</button>
+      </div>
+    )
   }
   if (!activeAula) {
     return (
-      <div className="card p-10 text-center text-silver-500">
-        Curso sem aulas disponíveis.
-        <div className="mt-4"><Link to={basePath} className="btn-outline">Voltar</Link></div>
+      <div className="partner-university uni-empty-player">
+        <BookOpen aria-hidden="true" />
+        <strong>Este curso ainda não tem aulas disponíveis.</strong>
+        <Link className="uni-button" to={basePath}>Voltar ao catálogo</Link>
       </div>
     )
   }
 
-  return (
-    <>
-      <Link to={basePath} className="mb-4 inline-flex items-center gap-1 text-sm text-silver-600 hover:text-navy">
-        <ArrowLeft className="h-4 w-4" /> Voltar ao catálogo
-      </Link>
+  const tabs = [
+    { id: 'conteudo', label: 'Conteúdo' },
+    { id: 'recursos', label: 'Recursos' },
+    { id: 'notas', label: 'Notas' },
+  ] as const
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <div>
-          <div className="aspect-video overflow-hidden rounded-lg bg-black">
+  return (
+    <div className="partner-university university-player">
+      <Link to={basePath} className="uni-back-link"><ArrowLeft aria-hidden="true" size={17} /> Voltar ao catálogo</Link>
+
+      <div className="uni-player-layout">
+        <section className="uni-lesson-main" aria-labelledby="uni-lesson-title">
+          <div className="uni-lesson-heading">
+            <div>
+              <span className="uni-lesson-kicker">{curso?.curso_titulo ?? 'Universidade Mercúrio'}</span>
+              <h1 id="uni-lesson-title">{activeAula.aula_titulo}</h1>
+            </div>
+            <span className="uni-lesson-index">
+              Aula {activeAula.aula_ordem + 1} de {totalAulas}
+              {activeAula.duracao_segundos ? ` · ${Math.round(activeAula.duracao_segundos / 60)} min` : ''}
+            </span>
+          </div>
+
+          <div className="uni-media-stage">
             {activeAula.aula_tipo === 'video' && activeVimeoId ? (
               <iframe
                 ref={playerRef}
                 key={activeAula.aula_id}
                 src={`https://player.vimeo.com/video/${activeVimeoId}?title=0&byline=0&portrait=0`}
-                className="h-full w-full"
                 allow="autoplay; fullscreen; picture-in-picture"
                 allowFullScreen
                 title={activeAula.aula_titulo}
               />
             ) : (
-              <div className="flex h-full items-center justify-center bg-gradient-to-br from-navy to-black text-white">
-                <Play className="h-16 w-16 opacity-70" />
+              <div className="uni-media-empty">
+                <span>{activeAula.aula_tipo === 'pdf' ? <FileText aria-hidden="true" size={25} /> : <Play aria-hidden="true" size={25} />}</span>
+                <strong>{activeAula.aula_tipo === 'video' ? 'Vídeo não configurado para esta aula' : activeAula.aula_tipo === 'pdf' ? 'Material de apoio da aula' : 'Conteúdo da aula'}</strong>
+                <small>{activeAula.aula_descricao || 'Consulte a descrição e os recursos desta aula nas abas abaixo.'}</small>
               </div>
             )}
           </div>
 
-          <h1 className="mt-5 text-xl font-bold text-navy">{activeAula.aula_titulo}</h1>
-          <p className="text-sm text-silver-500">
-            {activeAula.modulo_titulo} · Aula {activeAula.aula_ordem + 1}
-            {activeAula.duracao_segundos ? ` · ${Math.round(activeAula.duracao_segundos / 60)}min` : ''}
-          </p>
-
-          <div className="mt-5 flex gap-1 border-b border-silver-200">
-            {([
-              { id: 'conteudo', label: 'Conteúdo' },
-              { id: 'recursos', label: 'Recursos' },
-              { id: 'notas', label: 'Notas' },
-            ] as const).map(t => (
-              <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
-                className={`border-b-2 px-4 py-2.5 text-sm font-medium ${tab === t.id ? 'border-gold text-navy' : 'border-transparent text-silver-500'}`}>
-                {t.label}
+          <div className="uni-lesson-tabs" role="group" aria-label="Seções da aula">
+            {tabs.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={tab === item.id}
+                className={`uni-tab btn-no-liquid${tab === item.id ? ' is-active' : ''}`}
+                onClick={() => setTab(item.id)}
+              >
+                {item.label}
               </button>
             ))}
           </div>
-          <div className="mt-4 text-sm text-silver-700">
+
+          <div className="uni-lesson-content">
             {tab === 'conteudo' && (
-              <div className="prose-sm max-w-none">
+              <div>
+                <h2>Sobre esta aula</h2>
                 {activeAula.aula_descricao && <p>{activeAula.aula_descricao}</p>}
-                {activeAula.conteudo_md && <pre className="whitespace-pre-wrap font-sans">{activeAula.conteudo_md}</pre>}
-                {!activeAula.aula_descricao && !activeAula.conteudo_md && (
-                  <p className="text-silver-500">Sem descrição para esta aula.</p>
-                )}
+                {activeAula.conteudo_md && <div className="uni-markdown-content">{activeAula.conteudo_md}</div>}
+                {!activeAula.aula_descricao && !activeAula.conteudo_md && <p>Sem descrição para esta aula.</p>}
               </div>
             )}
             {tab === 'recursos' && (
               <div>
+                <h2>Materiais da aula</h2>
                 {pdfUrl ? (
-                  <a href={pdfUrl} target="_blank" rel="noreferrer"
-                    className="flex items-center justify-between rounded-md bg-silver-50 p-3 hover:bg-silver-100">
-                    <span className="flex items-center gap-2"><FileText className="h-4 w-4" /> Material da aula (PDF)</span>
-                    <span className="text-gold-700 hover:underline">Abrir</span>
+                  <a href={pdfUrl} target="_blank" rel="noreferrer" className="uni-resource-link">
+                    <span><FileText aria-hidden="true" size={18} /> Material da aula (PDF)</span>
+                    <span>Abrir <ArrowRight aria-hidden="true" size={15} /></span>
                   </a>
                 ) : (
-                  <p className="text-silver-500">Nenhum recurso anexado a esta aula.</p>
+                  <p>Nenhum recurso anexado a esta aula.</p>
                 )}
               </div>
             )}
             {tab === 'notas' && (
-              <textarea className="input min-h-[160px] w-full" placeholder="Suas anotações (não persistidas)..." />
+              <div>
+                <h2>Suas notas</h2>
+                <label className="sr-only" htmlFor="uni-lesson-notes">Anotações desta aula</label>
+                <textarea id="uni-lesson-notes" placeholder="Suas anotações ficam disponíveis apenas nesta sessão." />
+              </div>
             )}
           </div>
-        </div>
 
-        <aside className="card h-fit overflow-hidden">
-          <div className="border-b border-silver-200 p-4">
-            <p className="text-xs uppercase tracking-wide text-silver-500">Curso</p>
-            <h3 className="font-semibold text-navy">{curso?.curso_titulo}</h3>
-            <div className="mt-2 h-1 rounded-full bg-silver-200">
-              <div className="h-full rounded-full bg-gold" style={{ width: `${pct}%` }} />
-            </div>
-            <p className="mt-1 text-xs text-silver-500">{concluidas} / {totalAulas} aulas · {pct}%</p>
+          <div className="uni-lesson-actions">
+            {activeAula.concluida ? (
+              <div className="uni-complete-banner">
+                <span><CheckCircle2 aria-hidden="true" size={17} /> Aula concluída{proxima ? ` · Próxima: ${proxima.aula_titulo}` : ''}</span>
+                {proxima && (
+                  <button className="uni-button btn-no-liquid" type="button" onClick={() => navigate(`${basePath}/${cursoId}/aula/${proxima.aula_id}`)}>
+                    Continuar <ArrowRight aria-hidden="true" size={15} />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                <button
+                  className="uni-button btn-no-liquid"
+                  type="button"
+                  onClick={() => marcarAula.mutate({ aula_id: activeAula.aula_id, concluida: true })}
+                  disabled={marcarAula.isPending}
+                >
+                  {marcarAula.isPending ? <Loader2 className="uni-spin" aria-hidden="true" size={15} /> : <CheckCircle2 aria-hidden="true" size={16} />}
+                  Marcar como concluída
+                </button>
+                {proxima && (
+                  <button className="uni-button btn-no-liquid" type="button" onClick={() => navigate(`${basePath}/${cursoId}/aula/${proxima.aula_id}`)}>
+                    Próxima <ArrowRight aria-hidden="true" size={15} />
+                  </button>
+                )}
+              </>
+            )}
+            {marcarAula.isError && <p className="uni-inline-error" role="alert">Não foi possível salvar o progresso. Tente novamente.</p>}
           </div>
-          <div className="max-h-[480px] overflow-y-auto">
-            {modulos.map((m) => {
-              const open = openModulos.has(m.id)
-              return (
-                <details key={m.id} open={open} className="border-b border-silver-100"
-                  onToggle={(e) => {
-                    const next = new Set(openModulos)
-                    if ((e.target as HTMLDetailsElement).open) next.add(m.id); else next.delete(m.id)
-                    setOpenModulos(next)
-                  }}>
-                  <summary className="cursor-pointer bg-silver-50 px-4 py-2.5 text-sm font-semibold text-silver-800">{m.titulo}</summary>
-                  <ul>
-                    {m.aulas.map((a) => {
-                      const isActive = a.aula_id === activeAula.aula_id
-                      const done = !!a.concluida
-                      return (
-                        <li key={a.aula_id}>
-                          <button onClick={() => navigate(`${basePath}/${cursoId}/aula/${a.aula_id}`)}
-                            className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm ${isActive ? 'bg-gold/10 text-navy font-medium border-l-2 border-gold' : 'text-silver-700 hover:bg-silver-50'}`}>
-                            {done ? <CheckCircle2 className="h-4 w-4 text-green-600" /> :
-                              isActive ? <Play className="h-4 w-4 text-gold" /> :
-                              <Play className="h-4 w-4 text-silver-300" />}
-                            <span className="flex-1 truncate">{a.aula_titulo}</span>
-                            <span className="text-xs text-silver-400 whitespace-nowrap">
-                              {a.duracao_segundos ? `${Math.round(a.duracao_segundos / 60)}min` : ''}
-                            </span>
-                          </button>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </details>
-              )
-            })}
+        </section>
+
+        <aside className="uni-course-sidebar" aria-label="Conteúdo do curso">
+          <div className="uni-sidebar-summary">
+            <span className="uni-section-kicker">Seu progresso</span>
+            <div className="uni-sidebar-progress-heading"><strong>{pct}%</strong><span>{concluidas} de {totalAulas} aulas</span></div>
+            <div className="uni-progress-track" role="progressbar" aria-label="Progresso neste curso" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+              <span style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+          <div className="uni-curriculum-heading">
+            <strong>Conteúdo do curso</strong>
+            <span>{totalAulas} {totalAulas === 1 ? 'aula' : 'aulas'} · {formatDuration(aulas.reduce((sum, aula) => sum + (aula.duracao_segundos ?? 0), 0))}</span>
+          </div>
+          <div className="uni-module-list">
+            {modulos.map((modulo) => (
+              <details
+                key={modulo.id}
+                open={openModulos.has(modulo.id)}
+                className="uni-module"
+                onToggle={(event) => {
+                  const next = new Set(openModulos)
+                  if ((event.target as HTMLDetailsElement).open) next.add(modulo.id)
+                  else next.delete(modulo.id)
+                  setOpenModulos(next)
+                }}
+              >
+                <summary>{modulo.titulo}</summary>
+                <ul className="uni-lesson-list">
+                  {modulo.aulas.map((aula) => {
+                    const isActive = aula.aula_id === activeAula.aula_id
+                    return (
+                      <li key={aula.aula_id}>
+                        <button
+                          type="button"
+                          aria-current={isActive ? 'step' : undefined}
+                          onClick={() => navigate(`${basePath}/${cursoId}/aula/${aula.aula_id}`)}
+                          className={`uni-lesson-item btn-no-liquid${isActive ? ' is-active' : ''}`}
+                        >
+                          {aula.concluida ? <CheckCircle2 aria-hidden="true" size={15} /> : isActive ? <Play aria-hidden="true" size={14} /> : <Play aria-hidden="true" size={14} />}
+                          <span><strong>{aula.aula_titulo}</strong><small>{aula.concluida ? 'Concluída' : aula.aula_tipo}</small></span>
+                          {aula.duracao_segundos ? <span className="uni-lesson-duration">{Math.round(aula.duracao_segundos / 60)} min</span> : null}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </details>
+            ))}
           </div>
         </aside>
       </div>
-
-      {activeAula.concluida && (
-        <div className="mt-6 flex items-center justify-between rounded-lg border border-green-200 bg-green-50 p-4 text-sm">
-          <span className="font-medium text-green-700">✓ Aula concluída{proxima ? ` — Próxima: ${proxima.aula_titulo}` : ''}</span>
-          {proxima && (
-            <button className="btn-gold"
-              onClick={() => navigate(`${basePath}/${cursoId}/aula/${proxima.aula_id}`)}>
-              Continuar <ArrowRight className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      )}
-      {!activeAula.concluida && (
-        <div className="mt-6 flex items-center justify-end gap-2">
-          <button className="btn-outline"
-            onClick={() => marcarAula.mutate({ aula_id: activeAula.aula_id, concluida: true })}
-            disabled={marcarAula.isPending}>
-            {marcarAula.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            Marcar como concluída
-          </button>
-          {proxima && (
-            <button className="btn-gold"
-              onClick={() => navigate(`${basePath}/${cursoId}/aula/${proxima.aula_id}`)}>
-              Próxima <ArrowRight className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      )}
-    </>
+    </div>
   )
+}
+
+function formatDuration(segundos: number): string {
+  if (!segundos) return 'Duração não informada'
+  const horas = Math.floor(segundos / 3600)
+  const minutos = Math.floor((segundos % 3600) / 60)
+  return horas > 0 ? `${horas}h ${minutos}min` : `${minutos}min`
 }
 
 function normalizeVimeoId(raw: string | null | undefined): string | null {

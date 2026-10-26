@@ -2,6 +2,12 @@
 
 Esta é a definição funcional inicial para o classificador server-side. Ela orienta a sugestão de classe e a distribuição operacional; não substitui análise de crédito nem aprovação jurídica.
 
+As imagens [ParametrosIA-01.jpeg](./assets/ParametrosIA-01.jpeg) e
+[ParametrosIA-02.jpeg](./assets/ParametrosIA-02.jpeg) registram o informativo
+operacional recebido do Trello. Elas apresentam três perfis que seguem para
+distribuição. Este documento mantém também uma quarta saída terminal,
+`Desqualificado`, para os casos que não devem seguir na operação.
+
 ## Classes
 
 | Classe | Peso | Regra funcional |
@@ -11,7 +17,29 @@ Esta é a definição funcional inicial para o classificador server-side. Ela or
 | Estressado | 1,7 | Existe potencial de operação, porém há pendência relevante de renda, documentação, imóvel, jurídico ou consulta que exige diligência e acompanhamento sênior. |
 | Desqualificado | 0 | Motivo impeditivo fechado e confirmado por humano. Não é usado apenas por documento ausente, consulta indisponível ou baixa confiança. |
 
+`Desqualificado` não participa do mix de distribuição, da capacidade ponderada
+ou da bonificação. A atribuição exige confirmação humana, motivo fechado e
+registro auditável.
+
 “Garantia adequada”, “capacidade comprovada” e “pendência impeditiva” devem ser configuráveis e refinadas com exemplos reais anonimizados.
+
+### Correspondência com o informativo
+
+O informativo usa a seguinte leitura operacional:
+
+- **Triplo A:** menor complexidade e encaminhamento preferencial para júnior,
+  respeitada a capacidade configurada.
+- **Double AA:** complexidade intermediária e encaminhamento preferencial para
+  pleno.
+- **Estressado:** maior complexidade, com acompanhamento sênior e revisão
+  quando houver sinal sensível.
+- **Desqualificado:** saída terminal confirmada por humano; não é encaminhado
+  para analista.
+
+Os limites numéricos exibidos nas imagens (score, percentual de renda, LTV,
+materialidade de restrições, população da cidade e quantidade de pendências)
+são parâmetros de trabalho do informativo. Eles ainda precisam ser validados
+pela operação antes de substituir as definições configuráveis desta versão.
 
 ## Confiança e revisão
 

@@ -27,6 +27,7 @@ const STATUS_LABEL: Record<string, string> = {
   simulacao: 'Rascunho',
   pre_analise: 'Pré-análise',
   analise_credito: 'Análise crédito',
+  pre_aprovado: 'Pré-aprovado',
   analise_imovel: 'Análise imóvel',
   analise_juridica: 'Análise jurídica',
   comite: 'Comitê',
@@ -41,7 +42,7 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const FUNIL_ORDER = [
-  'pre_analise', 'analise_credito', 'analise_imovel', 'analise_juridica',
+  'pre_analise', 'analise_credito', 'pre_aprovado', 'analise_imovel', 'analise_juridica',
   'comite', 'proposta_cliente', 'emissao_contrato', 'aguardando_assinatura',
   'em_registro', 'contrato_registrado', 'recurso_liberado',
 ]
@@ -111,13 +112,12 @@ export function PartnerDashboard() {
 
   return (
     <>
-      <PartnerOnboardingTour />
-      <div className="mb-6 flex items-end justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-navy">Dashboard</h1>
           <p className="text-sm text-silver-500">Visão geral das operações da sua carteira.</p>
         </div>
-        <Link to="/p/propostas/nova" className="btn-gold"><Plus className="h-4 w-4" /> Nova proposta</Link>
+        <div className="flex flex-wrap items-center gap-3"><PartnerOnboardingTour /><Link to="/p/propostas/nova" className="btn-gold"><Plus className="h-4 w-4" /> Nova proposta</Link></div>
       </div>
 
       {loading ? (

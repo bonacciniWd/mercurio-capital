@@ -1,217 +1,92 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { X, ArrowRight, ArrowLeft, ChevronRight } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, CheckCircle2, X } from 'lucide-react'
+import { useAuth } from '@/auth/AuthContext'
+import Merx from '@/assets/logos/logo.svg'
 
-import bannerImg  from '@/assets/promotions/banner.jpeg'
-import promo1Img  from '@/assets/promotions/promo.jpeg'
-import promo2Img  from '@/assets/promotions/promo2.jpeg'
-import promo3Img  from '@/assets/promotions/promo3.jpeg'
-import logoWide   from '@/assets/logos/logowide.png'
+const STEPS = [
+  { label: 'Comece por aqui', title: 'Seu caminho como parceiro', body: 'Use este guia para entender da simulação ao acompanhamento da proposta.', points: ['Confira condições antes de conversar com o cliente.', 'Separe dados do cliente, proponentes e imóvel.', 'Você pode interromper o guia e retomá-lo pelo Dashboard.'], link: null },
+  { label: 'Simulações', title: 'Simule antes de propor', body: 'Compare cenários com o cliente. A simulação é uma estimativa e não representa aprovação de crédito.', points: ['Confira valor solicitado e prazo.', 'Verifique a garantia informada.', 'Revise as condições antes de criar a proposta.'], link: { to: '/p/simulacoes', text: 'Abrir Simulações' } },
+  { label: 'Nova proposta', title: 'Cadastre em cinco etapas', body: 'O formulário segue Produto, Cliente, Imóveis, Valores e Revisão. Os proponentes são informados na etapa Cliente.', points: ['Confira CPF ou CNPJ e contato do cliente.', 'Informe os imóveis e seus valores.', 'Leia a revisão antes de enviar e guarde o protocolo.'], link: { to: '/p/propostas/nova', text: 'Criar proposta' } },
+  { label: 'Acompanhamento', title: 'Acompanhe documentos e pendências', body: 'Na lista de Propostas, abra o detalhe para acompanhar a operação.', points: ['Consulte as abas Documentos e Pendências.', 'Confira histórico e consultas disponíveis.', 'Use o protocolo para localizar a proposta.'], link: { to: '/p/propostas', text: 'Ver propostas' } },
+  { label: 'Seu painel', title: 'Carteira, comissões e capacitação', body: 'A Carteira mostra saldo e movimentações. Comissões e conteúdos de capacitação ficam nas áreas próprias do painel.', points: ['Confira a carteira antes de ações que possam ter custo.', 'Acompanhe comissões quando houver operações liberadas.', 'Consulte a Universidade para conhecer os produtos.'], link: { to: '/p/carteira', text: 'Abrir Carteira' } },
+  { label: 'MERX', title: 'O futuro da MERX', body: 'A MERX está sendo preparada para organizar informações da proposta e apontar pendências, com revisão humana.', points: ['Hoje, a classificação disponível usa regras operacionais.', 'Um assistente por usuário e proposta está planejado para uma próxima etapa.', 'Esse acesso ficará limitado às propostas permitidas ao parceiro e à sua equipe.'], link: null },
+] as const
 
-const STORAGE_KEY = 'mercurio:partner_tour_completed_v1'
-
-interface Step {
-  tag: string
-  title: string
-  body: string
-  media: string          // .gif | .mp4 | .webm | image
-  cta?: { label: string; to: string }
-}
-
-const STEPS: Step[] = [
-  {
-    tag: 'Bem-vindo',
-    title: 'Seu painel de parceiro',
-    body: 'Em poucos passos vamos te mostrar como navegar, criar propostas e acompanhar comissões na Mercúrio Capital.',
-    media: bannerImg,
-  },
-  {
-    tag: 'Passo 1 de 4',
-    title: 'Simule antes de propor',
-    body: 'A página Simulações ajuda você a explicar números ao cliente sem gastar saldo da carteira. Use-a antes de criar a proposta oficial.',
-    media: promo1Img,
-    cta: { label: 'Abrir Simulações', to: '/p/simulacoes' },
-  },
-  {
-    tag: 'Passo 2 de 4',
-    title: 'Crie sua primeira proposta',
-    body: 'O wizard cobra uma pequena taxa da sua carteira por análise e te leva até o protocolo do cliente em minutos.',
-    media: promo2Img,
-    cta: { label: 'Nova proposta', to: '/p/propostas/nova' },
-  },
-  {
-    tag: 'Passo 3 de 4',
-    title: 'Acompanhe pela Carteira',
-    body: 'Em Carteira você vê saldo, recargas e movimentações. Recarregue antes de iniciar muitos protocolos.',
-    media: promo3Img,
-    cta: { label: 'Ver carteira', to: '/p/carteira' },
-  },
-  {
-    tag: 'Passo 4 de 4',
-    title: 'Comissões e milestones',
-    body: 'Conforme suas propostas avançam, você desbloqueia milestones e libera comissões. Acompanhe nas seções específicas do painel.',
-    media: bannerImg,
-  },
-]
+function read(key: string) { try { return localStorage.getItem(key) } catch { return null } }
+function save(key: string, value: string) { try { localStorage.setItem(key, value) } catch { /* Guia continua utilizável. */ } }
 
 export function PartnerOnboardingTour() {
+  const { session } = useAuth()
+  const key = `mercurio:partner_tour_v2:${session?.userId ?? 'unknown'}`
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState(0)
-  const navigate = useNavigate()
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const openerRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const done = window.localStorage.getItem(STORAGE_KEY)
-    if (!done) setOpen(true)
-  }, [])
+    if (!session?.userId) return
+    const stored = read(key)
+    if (stored === 'completed') { setOpen(false); return }
+    const previous = Number(stored)
+    setStep(stored !== null && Number.isInteger(previous) && previous >= 0 && previous < STEPS.length ? previous : 0)
+    setOpen(true)
+  }, [key, session?.userId])
 
-  function finish() {
-    window.localStorage.setItem(STORAGE_KEY, new Date().toISOString())
-    setOpen(false)
-  }
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!open || !dialog) return
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : triggerRef.current
+    dialog.showModal()
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const focusTimer = window.setTimeout(() => dialog.querySelector<HTMLButtonElement>('[data-close]')?.focus(), 0)
+    return () => {
+      window.clearTimeout(focusTimer)
+      if (dialog.open) dialog.close()
+      document.body.style.overflow = overflow
+      if (openerRef.current?.isConnected) openerRef.current.focus()
+    }
+  }, [open])
 
-  if (!open) return null
-  const s = STEPS[step]
-  const isLast = step === STEPS.length - 1
+  const pause = () => { save(key, String(step)); setOpen(false) }
+  const finish = () => { save(key, 'completed'); setOpen(false) }
+  const goTo = (index: number) => { setStep(index); save(key, String(index)) }
+  const current = STEPS[step]
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={finish}
-        aria-hidden="true"
-      />
-
-      {/* Card */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="tour-title"
-        className="relative w-full max-w-2xl overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"
-      >
-        {/* ── Image / video header ── */}
-        <div className="relative h-76 overflow-hidden bg-navy">
-          {/\.(mp4|webm)$/i.test(s.media) ? (
-            <video
-              key={s.media}
-              src={s.media}
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <img
-              key={s.media}
-              src={s.media}
-              alt=""
-              className="h-full w-full object-cover"
-            />
-          )}
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-black/25" />
-
-          {/* Logo */}
-          <div className="absolute left-4 top-4">
-            <img src={logoWide} alt="Mercúrio Capital" className="h-5 brightness-0 invert" />
-          </div>
-
-          {/* Close */}
-          <button
-            onClick={finish}
-            aria-label="Fechar tour"
-            className="btn-no-liquid absolute right-3 top-3 rounded-full bg-black/30 p-1.5 text-white backdrop-blur-sm transition-colors hover:bg-black/50"
-          >
-            <X className="h-4 w-4" />
-          </button>
-
-          {/* Step tag */}
-          <div className="absolute bottom-4 left-4">
-            <span className="inline-block rounded-full bg-red-600 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white shadow-lg">
-              {s.tag}
-            </span>
-          </div>
+  return <>
+    <button ref={triggerRef} type="button" onClick={() => { setStep(0); setOpen(true) }} className="btn-no-liquid rounded-lg border border-silver-300 bg-white px-4 py-2 text-sm font-semibold text-navy hover:bg-silver-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-600">Rever guia do parceiro</button>
+    {open && <dialog ref={dialogRef} aria-labelledby="partner-tour-title" aria-describedby="partner-tour-description" onCancel={event => { event.preventDefault(); pause() }} onClick={event => { if (event.target === dialogRef.current) pause() }} className="m-auto max-h-[min(90dvh,760px)] w-[min(92vw,820px)] max-w-none overflow-y-auto overscroll-contain rounded-2xl border border-silver-200 bg-white p-0 text-navy shadow-2xl backdrop:bg-black/65">
+      <div className="flex items-center justify-between gap-3 border-b border-silver-200 px-5 py-4 sm:px-7">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-red-700">Guia do parceiro</p>
+          <p className="mt-1 text-sm text-silver-600">Etapa {step + 1} de {STEPS.length}</p>
         </div>
 
-        {/* ── Content ── */}
-        <div className="px-6 pb-6 pt-5">
-          <h2 id="tour-title" className="text-xl font-bold text-navy">
-            {s.title}
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-silver-600">
-            {s.body}
-          </p>
+        <button data-close type="button" onClick={pause} aria-label="Fechar e continuar depois" className="btn-no-liquid grid h-10 w-10 place-items-center rounded-lg hover:bg-silver-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-600">
+          <X size={20} aria-hidden="true" />
+        </button></div>
+      <div className="grid sm:grid-cols-[190px_minmax(0,1fr)]">
 
-          {/* Progress pill dots */}
-          <div className="mt-5 flex items-center justify-center gap-1.5">
-            {STEPS.map((_, i) => (
-              <span
-                key={i}
-                className={`block rounded-full transition-all duration-300 ${
-                  i === step
-                    ? 'h-2 w-6 bg-red-600'
-                    : i < step
-                    ? 'h-2 w-2 bg-red-300'
-                    : 'h-2 w-2 bg-silver-200'
-                }`}
-              />
-            ))}
-          </div>
+        <nav aria-label="Etapas do guia" className="flex gap-2 overflow-x-auto border-b border-silver-200 bg-silver-50 p-4 sm:flex-col sm:border-b-0 sm:border-r">{STEPS.map((item, index) =>
+          <button key={item.label} type="button" aria-current={index === step ? 'step' : undefined} onClick={() => goTo(index)} className={`btn-no-liquid min-h-10 shrink-0 rounded-lg px-3 py-2  text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-600 sm:w-full ${index === step ? 'bg-red-600 text-white' : 'text-silver-700 hover:bg-white'}`}>{index + 1}. {item.label}</button>)}
+        </nav>
 
-          {/* ── Optional CTA ── */}
-          {s.cta && (
-            <button
-              onClick={() => { finish(); navigate(s.cta!.to) }}
-              className="btn-no-liquid mt-5 flex w-full items-center justify-center gap-1 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
-            >
-              {s.cta.label}
-              <ChevronRight className="h-3.5 w-3.5" />
+        <div className="min-w-0 p-2 sm:p-8">
+          <img src={Merx} alt="Logo do parceiro" className="h-36 justify-center -mt-6 mx-auto w-36" />
+          <h2 id="partner-tour-title" className="text-balance text-2xl font-bold leading-tight">{current.title}</h2>
+          <p id="partner-tour-description" className="mt-3 max-w-prose text-sm leading-relaxed text-silver-700">{current.body}</p>
+          <ul className="mt-6 space-y-3">{current.points.map(point => <li key={point} className="flex gap-3 text-sm leading-relaxed text-silver-700"><CheckCircle2 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-success" />{point}</li>)}</ul>
+          {current.link && <Link to={current.link.to} onClick={pause} className="mt-7 inline-flex min-h-10 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-600">{current.link.text}<ArrowRight size={16} aria-hidden="true" /></Link>}
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-silver-200 pt-5">
+            <button type="button" onClick={pause} className="btn-no-liquid min-h-10 px-2 text-sm font-semibold text-silver-700 hover:text-navy">Continuar depois
             </button>
-          )}
-
-          {/* ── Navigation ── */}
-          <div className="mt-3 flex items-center gap-2">
-            {/* Back */}
-            <button
-              onClick={() => setStep(s => Math.max(0, s - 1))}
-              disabled={step === 0}
-              aria-label="Voltar"
-              className="btn-no-liquid shrink-0 rounded-lg border border-silver-200 p-2.5 text-silver-600 transition-colors hover:bg-silver-50 disabled:opacity-30"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-
-            <div className="flex flex-1 flex-col gap-2">
-              {/* Next / Finish */}
-              {isLast ? (
-                <button
-                  onClick={finish}
-                  className="btn-no-liquid w-full rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700"
-                >
-                  Tudo certo, vamos lá! 🚀
-                </button>
-              ) : (
-                <button
-                  onClick={() => setStep(s => s + 1)}
-                  className="btn-no-liquid flex w-full items-center justify-center gap-1.5 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700"
-                >
-                  Próximo
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <button
-            onClick={finish}
-            className="btn-no-liquid mt-4 w-full text-center text-xs text-silver-400 transition-colors hover:text-silver-600"
-          >
-            Pular tour
-          </button>
-        </div>
-      </div>
-    </div>
-  )
+            <div className="flex gap-2">
+              <button type="button" disabled={step === 0} onClick={() => goTo(Math.max(0, step - 1))} className="btn-no-liquid inline-flex min-h-10 items-center gap-1 rounded-lg border border-silver-300 px-3 text-sm font-semibold disabled:opacity-40">
+                <ArrowLeft size={16} aria-hidden="true" /> Voltar</button>{step === STEPS.length - 1 ?
+                  <button type="button" onClick={finish} className="btn-no-liquid min-h-10 rounded-lg bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700">Concluir guia</button> : <button type="button" onClick={() => goTo(step + 1)} className="btn-no-liquid inline-flex min-h-10 items-center gap-1 rounded-lg bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700">Próxima etapa <ArrowRight size={16} aria-hidden="true" /></button>}</div></div>
+        </div></div>
+    </dialog>}
+  </>
 }

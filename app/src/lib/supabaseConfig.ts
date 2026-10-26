@@ -15,9 +15,32 @@ export type ResolvedSupabaseConfig = {
   usedFallback: boolean
 }
 
+function normalizeHttpUrl(value: string | undefined): string | undefined {
+  const candidate = value?.trim()
+  if (!candidate) return undefined
+
+  try {
+    const parsed = new URL(candidate)
+    if (
+      !['http:', 'https:'].includes(parsed.protocol) ||
+      !parsed.hostname ||
+      parsed.username ||
+      parsed.password
+    ) {
+      return undefined
+    }
+
+    return candidate
+  } catch {
+    return undefined
+  }
+}
+
 export function resolveSupabaseConfig(input: ResolveSupabaseConfigInput): ResolvedSupabaseConfig {
-  const envUrl = input.supabaseUrl?.trim()
+  const configuredUrl = input.supabaseUrl?.trim()
+  const envUrl = normalizeHttpUrl(configuredUrl)
   const envAnonKey = input.supabaseAnonKey?.trim()
+  const invalidEnvUrl = Boolean(configuredUrl && !envUrl)
 
   if (envUrl && envAnonKey) {
     return {
@@ -30,14 +53,14 @@ export function resolveSupabaseConfig(input: ResolveSupabaseConfigInput): Resolv
   if (input.isDev) {
     return {
       url: envUrl || DEFAULT_LOCAL_SUPABASE_URL,
-      anonKey: envAnonKey || DEFAULT_LOCAL_SUPABASE_ANON_KEY,
+      anonKey: invalidEnvUrl ? DEFAULT_LOCAL_SUPABASE_ANON_KEY : envAnonKey || DEFAULT_LOCAL_SUPABASE_ANON_KEY,
       usedFallback: true,
     }
   }
 
   return {
     url: envUrl || DEFAULT_PROD_SUPABASE_URL,
-    anonKey: envAnonKey || DEFAULT_PROD_SUPABASE_ANON_KEY,
+    anonKey: invalidEnvUrl ? DEFAULT_PROD_SUPABASE_ANON_KEY : envAnonKey || DEFAULT_PROD_SUPABASE_ANON_KEY,
     usedFallback: true,
   }
 }

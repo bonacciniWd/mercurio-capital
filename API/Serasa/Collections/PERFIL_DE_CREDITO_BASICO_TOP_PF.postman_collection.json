@@ -1,0 +1,170 @@
+{
+	"info": {
+		"_postman_id": "4127e615-7f9d-4902-86d8-f84d903966fc",
+		"name": "PERFIL_DE_CREDITO_BASICO_TOP_PF",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "8412939"
+	},
+	"item": [
+		{
+			"name": "PERFIL_DE_CREDITO_BASICO_TOP_PF",
+			"item": [
+				{
+					"name": "HOMOLOGAÇÃO",
+					"item": [
+						{
+							"name": "VALIDAÇÃO IAM",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"var jsonData = JSON.parse(responseBody);\r",
+											"postman.setEnvironmentVariable(\"tokenIAM\", \"Bearer \"+jsonData.accessToken);"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "basic",
+									"basic": [
+										{
+											"key": "password",
+											"value": "client-secret",
+											"type": "string"
+										},
+										{
+											"key": "username",
+											"value": "client-id",
+											"type": "string"
+										},
+										{
+											"key": "saveHelperData",
+											"value": true,
+											"type": "boolean"
+										},
+										{
+											"key": "showPassword",
+											"value": false,
+											"type": "boolean"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "",
+										"value": "",
+										"type": "text",
+										"disabled": true
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "https://uat-api.serasaexperian.com.br/security/iam/v1/client-identities/login",
+									"protocol": "https",
+									"host": [
+										"uat-api",
+										"serasaexperian",
+										"com",
+										"br"
+									],
+									"path": [
+										"security",
+										"iam",
+										"v1",
+										"client-identities",
+										"login"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "CONSULTA",
+							"protocolProfileBehavior": {
+								"disableBodyPruning": true
+							},
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "AcessToken",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [
+									{
+										"key": "X-Document-id",
+										"value": "00000001244",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									},
+									{
+										"key": "",
+										"value": "",
+										"type": "text",
+										"disabled": true
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "https://uat-api.serasaexperian.com.br/credit-services/person-information-report/v1/creditreport?reportName=PERFIL_DE_CREDITO_BASICO_TOP_PF&federalUnit=SP",
+									"protocol": "https",
+									"host": [
+										"uat-api",
+										"serasaexperian",
+										"com",
+										"br"
+									],
+									"path": [
+										"credit-services",
+										"person-information-report",
+										"v1",
+										"creditreport"
+									],
+									"query": [
+										{
+											"key": "reportName",
+											"value": "PERFIL_DE_CREDITO_BASICO_TOP_PF"
+										},
+										{
+											"key": "federalUnit",
+											"value": "SP"
+										},
+										{
+											"key": "optionalFeatures",
+											"value": "",
+											"disabled": true
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		}
+	]
+}

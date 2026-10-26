@@ -1,15 +1,26 @@
 import { describe, expect, it } from 'vitest'
-import { PROPOSTA_KANBAN_STATUS, toKanbanStatus } from '@/lib/propostaStatus'
+import { incluiStatusNaVisaoKanban, isPropostaAprovada, PROPOSTA_KANBAN_STATUS, toKanbanStatus } from '@/lib/propostaStatus'
 
 describe('propostaStatus', () => {
   it('mantém a ordem operacional definida pelo negócio', () => {
     expect(PROPOSTA_KANBAN_STATUS).toEqual([
-      'pre_analise', 'analise_juridica', 'analise_credito', 'analise_imovel',
+      'standby', 'pre_analise', 'analise_juridica', 'analise_credito', 'pre_aprovado', 'analise_imovel',
       'comite', 'proposta_cliente', 'diligencia_juridica', 'emissao_contrato',
       'aguardando_assinatura', 'protocolo_cartorio', 'exigencias_cartorio',
       'custas_cartorio', 'registro_af', 'recurso_liberado',
-      'pagamento_comissao', 'completo', 'standby',
+      'pagamento_comissao', 'completo',
     ])
+  })
+
+  it('mantém Standby visível no quadro operacional e permite filtrá-lo', () => {
+    expect(incluiStatusNaVisaoKanban('standby', 'operacional')).toBe(true)
+    expect(incluiStatusNaVisaoKanban('standby', 'standby')).toBe(true)
+    expect(incluiStatusNaVisaoKanban('analise_credito', 'standby')).toBe(false)
+    expect(incluiStatusNaVisaoKanban('simulacao', 'operacional')).toBe(false)
+  })
+
+  it('mantém Pré-aprovado fora das etapas consideradas aprovadas', () => {
+    expect(isPropostaAprovada('pre_aprovado')).toBe(false)
   })
 
   it('mapeia status legados sem ocultar propostas', () => {

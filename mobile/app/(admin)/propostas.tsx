@@ -20,7 +20,7 @@ type Row = {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  simulacao: 'Rascunho', pre_analise: 'Pré-análise', analise_credito: 'Análise Crédito',
+  simulacao: 'Rascunho', pre_analise: 'Pré-análise', analise_credito: 'Análise Crédito', pre_aprovado: 'Pré-aprovado',
   analise_imovel: 'Análise Imóvel', analise_juridica: 'Análise Jurídica', comite: 'Comitê',
   proposta_cliente: 'Proposta', resolucao_pendencias: 'Pendências',
   emissao_contrato: 'Emissão', aguardando_assinatura: 'Assinatura',
@@ -28,7 +28,7 @@ const STATUS_LABEL: Record<string, string> = {
   recurso_liberado: 'Liberado', cancelado: 'Cancelada',
 }
 const STATUS_COLOR: Record<string, string> = {
-  simulacao: '#737373', pre_analise: '#737373', analise_credito: '#F59E0B',
+  simulacao: '#737373', pre_analise: '#737373', analise_credito: '#F59E0B', pre_aprovado: '#16A34A',
   analise_imovel: '#F59E0B', analise_juridica: '#F87171', comite: '#A78BFA',
   proposta_cliente: '#38BDF8', resolucao_pendencias: '#F59E0B',
   emissao_contrato: '#38BDF8', aguardando_assinatura: '#38BDF8',

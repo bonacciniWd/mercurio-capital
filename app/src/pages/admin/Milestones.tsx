@@ -147,7 +147,7 @@ export function AdminMilestones() {
         <div>
           <h1 className="text-2xl font-bold text-navy">Milestones</h1>
           <p className="text-sm text-silver-600">
-            Cadastre os premios exibidos aos parceiros conforme volume liberado de CGI.
+            Configure metas e prêmios com base no valor solicitado de propostas em etapas elegíveis.
           </p>
         </div>
         <button className="btn-gold" onClick={() => setEditing({ ...EMPTY_DRAFT, order_index: (items[items.length - 1]?.order_index ?? 0) + 1 })}>

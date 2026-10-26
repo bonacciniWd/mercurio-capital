@@ -21,6 +21,7 @@ const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 
 type Status = 'conectado' | 'erro' | 'pendente' | 'desconectado'
+type PingResult = { ok: boolean; erro?: string; metadata?: Record<string, unknown> }
 
 // Provedores com verificação automática (ping) disponível.
 const PINGAVEIS = new Set(['stripe', 'resend', 'serasa', 'whatsapp', 'clicksign', 'vimeo', 'bacen'])
@@ -52,7 +53,7 @@ function safeProviderDetail(value: string, maxLength = 240): string {
 }
 
 // Retorna { ok, erro } — só é chamado quando todas as secrets existem.
-async function pingProvider(chave: string): Promise<{ ok: boolean; erro?: string }> {
+async function pingProvider(chave: string): Promise<PingResult> {
   try {
     switch (chave) {
       case 'stripe': {
@@ -73,18 +74,28 @@ async function pingProvider(chave: string): Promise<{ ok: boolean; erro?: string
       }
       case 'serasa': {
         const base = (Deno.env.get('SERASA_API_URL') ?? '').replace(/\/+$/, '')
+        const clientId = Deno.env.get('SERASA_CLIENT_ID') ?? Deno.env.get('SERASA_LOGON') ?? ''
+        const clientSecret = Deno.env.get('SERASA_CLIENT_SECRET') ?? Deno.env.get('SERASA_SENHA') ?? ''
+        const isUat = base === 'https://uat-api.serasaexperian.com.br'
+        const isProduction = base === 'https://api.serasaexperian.com.br'
+        if ((!isUat && !isProduction) || !clientId || !clientSecret) {
+          return { ok: false, erro: 'serasa_url_ou_credenciais_ausentes_invalidas' }
+        }
+        const basic = btoa(`${clientId}:${clientSecret}`)
         const res = await withTimeout((signal) =>
-          fetch(`${base}/security/iam/v1/client-identities/connect/token`, {
+          fetch(`${base}/security/iam/v1/client-identities/login`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-              grant_type: 'client_credentials',
-              client_id: Deno.env.get('SERASA_CLIENT_ID') ?? '',
-              client_secret: Deno.env.get('SERASA_CLIENT_SECRET') ?? '',
-            }),
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              Authorization: `Basic ${basic}`,
+            },
             signal,
+            redirect: 'error',
           }))
-        return res.ok ? { ok: true } : { ok: false, erro: `serasa ${res.status}` }
+        return res.ok
+          ? { ok: true, metadata: { verification: 'iam_authenticated', reports_tested: false, environment: isUat ? 'uat' : 'producao' } }
+          : { ok: false, erro: `serasa_iam_${res.status}` }
       }
       case 'whatsapp': {
         const ver = Deno.env.get('WHATSAPP_API_VERSION') ?? 'v21.0'
@@ -220,9 +231,19 @@ Deno.serve(async (req) => {
   const inicio = Date.now()
   let status: Status
   let erro: string | null = null
+  let metricas: Record<string, unknown> | undefined
 
   const requeridas = (cfg.secrets_requeridas as string[]) ?? []
-  const faltando = requeridas.filter((s) => !(Deno.env.get(s) ?? '').trim())
+  const configuredSerasaUrl = (Deno.env.get('SERASA_API_URL') ?? '').replace(/\/+$/, '')
+  const faltando = chave === 'serasa'
+    ? [
+        ...((Deno.env.get('SERASA_CLIENT_ID') ?? Deno.env.get('SERASA_LOGON') ?? '').trim() ? [] : ['SERASA_CLIENT_ID']),
+        ...((Deno.env.get('SERASA_CLIENT_SECRET') ?? Deno.env.get('SERASA_SENHA') ?? '').trim() ? [] : ['SERASA_CLIENT_SECRET']),
+        ...(configuredSerasaUrl ? [] : ['SERASA_API_URL']),
+        ...(configuredSerasaUrl === 'https://api.serasaexperian.com.br' && !Deno.env.get('SERASA_RETAILER_DOCUMENT_ID')
+          ? ['SERASA_RETAILER_DOCUMENT_ID'] : []),
+      ]
+    : requeridas.filter((s) => !(Deno.env.get(s) ?? '').trim())
 
   if (!cfg.ativo) {
     status = 'desconectado'
@@ -236,6 +257,7 @@ Deno.serve(async (req) => {
     const ping = await pingProvider(chave)
     status = ping.ok ? 'conectado' : 'erro'
     erro = ping.erro ?? null
+    metricas = ping.metadata
   }
 
   const latencia = Date.now() - inicio
@@ -247,6 +269,7 @@ Deno.serve(async (req) => {
       ultima_checagem: new Date().toISOString(),
       ultimo_erro: erro,
       latencia_ms: latencia,
+      ...(metricas ? { metricas } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('chave', chave)

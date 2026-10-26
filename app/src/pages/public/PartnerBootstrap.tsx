@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Loader2, CheckCircle2, AlertTriangle, KeyRound } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth/AuthContext'
@@ -69,6 +69,8 @@ type Phase = 'loading' | 'set_password' | 'redirecting' | 'error'
 
 export function PartnerBootstrap() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const internalInvite = location.pathname === '/auth/admin-bootstrap'
   const { refresh } = useAuth()
   const [phase, setPhase] = useState<Phase>('loading')
   const [error, setError] = useState<string | null>(null)
@@ -219,7 +221,7 @@ export function PartnerBootstrap() {
   return (
     <div className="mx-auto flex min-h-screen max-w-lg items-center px-6">
       <div className="card w-full p-8">
-        <p className="text-xs font-semibold uppercase tracking-wide text-red-600">Convite de parceiro</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-red-600">{internalInvite ? 'Convite da equipe Mercúrio' : 'Convite de parceiro'}</p>
         <h1 className="mt-2 text-2xl font-bold text-navy">Ativar acesso</h1>
 
         {phase === 'loading' && (
@@ -321,7 +323,7 @@ export function PartnerBootstrap() {
               <AlertTriangle className="mr-1 inline h-4 w-4" />
               {error}
             </p>
-            <a href="/p/login" className="btn-gold inline-flex w-full justify-center">
+            <a href={internalInvite ? '/admin/login' : '/p/login'} className="btn-gold inline-flex w-full justify-center">
               Ir para o login
             </a>
           </div>

@@ -5,11 +5,10 @@ import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, use
 import { AlertCircle, ArrowUpDown, Filter, GripVertical, Loader2, Maximize2, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
-import { PRODUTO_LABEL, PROPOSTA_KANBAN_STATUS, PROPOSTA_STATUS_LABEL, toKanbanStatus, type PropostaKanbanStatus } from '@/lib/propostaStatus'
+import { incluiStatusNaVisaoKanban, PRODUTO_LABEL, PROPOSTA_KANBAN_STATUS, PROPOSTA_STATUS_LABEL, toKanbanStatus, type KanbanViewMode, type PropostaKanbanStatus } from '@/lib/propostaStatus'
 import { FUNDO_STATUS, FUNDO_STATUS_COLOR, FUNDO_STATUS_LABEL, type FundoStatus } from '@/lib/fundoStatus'
 
 type KanbanScope = 'admin' | 'partner'
-type ViewMode = 'todos' | 'operacional' | 'standby' | 'rascunhos' | 'canceladas'
 type OrdenacaoTab = 'recentes' | 'antigos'
 
 type OptionItem = {
@@ -42,7 +41,7 @@ function diasDesde(iso: string) {
   return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000))
 }
 
-function labelViewMode(mode: ViewMode) {
+function labelViewMode(mode: KanbanViewMode) {
   if (mode === 'todos') return 'Todos'
   if (mode === 'operacional') return 'Operacional'
   if (mode === 'standby') return 'Standby'
@@ -90,7 +89,7 @@ export function PropostasKanban({ scope }: { scope: KanbanScope }) {
   const detailBase = scope === 'admin' ? '/admin/propostas' : '/p/propostas'
   const [activeCard, setActiveCard] = useState<KanbanCard | null>(null)
   const [busca, setBusca] = useState('')
-  const [viewMode, setViewMode] = useState<ViewMode>('operacional')
+  const [viewMode, setViewMode] = useState<KanbanViewMode>('operacional')
   const [operacaoFiltro, setOperacaoFiltro] = useState('')
   const [responsavelFiltro, setResponsavelFiltro] = useState('')
   const [fundoFiltro, setFundoFiltro] = useState('')
@@ -215,10 +214,7 @@ export function PropostasKanban({ scope }: { scope: KanbanScope }) {
   }, [viewMode, operacaoFiltro, scope, responsavelFiltro, fundoFiltro, operacoesDisponiveis, responsaveisDisponiveis, fundosDisponiveis])
 
   const filtradas = useMemo(() => propostas.filter(card => {
-    if (viewMode === 'operacional' && (card.status === 'simulacao' || card.status === 'cancelado' || card.status === 'standby')) return false
-    if (viewMode === 'standby' && card.status !== 'standby') return false
-    if (viewMode === 'rascunhos' && card.status !== 'simulacao') return false
-    if (viewMode === 'canceladas' && card.status !== 'cancelado') return false
+    if (!incluiStatusNaVisaoKanban(card.status, viewMode)) return false
     if (operacaoFiltro && card.partner_id !== operacaoFiltro) return false
     if (scope === 'admin' && responsavelFiltro && card.responsavel_id !== responsavelFiltro) return false
     if (scope === 'admin' && fundoFiltro) {
@@ -542,8 +538,8 @@ function KanbanFiltrosModal({
 }: {
   open: boolean
   scope: KanbanScope
-  viewMode: ViewMode
-  onViewModeChange: (value: ViewMode) => void
+  viewMode: KanbanViewMode
+  onViewModeChange: (value: KanbanViewMode) => void
   operacaoFiltro: string
   onOperacaoFiltroChange: (value: string) => void
   operacoesDisponiveis: OptionItem[]
@@ -575,7 +571,7 @@ function KanbanFiltrosModal({
           <div>
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-silver-500">Pipeline</p>
             <div className="flex flex-wrap gap-2">
-              {(['operacional', 'standby', 'todos', 'rascunhos', 'canceladas'] as ViewMode[]).map(mode => (
+              {(['standby', 'operacional', 'todos', 'rascunhos', 'canceladas'] as KanbanViewMode[]).map(mode => (
                 <button
                   key={mode}
                   type="button"

@@ -1,14 +1,18 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { toPng } from 'html-to-image'
-import { Download, MessageCircle, FilePlus2, Loader2 } from 'lucide-react'
+import Logo from '@/assets/logos/logo.svg'
+import { Download, MessageCircle, FilePlus2, AlertTriangle } from 'lucide-react'
 import {
   SimuladorCredito,
   calcularSimulacao,
   type SimuladorCreditoValues,
 } from '@/components/SimuladorCredito'
+import { SimulacaoCreditoPdf } from '@/components/SimulacaoCreditoPdf'
+import { imprimirSimulacaoCreditoPdf } from '@/lib/simulacaoCreditoPdf'
 import { saveSimulacaoDraft, type SimulacaoDraft } from '@/lib/simulacaoDraft'
 import { brl } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import './simulacoes.css'
 
 const PRODUTO_LABEL: Record<SimulacaoDraft['produto'], string> = {
   home_equity: 'Home Equity',
@@ -30,32 +34,31 @@ const initialValues: SimulacaoDraft = {
 
 export function PartnerSimulacoes() {
   const navigate = useNavigate()
-  const resultRef = useRef<HTMLDivElement>(null)
   const [values, setValues] = useState<SimulacaoDraft>(initialValues)
-  const [exporting, setExporting] = useState(false)
+  const [settingsLoading, setSettingsLoading] = useState(true)
+  const [settingsError, setSettingsError] = useState('')
   const result = useMemo(() => calcularSimulacao(values), [values])
   const dataSimulacao = new Date().toLocaleDateString('pt-BR')
 
+  useEffect(() => {
+    let mounted = true
+    void supabase.rpc('simulador_parametros_publicos').then(({ data, error }) => {
+      if (!mounted) return
+      if (error) setSettingsError('Não foi possível confirmar o estado das premissas financeiras.')
+      else {
+        const payload = (data ?? {}) as { taxa_juros_mensal_default?: number | string | null }
+        const rate = payload.taxa_juros_mensal_default
+        if (rate !== null && rate !== undefined && Number.isFinite(Number(rate)) && Number(rate) >= 0) {
+          setValues(current => ({ ...current, taxa_juros_mensal: Number(rate) }))
+        }
+      }
+      setSettingsLoading(false)
+    })
+    return () => { mounted = false }
+  }, [])
+
   const patchFinancial = (patch: Partial<SimuladorCreditoValues>) => {
     setValues(current => ({ ...current, ...patch }))
-  }
-
-  async function exportImage() {
-    if (!resultRef.current) return
-    setExporting(true)
-    try {
-      const dataUrl = await toPng(resultRef.current, {
-        cacheBust: true,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-      })
-      const link = document.createElement('a')
-      link.download = `simulacao-mercurio-${new Date().toISOString().slice(0, 10)}.png`
-      link.href = dataUrl
-      link.click()
-    } finally {
-      setExporting(false)
-    }
   }
 
   function shareWhatsApp() {
@@ -71,6 +74,8 @@ export function PartnerSimulacoes() {
       `1ª parcela: ${brl(calculo.primeiraParcela * 100)}`,
       `Última parcela: ${brl(calculo.ultimaParcela * 100)}`,
       `Renda mínima: ${brl(calculo.rendaMinima * 100)}/mês`,
+      'Prévia sem IOF, TAC, registro e seguros. Esses encargos aguardam validação financeira e podem alterar parcelas e totais. Na modalidade pós-fixada, a variação futura do IPCA também não está projetada. Não representa aprovação nem condição final.',
+      'Anexe manualmente o PDF desta simulação antes de enviar.',
     ].join('\n')
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer')
   }
@@ -81,25 +86,33 @@ export function PartnerSimulacoes() {
   }
 
   return (
-    <>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-navy">Simulador</h1>
-        <p className="text-sm text-silver-600">Monte uma condição comercial e converta em proposta.</p>
-      </div>
+    <main className="partner-simulator">
+      <header className="partner-simulator__header">
+        <div>
+          <p className="partner-simulator__eyebrow"><span /> Simulação comercial</p>
+          <h1>Simulador</h1>
+          <p>Monte uma condição comercial e converta em proposta.</p>
+        </div>
+        <span className="partner-simulator__status"><i /> Prévia em edição</span>
+      </header>
 
-      <div className="card p-5">
-        <div className="mb-5 grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="label">Produto</label>
+      <section className="partner-simulator__workspace" aria-label="Simulação comercial">
+        <div className="partner-simulator__form-heading">
+          <span>01</span>
+          <div><h2>Condições da operação</h2><p>Defina os parâmetros para calcular a proposta.</p></div>
+        </div>
+        <div className="partner-simulator__top-fields">
+          <label className="partner-simulator__field">
+            <span>Produto</span>
             <select className="input" value={values.produto} onChange={event => setValues(current => ({ ...current, produto: event.target.value as SimulacaoDraft['produto'] }))}>
               {Object.entries(PRODUTO_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
-          </div>
-          <div>
-            <label className="label">Tipo de pessoa</label>
-            <div className="inline-flex rounded-md border border-silver-200 p-1">
+          </label>
+          <div className="partner-simulator__field">
+            <span>Tipo de pessoa</span>
+            <div className="partner-simulator__choice" role="group" aria-label="Tipo de pessoa">
               {(['PF', 'PJ'] as const).map(tipo => (
-                <button key={tipo} type="button" onClick={() => setValues(current => ({ ...current, pessoa_tipo: tipo }))} className={`rounded btn-no-liquid px-5 py-2 text-sm font-medium ${values.pessoa_tipo === tipo ? 'bg-red-600 text-white' : 'text-silver-600 hover:bg-silver-50'}`}>{tipo}</button>
+                <button key={tipo} type="button" aria-pressed={values.pessoa_tipo === tipo} onClick={() => setValues(current => ({ ...current, pessoa_tipo: tipo }))} className={`btn-no-liquid partner-simulator__choice-button ${values.pessoa_tipo === tipo ? 'is-active' : ''}`}>{tipo}</button>
               ))}
             </div>
           </div>
@@ -109,31 +122,36 @@ export function PartnerSimulacoes() {
           values={values}
           onChange={patchFinancial}
           result={result}
-          resultRef={resultRef}
-          resultClassName="shadow-sm"
+          commercialLayout
+          resultClassName="partner-simulator__result"
           resultHeader={(
-            <div className="mb-5 border-b border-silver-200 pb-4">
-              <p className="text-sm font-bold text-navy">MERCURIO CAPITAL</p>
-              <p className="mt-1 text-lg font-semibold text-silver-900">{PRODUTO_LABEL[values.produto]}</p>
-              <p className="text-xs text-silver-500">{values.pessoa_tipo} · Simulação comercial</p>
+            <div className="partner-simulator__result-header">
+              <img src={Logo} alt="Mercurio Capital" width={120} height={32} />
+              <div><p>MERCURIO CAPITAL</p><h2>{PRODUTO_LABEL[values.produto]}</h2><small>{values.pessoa_tipo} · Simulação comercial</small></div>
             </div>
           )}
-          resultFooter={<p className="mt-5 border-t border-silver-200 pt-3 text-[11px] text-silver-500">Simulação em {dataSimulacao}. Condições sujeitas à análise e aprovação.</p>}
+          resultFooter={<p className="partner-simulator__result-footer"><strong>Atualizado agora</strong><span>Simulação em {dataSimulacao}. Condições sujeitas à análise e aprovação.</span></p>}
         />
-      </div>
+      </section>
 
-      <div className="mt-4 flex flex-wrap justify-end gap-2">
-        <button type="button" className="btn-outline" onClick={() => void exportImage()} disabled={exporting}>
-          {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-          {exporting ? 'Exportando…' : 'Exportar imagem'}
+      <section role="status" className="partner-simulator__notice">
+        <AlertTriangle aria-hidden="true" />
+        <div><strong>Prévia sem encargos financeiros</strong><p>IOF, TAC, registro e seguros ainda aguardam validação financeira e podem alterar parcelas e totais. A variação futura do IPCA também não está projetada. {settingsLoading ? 'Verificando as premissas…' : settingsError || 'Esta simulação não representa uma condição final nem aprovação de crédito.'}</p></div>
+      </section>
+
+      <div className="partner-simulator__actions">
+        <button type="button" className="btn-no-liquid partner-simulator__action" onClick={imprimirSimulacaoCreditoPdf}>
+          <Download className="h-4 w-4" /> Salvar prévia em PDF
         </button>
-        <button type="button" className="btn-outline" onClick={shareWhatsApp}>
-          <MessageCircle className="h-4 w-4" /> Compartilhar no WhatsApp
+        <button type="button" className="btn-no-liquid partner-simulator__action" onClick={shareWhatsApp}>
+          <MessageCircle className="h-4 w-4" /> Compartilhar
         </button>
-        <button type="button" className="btn-gold" onClick={convertToProposal}>
+        <button type="button" className="btn-no-liquid partner-simulator__action partner-simulator__action--primary" onClick={convertToProposal}>
           <FilePlus2 className="h-4 w-4" /> Converter em proposta
         </button>
       </div>
-    </>
+
+      <SimulacaoCreditoPdf values={values} produto={PRODUTO_LABEL[values.produto]} pessoaTipo={values.pessoa_tipo} />
+    </main>
   )
 }

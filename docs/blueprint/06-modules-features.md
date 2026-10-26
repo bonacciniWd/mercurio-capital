@@ -61,6 +61,7 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - `/p/simulacoes`: simulador comercial rápido com resultado em tempo real, exportação PNG e compartilhamento manual via `wa.me`.
 - `/p/propostas`, `/p/propostas/nova` (Wizard 7 passos — ver §05 mapa visual).
 - `/p/kanban` (pipeline scoped por partner/equipe; leitura para team member e movimentos sujeitos ao backend).
+- O Kanban mantém Standby como primeira coluna e inclui a etapa Pré-aprovado entre Análise Crédito e Análise Imóvel. Standby continua visível no quadro operacional; Pré-aprovado não libera contrato para parceiro/cliente.
 - `/admin/propostas/nova` (Wizard em modo admin, com seleção obrigatória de parceiro `approved` ou `pending`).
 - Mobile (Expo): `mobile/app/propostas/nova.tsx` (wizard compartilhado) e `mobile/app/(admin)/propostas-nova.tsx` (entrada admin).
 - `/p/propostas/:id` com tabs: **Resumo · Proponentes · Imóveis · Documentos · Histórico · Kanban**.
@@ -173,6 +174,7 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - `/admin/clientes`, `/admin/clientes/:id`.
 - `/admin/propostas`, `/admin/propostas/:id`, `/admin/propostas/kanban`.
 - `/admin/rede` (React Flow): grafo Admin → Parceiros → Equipes → Membros → Leads → Propostas, com cores por status.
+- A UI atual de originação representa os parceiros/equipes retornados por `admin_rede_graph`. A aba separada de organograma interno permite navegar, localizar pessoas e arrastar cards; posições são locais à visualização. Admin full edita cargo, departamento, gestor e data de início diretamente no painel, com as RPCs existentes. Conectar gestor → colaborador prepara um vínculo para confirmação; arrastar a posição nunca altera a gestão. Catálogos podem ser criados no painel; cargo não modifica RBAC.
 - `/admin/documentos`, `/admin/documentos/pendentes`.
 - `/admin/financeiro`, `/admin/financeiro/contratos`.
 - `/admin/relatorios`, `/admin/relatorios/exportar`.
@@ -309,7 +311,7 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 
 ## M14 — Programa de Milestones (Parceiro)
 
-**Objetivo**: engajar parceiros com um programa de prêmios progressivos vinculado ao volume de crédito CGI liberado (em centavos). Exibe o progresso individual e os prêmios já conquistados ou em andamento.
+**Objetivo**: engajar parceiros com um programa de prêmios progressivos vinculado à soma do valor solicitado das propostas elegíveis do parceiro autenticado. São elegíveis propostas de qualquer produto nos status `registro_af`, `recurso_liberado`, `pagamento_comissao` e `completo`.
 
 ### Tela
 - `/p/milestones` → `PartnerMilestones` (componente em `src/pages/partner/Milestones.tsx`).
@@ -318,8 +320,8 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 
 1. **Header** — título da página e subtexto descritivo.
 2. **Hero card** — card escuro (`#07101e → #0d1c32`) com:
-   - Total liberado em CGI (em BRL).
-   - Contador de contratos fechados e data de atualização.
+   - Volume elegível para milestones, formatado em BRL.
+   - Contador de propostas elegíveis e data de atualização.
    - **Barra de progresso geral** com efeito de expansão animática ao montar (`0 → N%`, `transition: width 1.4s cubic-bezier(0.22,1,0.36,1)`) em vermelho pulsante (`#ef4444`, `animation: bar-pulse 1.8s ease-in-out infinite`).
    - Ticks verticais marcando as posições reais das metas (ex: R$ 5M = 5%, R$ 50M = 50% do range de 100M).
    - Labels de escala (`R$ 0`, `R$ 5M`, `R$ 50M`, `R$ 100M`) com `position: absolute` alinhadas às posições reais.
@@ -327,40 +329,38 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
    - **Borda elétrica** via canvas `useElectricCanvas` (fBm noise sobre perímetro de rect arredondado). Canvas posicionado fora do `overflow-hidden` com `top/left: -OFFSET`, dimensões sincronizadas por `ResizeObserver`.
    - Estado **Conquistado**: `displacement=42`, `speed=2.2`, `lineWidth=2`, glow radial no topo + `drop-shadow` colorido na imagem.
    - Estado **Bloqueado**: `displacement=22`, `speed=0.8`, `lineWidth=1`, imagem em `grayscale(1) opacity(0.3)`.
-   - **Imagem do prêmio**: SVG 300×250 em `src/assets/milestones/` (`rolex.svg`, `bmw.svg`, `corvette.svg`), carregados via `new URL(..., import.meta.url).href`.
+   - **Imagem do prêmio**: configurada pelo admin em `partner_milestones`, via `image_storage_path` no bucket `milestone-images` ou `image_url` como fallback.
    - **Barra de progresso individual** com cor e glow na cor do milestone.
 4. **Rodapé** — nota sobre validação e link para regulamento.
 
-### Milestones configurados (mock)
+### Metas iniciais configuradas
 
-| Meta CGI (centavos) | Label | Prêmio | Cor |
+| Meta (centavos) | Label | Prêmio | Cor |
 |---|---|---|---|
 | 500.000.000 | R$ 5 Milhões | Rolex Submariner | `#D4AF37` (ouro) |
 | 5.000.000.000 | R$ 50 Milhões | BMW 330e M Sport | `#60a5fa` (azul) |
 | 10.000.000.000 | R$ 100 Milhões | Corvette C8 | `#f87171` (vermelho) |
 
-> `CURRENT_CGI` é atualmente um valor mock (`1_250_000_000 = R$ 12.500.000`). Em produção deverá vir de query em `propostas` somando `valor_credito` dos contratos liberados do parceiro autenticado.
+> O acumulado é consultado por `partner_milestones_progress()`, função somente leitura executada como invoker. Ela deriva o parceiro autenticado com `app_partner_id()` e soma `propostas.valor_solicitado` uma vez por proposta elegível, sob RLS. Não filtra produto nem depende de linhas em `liberacoes_recurso`.
 
 ### Hook reutilizável
 - `useElectricCanvas(opts)` — em `src/hooks/useElectricCanvas.ts`. Aceita: `color`, `speed`, `displacement`, `borderRadius`, `offset`, `lineWidth`. Retorna `canvasRef`.
 
-### Assets
-- `src/assets/milestones/rolex.svg` — Rolex Submariner ilustrado (fundo escuro, ouro).
-- `src/assets/milestones/bmw.svg` — BMW 330e ilustrado (azul escuro, rodas com raios).
-- `src/assets/milestones/corvette.svg` — Corvette C8 ilustrado (vermelho escuro, perfil fastback).
+### Assets legados
+- SVGs locais Rolex, BMW e Corvette continuam no repositório, mas não são a fonte das imagens apresentadas em `/p/milestones`; a configuração atual do admin é a fonte de verdade.
 
 ### Acesso via sidebar
 - `PartnerLayout` exibe `ElectricBannerCard` (carrossel 5s com crossfade) linkando para `/p/milestones`. Banners em `src/assets/promotions/`.
 
 ### Regras de negócio
-- Progresso geral calculado como `(CURRENT_CGI / 10_000_000_000) * 100`, limitado a 100%.
-- Progresso individual: `(CURRENT_CGI / m.target) * 100`, limitado a 100%.
-- `unlocked = CURRENT_CGI >= m.target`.
+- Progresso geral calculado contra a maior meta ativa configurada pelo admin, limitado a 100%; não há teto de meta hardcoded.
+- Progresso individual: `(volume_elegivel / m.target_centavos) * 100`, limitado a 100%.
+- `unlocked = volume_elegivel >= m.target_centavos`.
 - Prêmios entregues após validação manual pela equipe Mercurio Capital.
 
 ### DoD
-- [ ] `CURRENT_CGI` substituir por query real no Supabase (`sum(valor_credito) where status='liberado' and partner_id=auth.uid()`).
-- [ ] Milestones migrar para tabela `milestone_config` (editável pelo admin).
+- [x] Volume elegível calculado por RPC read-only scoped à sessão do parceiro.
+- [x] Milestones configuráveis pelo admin em `partner_milestones`, incluindo imagens via Storage/URL.
 - [ ] Registro de entrega em tabela `milestone_entregas` (parceiro, milestone, data, admin responsável).
 - [ ] Notificação WhatsApp ao conquistar novo milestone.
 
