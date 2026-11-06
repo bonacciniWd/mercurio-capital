@@ -1,6 +1,21 @@
 # Checklist de release — Mercurio Capital
 
-<!-- RELEASE_CURRENT_VERSION: 0.3.0 -->
+<!-- RELEASE_CURRENT_VERSION: 0.3.1 -->
+
+## Hotfix desktop atual — v0.3.1 (2026-11-06)
+
+- [x] v0.3.0 retirada do canal estável; `latest` volta a v0.2.2 até publicação do hotfix.
+- [x] Diagnóstico: `app.asar` v0.3.0 não continha dependências runtime do `electron-updater`; build limpo com `npm ci` reproduziu o pacote completo.
+- [x] Validador de artefato percorre dependências runtime do updater no ASAR; Intel e ARM incluem 16 pacotes cada.
+- [x] macOS Intel e ARM empacotados; apps e DMGs assinados, notarizados, grampeados e aceitos pelo Gatekeeper.
+- [x] Smoke do processo principal Intel iniciou sem erro do updater; “Checking for update” confirmou carregamento. Interrompido antes do download porque `latest` permanece temporariamente em v0.2.2.
+- [x] Instaladores/feeds de Windows e Linux v0.2.2 copiados sem alteração para manter `/download` funcional na nova release; hashes SHA-256 comparados com v0.2.2.
+- [ ] Nova release estável v0.3.1 publicada com feed e hashes conferidos.
+- [ ] Confirmação de abertura no Mac do usuário sem regressão do updater.
+
+O web de produção permanece v0.3.0; esta correção é somente desktop e não inclui deploy manual Vercel/Supabase.
+
+Evidências locais v0.3.1 (2026-11-06): 55 arquivos/241 testes aprovados; lint 0 erros (33 avisos existentes); typecheck e `validate:release` aprovados. Notarizações Apple: app Intel `e159e1bf-18bd-47d3-88d0-3f9df53af512`, app ARM `71e87460-a159-4295-a2c4-eb29636fe43a`, DMG ARM `52cad72f-163a-411f-947f-123259e53252` e DMG Intel `892ee02c-5b83-46d3-b5ca-1ffcd911fd7e`, todas `Accepted`. Feed `stable-mac.yml` foi montado com hashes/tamanhos finais dos ZIPs e DMGs.
 
 ## Release atual — v0.3.0 (2026-11-06)
 
@@ -20,7 +35,7 @@ Smoke de cliente instalado v0.2.2 atualizando no macOS não foi executado nesta 
 
 ## Regra de bloqueio
 
-Versao atualmente mapeada: `v0.3.0`.
+Versao atualmente mapeada: `v0.3.1`.
 
 Este checklist nao autoriza publicacao. E proibido criar tag, GitHub Release, promover deploy ou publicar build mobile antes de:
 

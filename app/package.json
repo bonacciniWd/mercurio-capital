@@ -1,7 +1,7 @@
 {
   "name": "mercurio-capital-app",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Desktop foundation for Mercurio Capital web app",
   "homepage": "https://www.mercuriocapitalsa.com.br",
   "author": {
@@ -27,7 +27,8 @@
     "desktop:dev:web": "vite --host 127.0.0.1 --port 5173",
     "desktop:dev:app": "wait-on tcp:5173 && cross-env ELECTRON_START_URL=http://127.0.0.1:5173 electron .",
     "desktop:dev": "concurrently -k -n WEB,DESKTOP \"npm:desktop:dev:web\" \"npm:desktop:dev:app\"",
-    "desktop:pack:mac": "electron-builder --config electron-builder.json --mac --x64 --arm64 --publish never",
+    "desktop:pack:mac": "electron-builder --config electron-builder.json --mac --x64 --arm64 --publish never && npm run desktop:validate:runtime",
+    "desktop:validate:runtime": "node scripts/validate-desktop-runtime.mjs",
     "desktop:pack:win": "electron-builder --config electron-builder.json --win --x64 --publish never",
     "desktop:pack:linux": "electron-builder --config electron-builder.json --linux AppImage deb --x64 --publish never",
     "desktop:build": "npm run build:desktop:web && npm run desktop:pack:mac && npm run desktop:pack:win && npm run desktop:pack:linux",
