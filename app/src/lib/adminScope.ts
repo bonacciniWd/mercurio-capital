@@ -19,6 +19,7 @@ const RESTRICTED_ADMIN_NAV_ALLOWLIST = new Set<string>([
   '/admin/propostas',
   '/admin/leads/simulacoes',
   '/admin/relatorios',
+  '/admin/integracoes/whatsapp',
 ])
 
 // Retorna o admin_nivel efetivo da sessão, ou null se não for admin.
@@ -78,6 +79,8 @@ export function isAdminPathAllowed(pathname: string, nivel: AdminNivel): boolean
     // Detalhe de proposta (`propostas/:id`): limitado e juridico.
     return true
   }
+
+  if (segments.length === 2 && segments[0] === 'integracoes' && segments[1] === 'whatsapp') return true
 
   if (segments.length === 2 && segments[0] === 'leads' && segments[1] === 'simulacoes') {
     return true

@@ -5,7 +5,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatDateBr } from '@/lib/dateBr'
 import { buildWhatsappUrl, formatLeadPhone, resolveSimulationMessage, type ConfigMensagensSimulador } from '@/lib/mensagensSimulador'
-import { commercialStatusLabel, emailStatusLabel, leadCep, leadMoney, leadPercent, leadProjectStage, leadProperty, leadPropertyStatus, leadReceived, leadSystem, leadTerm, leadType, type EmailStatus, type LeadRow } from '@/lib/simulacaoLeadPresentation'
+import { commercialStatusLabel, emailStatusLabel, leadCep, leadInterestLabel, leadMoney, leadPercent, leadProjectStage, leadProperty, leadPropertyStatus, leadReceived, leadSystem, leadTerm, leadType, type EmailStatus, type LeadRow } from '@/lib/simulacaoLeadPresentation'
 
 export function EmailStatusBadge({ label, status }: { label: string; status: EmailStatus }) {
   const color = status === 'enviado' ? 'bg-emerald-50 text-emerald-800'
@@ -16,8 +16,12 @@ export function EmailStatusBadge({ label, status }: { label: string; status: Ema
 }
 
 export function WhatsAppContact({ lead, config, compact = false }: { lead: LeadRow; config: ConfigMensagensSimulador | null | undefined; compact?: boolean }) {
-  const message = lead.tipo_simulacao === 'cpc'
-    ? `Olá ${lead.nome_completo.trim() || 'cliente'}, recebemos sua solicitação de análise de projeto na modalidade Crédito para Construção (CPC) da Mercúrio Capital. Gostaria de conversar sobre os próximos passos?`
+  const message = lead.tipo_simulacao === 'merx'
+    ? lead.interesse === 'parceiro_originador'
+      ? `Olá ${lead.nome_completo.trim() || 'tudo bem'}, recebemos seu pedido de contato sobre parceria e originação enviado pelo assistente MERX da Mercúrio Capital. Gostaria de conversar sobre como funciona o cadastro de parceiro?`
+      : `Olá ${lead.nome_completo.trim() || 'cliente'}, recebemos seu pedido de contato enviado pelo assistente MERX da Mercúrio Capital. Gostaria de conversar sobre ${leadInterestLabel(lead.interesse)}?`
+    : lead.tipo_simulacao === 'cpc'
+      ? `Olá ${lead.nome_completo.trim() || 'cliente'}, recebemos sua solicitação de análise de projeto na modalidade Crédito para Construção (CPC) da Mercúrio Capital. Gostaria de conversar sobre os próximos passos?`
     : resolveSimulationMessage(config, { nome: lead.nome_completo, tipo: lead.tipo_simulacao, valor: Number(lead.valor_credito) })
   const href = buildWhatsappUrl(lead.telefone, message)
   const label = compact ? `Preparar WhatsApp para ${lead.nome_completo}` : 'Preparar contato no WhatsApp'
@@ -31,6 +35,7 @@ export function SimulacaoLeadDetalhe({ lead, config, onClose }: { lead: LeadRow;
   const closeRef = useRef<HTMLButtonElement>(null)
   const isAmortization = lead.tipo_simulacao === 'amortizacao'
   const isCpc = lead.tipo_simulacao === 'cpc'
+  const isMerx = lead.tipo_simulacao === 'merx'
   const received = leadReceived(lead.created_at)
   const comparison = lead.resultado_com_amortizacao
 
@@ -85,7 +90,7 @@ export function SimulacaoLeadDetalhe({ lead, config, onClose }: { lead: LeadRow;
             <Detail label="Estado comercial" value={commercialStatusLabel[lead.status_comercial ?? 'novo']} />
             <Detail label="Última alteração" value={lead.status_comercial_updated_at ? formatDateBr(lead.status_comercial_updated_at) : 'Ainda não alterado'} />
           </Section>
-          {!isCpc && <dl className="grid grid-cols-1 gap-4 rounded-xl border border-red-100 bg-red-50/50 p-5 min-[400px]:grid-cols-2">
+          {!isCpc && !isMerx && <dl className="grid grid-cols-1 gap-4 rounded-xl border border-red-100 bg-red-50/50 p-5 min-[400px]:grid-cols-2">
             <div><dt className="text-xs font-medium text-silver-700">Crédito simulado</dt><dd className="mt-2 break-words text-xl font-semibold tabular-nums text-red-700">{leadMoney(lead.valor_credito)}</dd></div>
             <div><dt className="text-xs font-medium text-silver-700">{isAmortization ? 'Primeira parcela' : 'Parcela estimada'}</dt><dd className="mt-2 break-words text-xl font-semibold tabular-nums">{leadMoney(isAmortization ? lead.primeira_parcela : lead.parcela_estimada)}</dd></div>
           </dl>}
@@ -94,7 +99,12 @@ export function SimulacaoLeadDetalhe({ lead, config, onClose }: { lead: LeadRow;
             <Detail label="E-mail" value={lead.email} wide />
             <Detail label="Telefone" value={formatLeadPhone(lead.telefone)} />
           </Section>
-          {isCpc ? <Section title="Projeto CPC">
+          {isMerx ? <Section title="Solicitação de contato MERX">
+            <Detail label="Cidade informada" value={lead.cidade} />
+            <Detail label="Interesse" value={leadInterestLabel(lead.interesse)} />
+            <Detail label="Consentimento registrado" value={`${formatDateBr(lead.consentimento_em)} · ${lead.consentimento_versao || 'Versão não informada'}`} wide />
+            <Detail label="Origem" value={lead.origem} wide />
+          </Section> : isCpc ? <Section title="Projeto CPC">
             <Detail label="Fase do projeto" value={leadProjectStage(lead.fase_projeto)} wide />
             <Detail label="Cidade" value={lead.cidade} />
             <Detail label="UF" value={lead.uf} />

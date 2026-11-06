@@ -1,3 +1,4 @@
+import { WhatsAppTemplateCatalog } from '@/components/admin/whatsapp/TemplateCatalog'
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -176,6 +177,7 @@ export function AdminTemplates() {
 
   return (
     <>
+      {filter === 'whatsapp' && <WhatsAppTemplateCatalog />}
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-navy">Templates de mensagem</h1>
@@ -263,7 +265,7 @@ export function AdminTemplates() {
                 <div><label className="label">Corpo {editing.canal === 'email' ? '(HTML)' : ''}</label><textarea className={`input font-mono text-xs ${editing.canal === 'email' ? 'min-h-[300px]' : 'min-h-[180px]'}`} value={editing.corpo ?? ''} onChange={event => setEditing(current => ({ ...current!, corpo: event.target.value }))} /></div>
                 <div><label className="label">Variáveis declaradas</label><input className="input" value={editing.variaveis?.join(', ') ?? ''} onChange={event => setEditing(current => current ? { ...current, variaveis: event.target.value.split(',').map(item => item.trim()).filter(Boolean) } : current)} /><div className="mt-2 flex flex-wrap gap-1">{declaredVariables.map(variable => <code key={variable} className="rounded bg-silver-100 px-2 py-1 text-xs">{`{{${variable}}}`}</code>)}</div></div>
                 {(missingVariables.length > 0 || unusedVariables.length > 0) && <div className="rounded-md border border-warning/30 bg-warning/5 p-3 text-xs text-warning">{missingVariables.length > 0 && <p>Placeholders não declarados: {missingVariables.map(item => `{{${item}}}`).join(', ')}</p>}{unusedVariables.length > 0 && <p className="mt-1">Variáveis declaradas sem uso: {unusedVariables.join(', ')}</p>}</div>}
-                {editing.canal === 'whatsapp' && <div className="grid gap-3 rounded-md border border-green-200 bg-green-50 p-3 sm:grid-cols-2"><div><label className="label">Template aprovado Meta</label><input className="input" value={editing.wa_template_nome ?? ''} onChange={event => setEditing(current => ({ ...current!, wa_template_nome: event.target.value }))} /></div><div><label className="label">Idioma</label><input className="input" value={editing.wa_idioma ?? 'pt_BR'} onChange={event => setEditing(current => ({ ...current!, wa_idioma: event.target.value }))} /></div></div>}
+                {editing.canal === 'whatsapp' && <div className="grid gap-3 rounded-md border border-green-200 bg-green-50 p-3 sm:grid-cols-2"><div><label className="label">Nome Meta configurado (não comprova aprovação)</label><input className="input" value={editing.wa_template_nome ?? ''} onChange={event => setEditing(current => ({ ...current!, wa_template_nome: event.target.value }))} /></div><div><label className="label">Idioma</label><input className="input" value={editing.wa_idioma ?? 'pt_BR'} onChange={event => setEditing(current => ({ ...current!, wa_idioma: event.target.value }))} /></div></div>}
                 <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={editing.ativo ?? true} disabled={isCritical} onChange={event => setEditing(current => ({ ...current!, ativo: event.target.checked }))} /> Ativo</label>
               </div>
               <div className="space-y-3">

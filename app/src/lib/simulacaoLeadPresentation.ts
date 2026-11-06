@@ -3,7 +3,7 @@ export type LeadRow = {
   status_comercial?: CommercialStatus | null
   status_comercial_updated_at?: string | null
   status_comercial_updated_by?: string | null
-  tipo_simulacao: 'home_equity' | 'amortizacao' | 'cpc'
+  tipo_simulacao: 'home_equity' | 'amortizacao' | 'cpc' | 'merx'
   nome_completo: string
   email: string
   telefone: string
@@ -45,6 +45,7 @@ export type LeadRow = {
   uf?: string | null
   fase_projeto?: string | null
   resumo_projeto?: string | null
+  interesse?: string | null
   created_at: string
 }
 
@@ -105,8 +106,20 @@ export function leadCep(value: string | null): string {
 }
 
 export function leadType(lead: LeadRow): string {
+  if (lead.tipo_simulacao === 'merx') return lead.interesse === 'parceiro_originador' ? 'Potencial parceiro · MERX' : 'Atendimento · MERX'
   if (lead.tipo_simulacao === 'cpc') return 'Crédito para Construção · CPC'
   return lead.tipo_simulacao === 'amortizacao' ? 'Amortização' : 'Home Equity'
+}
+
+export function leadInterestLabel(value: string | null | undefined): string {
+  const labels: Record<string, string> = {
+    atendimento: 'Atendimento geral',
+    home_equity: 'Home Equity',
+    construcao: 'Crédito para Construção',
+    financiamento_imobiliario: 'Financiamento Imobiliário',
+    parceiro_originador: 'Potencial parceiro originador',
+  }
+  return value ? labels[value] ?? value : 'Atendimento geral'
 }
 
 export function leadSystem(lead: LeadRow): string {
@@ -114,6 +127,7 @@ export function leadSystem(lead: LeadRow): string {
 }
 
 export function leadTerm(lead: LeadRow): string {
+  if (lead.tipo_simulacao === 'merx') return 'Não aplicável'
   if (lead.tipo_simulacao === 'cpc') return 'Não aplicável'
   const value = lead.tipo_simulacao === 'amortizacao' ? lead.quantidade_parcelas : lead.prazo_meses
   return value == null ? 'Prazo não informado' : `${value} ${lead.tipo_simulacao === 'amortizacao' ? 'parcelas' : 'meses'}`

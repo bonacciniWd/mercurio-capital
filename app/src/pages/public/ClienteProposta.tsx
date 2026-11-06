@@ -91,6 +91,9 @@ function describeMagicLinkError(payload: MagicLinkConsumePayload): string {
   if (payload.error === 'rate_limited') {
     return 'Muitas tentativas em sequência. Aguarde um minuto e tente novamente.'
   }
+  if (payload.reason === 'aceite_consultas_nao_registrado') {
+    return 'Não foi possível registrar sua instrução para consultas. Nenhuma autorização foi ativada; solicite um novo link ao parceiro e, ao entrar, deixe a opção desmarcada.'
+  }
   return 'Não foi possível iniciar a sessão do cliente. Solicite uma nova emissão do link.'
 }
 
@@ -101,6 +104,7 @@ export function ClienteProposta() {
   const [peek, setPeek] = useState<Peek | null>(null)
   const [consuming, setConsuming] = useState(false)
   const [consumeError, setConsumeError] = useState<string | null>(null)
+  const [aceiteConsultas, setAceiteConsultas] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -187,6 +191,19 @@ export function ClienteProposta() {
                 <br /><b className="text-navy">{peek.cliente_email || 'fornecido pelo parceiro'}</b>
               </p>
 
+                  <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-lg border border-silver-200 bg-silver-50 p-4 text-xs leading-relaxed text-silver-700">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-red-700"
+                      checked={aceiteConsultas}
+                      onChange={event => setAceiteConsultas(event.target.checked)}
+                    />
+                    <span>
+                      <b className="block text-sm text-navy">Instrução para consultas desta proposta (opcional)</b>
+                      Confirmo que solicitei a análise desta proposta e instruo a Mercúrio Capital a encaminhar, para essa finalidade, os dados informados dos proponentes e dos imóveis vinculados a ela aos serviços de crédito, cadastro e registros imobiliários integrados e habilitados. A consulta efetiva depende da disponibilidade do serviço e das validações aplicáveis. O registro será feito em meu nome como cliente principal e não representa aceite individual dos demais proponentes. Novos provedores ou finalidades fora dessas categorias exigirão atualização das informações e do escopo.
+                    </span>
+                  </label>
+
               <button
                 type="button"
                 onClick={async () => {
@@ -195,7 +212,7 @@ export function ClienteProposta() {
                   setConsumeError(null)
                   try {
                     const { data, error: fnErr } = await supabase.functions.invoke('magic-link-consume', {
-                      body: { token },
+                      body: { token, aceite_consultas: aceiteConsultas },
                     })
                     if (fnErr) {
                       const errorPayload = await readMagicLinkError(fnErr)

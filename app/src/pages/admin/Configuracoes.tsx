@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Building2, Bell, Shield, Globe, Users, Save, TrendingUp, CheckCircle2, XCircle, Upload, Trash2, MailCheck, Loader2, Copy, Check, AlertTriangle, Workflow, Megaphone, FileText, Flag, Plug, ScrollText, Settings, Tags, Plus, Calculator } from 'lucide-react'
+import { Building2, Bell, Shield, Globe, Users, Save, TrendingUp, CheckCircle2, XCircle, Upload, Trash2, MailCheck, Loader2, Copy, Check, AlertTriangle, Workflow, Megaphone, FileText, Flag, Plug, ScrollText, Settings, Tags, Plus, Calculator, MessageCircle } from 'lucide-react'
 import { Badge } from '@/components/Badge'
 import { TwoFactorManager } from '@/components/TwoFactorManager'
 import { supabase } from '@/lib/supabase'
 import { publicAppUrl } from '@/lib/publicUrl'
 import { DEFAULT_SIMULATION_MESSAGE, type ConfigMensagensSimulador, type RegraMensagemSimulador } from '@/lib/mensagensSimulador'
 import { EquipeInterna } from '@/components/admin/EquipeInterna'
+import { MerxPublicaTab } from '@/components/admin/MerxPublicaTab'
 import {
   normalizarSimuladorParametros,
   simuladorParametrosVazios,
@@ -26,6 +27,7 @@ const TABS = [
   { id: 'metas', icon: TrendingUp, label: 'Metas' },
   { id: 'classificador', icon: Settings, label: 'Classificador de leads' },
   { id: 'simulador', icon: Calculator, label: 'Parâmetros do simulador' },
+  { id: 'merx', icon: MessageCircle, label: 'MERX pública' },
   { id: 'operacao', icon: Settings, label: 'Módulos operacionais' },
 ]
 
@@ -64,6 +66,7 @@ export function AdminConfiguracoes() {
           {tab === 'metas' && <MetasTab />}
           {tab === 'classificador' && <><ClassificadorLeadsTab /><MensagensContatoSimulador /></>}
           {tab === 'simulador' && <SimuladorParametrosTab />}
+          {tab === 'merx' && <MerxPublicaTab />}
           {tab === 'operacao' && <ModulosOperacionaisTab />}
         </div>
       </div>

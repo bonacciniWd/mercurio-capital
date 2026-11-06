@@ -47,6 +47,12 @@ const sections = [
             resumo do projeto. O formulário não solicita valor de crédito, CPF, documentos ou endereço completo.
           </li>
           <li>
+            <strong>MERX pública:</strong> nome, cidade, e-mail, telefone e assunto de interesse, somente quando a
+            pessoa solicita contato e autoriza o retorno. O assunto pode indicar interesse em crédito ou em cadastro
+            como parceiro originador; esse pedido não cria uma conta de parceiro. As mensagens digitadas no chat não
+            são armazenadas nem enviadas a um modelo de IA.
+          </li>
+          <li>
             <strong>Home Equity:</strong> nome, e-mail, telefone, CEP do imóvel, valor aproximado do imóvel,
             crédito solicitado, tipo e situação do imóvel, além de renda mensal (opcional), objetivo do crédito,
             tipo de renda, prazo de contratação e origem do contato, quando preenchidos.
@@ -136,7 +142,8 @@ const sections = [
     content: (
       <p>
         Os formulários públicos apresentam caixas de consentimento com a finalidade informada no próprio fluxo:
-        gerar a simulação e orientar sobre o próximo passo ou receber contato sobre o projeto CPC. Esse aceite não
+        gerar a simulação e orientar sobre o próximo passo, receber contato sobre o projeto CPC ou responder a uma
+        solicitação enviada à MERX pública. Esse aceite não
         é apresentado como autorização genérica para marketing futuro ou compartilhamento sem relação com a
         solicitação. Os tratamentos relacionados às propostas, consultas e operação observam as bases legais
         aplicáveis a cada finalidade.

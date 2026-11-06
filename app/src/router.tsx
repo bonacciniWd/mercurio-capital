@@ -28,6 +28,7 @@ import { PartnerBootstrap } from '@/pages/public/PartnerBootstrap'
 import { PoliticaPrivacidade } from '@/pages/public/PoliticaPrivacidade'
 import { Simulador } from '@/pages/public/Simulador'
 import { CreditoParaConstrucao } from '@/pages/CreditoParaConstrucao'
+import { MerxPublicHost } from '@/components/merx/MerxPublicHost'
 
 import { ClientHome } from '@/pages/client/Home'
 import { ClientPropostaDetalhe } from '@/pages/client/PropostaDetalhe'
@@ -79,8 +80,8 @@ const AdminUniversidade    = lazy(() => import('@/pages/admin/Universidade').the
 const AdminMilestones      = lazy(() => import('@/pages/admin/Milestones').then(m => ({ default: m.AdminMilestones })))
 
 const appRoutes = [
-  { path: '/', element: <Landing /> },
-  { path: '/download', element: <Download /> },
+  { path: '/', element: <MerxPublicHost><Landing /></MerxPublicHost> },
+  { path: '/download', element: <MerxPublicHost><Download /></MerxPublicHost> },
   {
     element: <PublicLayout />,
     children: [
@@ -128,9 +129,9 @@ const appRoutes = [
       },
       { path: '/protocolo', element: <Protocolo /> },
       { path: '/protocolo/:codigo', element: <Protocolo /> },
-      { path: '/credito-para-construcao', element: <CreditoParaConstrucao /> },
+      { path: '/credito-para-construcao', element: <MerxPublicHost><CreditoParaConstrucao /></MerxPublicHost> },
       { path: '/politica-de-privacidade', element: <PoliticaPrivacidade /> },
-      { path: '/simulador', element: <Simulador /> },
+      { path: '/simulador', element: <MerxPublicHost><Simulador /></MerxPublicHost> },
       { path: '/magic/:token', element: <MagicLink /> },
       { path: '/c/proposta/:token', element: <ClienteProposta /> },
       { path: '/convite/:token', element: <ConviteMembro /> },

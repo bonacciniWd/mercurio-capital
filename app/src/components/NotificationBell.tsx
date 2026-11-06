@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bell, Check, CheckCheck, Loader2 } from 'lucide-react'
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
+import { useInfiniteQuery, useQueryClient, useMutation, type InfiniteData } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth/AuthContext'
 
@@ -17,18 +17,26 @@ interface Notif {
 
 export function NotificationBell() {
   const { session } = useAuth()
-  const userId = session?.id
+  const userId = session?.id ?? ''
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
   const popoverRef = useRef<HTMLDivElement | null>(null)
 
-  const { data: notifs, isLoading } = useQuery({
+  const {
+    data: notifPages,
+    isLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery<Notif[], Error, InfiniteData<Notif[]>, readonly ['notificacoes', string], number>({
     queryKey: ['notificacoes', userId],
     enabled: !!userId,
+    initialPageParam: 0,
     refetchInterval: userId ? 60_000 : false,
     refetchOnWindowFocus: true,
-    queryFn: async () => {
-      if (!userId) return []
+    getNextPageParam: (lastPage, allPages) => lastPage.length === 30 ? allPages.length : undefined,
+    queryFn: async ({ pageParam }) => {
+      if (!userId) return [] as Notif[]
 
       const { data, error } = await supabase
         .from('notificacoes')
@@ -37,13 +45,15 @@ export function NotificationBell() {
         .eq('canal', 'in_app')
         .order('lida_em', { ascending: true, nullsFirst: true })
         .order('created_at', { ascending: false })
-        .limit(30)
+        .order('id', { ascending: true })
+        .range(pageParam * 30, pageParam * 30 + 29)
       if (error) throw error
       return (data ?? []) as Notif[]
     },
   })
 
-  const naoLidas = (notifs ?? []).filter((n) => n.lida_em == null).length
+  const notifs = notifPages?.pages.flat() ?? []
+  const naoLidas = notifs.filter((n) => n.lida_em == null).length
 
   // Realtime
   useEffect(() => {
@@ -125,11 +135,11 @@ export function NotificationBell() {
               <div className="flex items-center justify-center p-6">
                 <Loader2 className="h-4 w-4 animate-spin text-silver-400" />
               </div>
-            ) : (notifs ?? []).length === 0 ? (
+            ) : notifs.length === 0 ? (
               <p className="p-6 text-center text-xs text-silver-500">Nenhuma notificação.</p>
             ) : (
               <ul className="divide-y divide-silver-100">
-                {(notifs ?? []).map((n) => (
+                {notifs.map((n) => (
                   <li
                     key={n.id}
                     className={`px-4 py-3 ${n.lida_em == null ? 'bg-navy/5' : ''}`}
@@ -165,6 +175,18 @@ export function NotificationBell() {
                   </li>
                 ))}
               </ul>
+            )}
+            {hasNextPage && (
+              <div className="border-t border-silver-100 p-2 text-center">
+                <button
+                  type="button"
+                  className="btn-no-liquid rounded-md px-3 py-1.5 text-xs font-semibold text-navy hover:bg-silver-100 disabled:opacity-50"
+                  onClick={() => { void fetchNextPage() }}
+                  disabled={isFetchingNextPage}
+                >
+                  {isFetchingNextPage ? 'Carregando…' : 'Carregar mais notificações'}
+                </button>
+              </div>
             )}
           </div>
         </div>

@@ -8,7 +8,7 @@ import { AdminPropostaDetalhe } from '@/pages/admin/PropostaDetalhe'
 const state = vi.hoisted(() => ({ legal: false }))
 vi.mock('@/auth/AuthContext', () => ({ useAuth: () => ({ session: { role: 'admin', adminNivel: state.legal ? 'juridico' : 'master' } }) }))
 vi.mock('@/components/PropostaFundos', () => ({ PropostaFundos: () => <div>Fundos vinculados</div> }))
-vi.mock('@/components/PropostaConsultas', () => ({ PropostaConsultas: () => <div>Consultas autorizadas</div> }))
+vi.mock('@/components/PropostaConsultas', () => ({ PropostaConsultas: () => <div>Consultas autorizadas</div>, ProponenteSerasaResumo: () => <div>Resumo Serasa</div> }))
 vi.mock('@/components/PropostaContrato', () => ({ PropostaContrato: () => <div>Contrato da operação</div> }))
 vi.mock('@/components/PropostaPendencias', () => ({ PropostaPendencias: () => <div>Pendências da operação</div> }))
 vi.mock('@/components/PropostaCondicaoComercial', () => ({ PropostaCondicaoComercial: () => <div>Condição comercial</div> }))

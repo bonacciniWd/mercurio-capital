@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type DragEvent } from 'react'
 import { FileText, Upload, X, CheckCircle2, AlertCircle, Loader2, ScanText } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -9,6 +9,7 @@ export type { DocumentoTipo, DocCategoria }
 
 const ACCEPT = '.pdf,.png,.jpg,.jpeg,.webp,.heic,.heif'
 const MAX_BYTES = 20 * 1024 * 1024
+const ACCEPTED_EXTENSIONS = new Set(ACCEPT.split(',').map((extension) => extension.slice(1)))
 
 type Props = {
   propostaId: string
@@ -17,8 +18,19 @@ type Props = {
   /** Quando informado, restringe os tipos exibidos no select. */
   tiposPermitidos?: DocumentoTipo[]
   className?: string
+  /** Habilita seleção múltipla e fila para telas administrativas/parceiro. */
+  enableBatchUpload?: boolean
   /** Chamado após upload/remoção bem-sucedidos (para revalidar checklists externos). */
   onChange?: () => void
+}
+
+type UploadQueueItem = {
+  id: string
+  file: File
+  tipo: DocumentoTipo
+  status: 'queued' | 'uploading' | 'success' | 'error'
+  message?: string
+  retryable: boolean
 }
 
 type DocRow = {
@@ -49,10 +61,26 @@ async function runOcrInBackground(docId: string, file: File) {
   }
 }
 
-export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, className, onChange }: Props) {
+function validateFile(file: File) {
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
+  if (!ACCEPTED_EXTENSIONS.has(extension)) return 'Formato de arquivo não aceito.'
+  if (file.size > MAX_BYTES) return 'Arquivo acima de 20 MB.'
+  return null
+}
+
+function formatFileSize(size: number) {
+  return size >= 1024 * 1024
+    ? `${(size / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(size / 1024))} KB`
+}
+
+export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, className, enableBatchUpload = false, onChange }: Props) {
   const qc = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const [tipoSel, setTipoSel] = useState<DocumentoTipo>(tiposPermitidos?.[0] ?? 'comprovante_residencia')
+  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([])
+  const [isBatchUploading, setIsBatchUploading] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
 
   const { data: docs, isLoading } = useQuery({
     queryKey: ['proposta-docs', propostaId],
@@ -70,7 +98,8 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
 
   const uploadMut = useMutation({
     mutationFn: async ({ file, tipo }: { file: File; tipo: DocumentoTipo }) => {
-      if (file.size > MAX_BYTES) throw new Error('Arquivo acima de 20MB.')
+      const validationError = validateFile(file)
+      if (validationError) throw new Error(validationError)
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
       const categoria: DocCategoria = categoriaForTipo(tipo)
       const path = `${propostaId}/${categoria}/${crypto.randomUUID()}.${ext}`
@@ -110,7 +139,6 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
       return row.id as string
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['proposta-docs', propostaId] }); onChange?.() },
-    onError: (err) => setError(err instanceof Error ? err.message : 'Falha no upload.'),
   })
 
   const removeMut = useMutation({
@@ -124,46 +152,190 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
   })
 
   const tipos = tiposPermitidos ?? (Object.keys(TIPO_LABEL) as DocumentoTipo[])
+  const isUploading = uploadMut.isPending || isBatchUploading
+
+  const uploadFiles = (files: File[]) => {
+    if (!enableBatchUpload) {
+      const file = files[0]
+      if (!file) return
+      const validationError = validateFile(file)
+      if (validationError) {
+        setError(validationError)
+        return
+      }
+      setError(null)
+      void uploadMut.mutateAsync({ file, tipo: tipoSel }).catch((cause) => {
+        setError(cause instanceof Error ? cause.message : 'Falha no upload.')
+      })
+      return
+    }
+
+    if (!files.length || isUploading) return
+    setError(null)
+    setUploadQueue((current) => [
+      ...current,
+      ...files.map((file) => {
+        const validationError = validateFile(file)
+        return {
+          id: crypto.randomUUID(),
+          file,
+          tipo: tipoSel,
+          status: validationError ? 'error' as const : 'queued' as const,
+          message: validationError ?? undefined,
+          retryable: false,
+        }
+      }),
+    ])
+  }
+
+  const processQueue = async (items: UploadQueueItem[]) => {
+    if (!items.length || isUploading) return
+    setIsBatchUploading(true)
+    for (const item of items) {
+      setUploadQueue((current) => current.map((entry) => entry.id === item.id
+        ? { ...entry, status: 'uploading', message: undefined }
+        : entry))
+      try {
+        await uploadMut.mutateAsync({ file: item.file, tipo: item.tipo })
+        setUploadQueue((current) => current.map((entry) => entry.id === item.id
+          ? { ...entry, status: 'success', retryable: false }
+          : entry))
+      } catch (cause) {
+        setUploadQueue((current) => current.map((entry) => entry.id === item.id
+          ? {
+              ...entry,
+              status: 'error',
+              message: cause instanceof Error ? cause.message : 'Falha no upload.',
+              retryable: true,
+            }
+          : entry))
+      }
+    }
+    setIsBatchUploading(false)
+  }
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setIsDragging(false)
+    if (!isUploading) uploadFiles(Array.from(event.dataTransfer.files))
+  }
+
+  const queuedFiles = uploadQueue.filter((item) => item.status === 'queued')
+  const failedFiles = uploadQueue.filter((item) => item.status === 'error')
 
   return (
     <div className={cn('space-y-4', className)}>
-      <div className="rounded-lg border-2 border-dashed border-silver-300 bg-silver-50 p-4">
+      <div
+        data-testid="proposta-docs-dropzone"
+        className={cn(
+          'rounded-lg border-2 border-dashed border-silver-300 bg-silver-50 p-4 transition-colors',
+          enableBatchUpload && 'min-h-28',
+          isDragging && 'border-gold bg-gold/10',
+        )}
+        onDragEnter={enableBatchUpload ? (event) => { event.preventDefault(); setIsDragging(true) } : undefined}
+        onDragOver={enableBatchUpload ? (event) => { event.preventDefault(); setIsDragging(true) } : undefined}
+        onDragLeave={enableBatchUpload ? (event) => {
+          if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setIsDragging(false)
+        } : undefined}
+        onDrop={enableBatchUpload ? handleDrop : undefined}
+      >
         <p className="mb-3 text-sm font-medium text-navy">Enviar novo documento</p>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <select
-            className="rounded-md border border-silver-300 bg-white px-3 py-2 text-sm"
-            value={tipoSel}
-            onChange={(e) => setTipoSel(e.target.value as DocumentoTipo)}
-            disabled={uploadMut.isPending}
-          >
-            {tipos.map((t) => (
-              <option key={t} value={t}>{TIPO_LABEL[t]}</option>
-            ))}
-          </select>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <label className="grid gap-1 text-xs font-medium text-silver-600">
+            <span>{enableBatchUpload ? 'Tipo padrão para novos arquivos' : 'Tipo de documento'}</span>
+            <select
+              className="rounded-md border border-silver-300 bg-white px-3 py-2 text-sm text-navy"
+              value={tipoSel}
+              aria-label={enableBatchUpload ? 'Tipo padrão para novos arquivos' : 'Tipo de documento'}
+              onChange={(e) => setTipoSel(e.target.value as DocumentoTipo)}
+              disabled={isUploading}
+            >
+              {tipos.map((t) => (
+                <option key={t} value={t}>{TIPO_LABEL[t]}</option>
+              ))}
+            </select>
+          </label>
           <label
             className={cn(
               'btn-gold inline-flex cursor-pointer items-center gap-2 text-sm',
-              uploadMut.isPending && 'pointer-events-none opacity-60',
+              'focus-within:ring-2 focus-within:ring-gold focus-within:ring-offset-2',
+              isUploading && 'pointer-events-none opacity-60',
             )}
           >
-            {uploadMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            {uploadMut.isPending ? 'Enviando…' : 'Selecionar arquivo'}
+            {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {isUploading ? 'Enviando…' : enableBatchUpload ? 'Selecionar arquivos' : 'Selecionar arquivo'}
             <input
               type="file"
-              className="hidden"
+              className={enableBatchUpload ? 'sr-only' : 'hidden'}
               accept={ACCEPT}
+              multiple={enableBatchUpload}
+              aria-label={enableBatchUpload ? 'Selecionar arquivos' : 'Selecionar arquivo'}
+              disabled={isUploading}
               onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (f) {
-                  setError(null)
-                  uploadMut.mutate({ file: f, tipo: tipoSel })
-                }
+                if (e.target.files?.length) uploadFiles(Array.from(e.target.files))
                 e.target.value = ''
               }}
             />
           </label>
         </div>
-        <p className="mt-2 text-xs text-silver-500">PDF, JPG, PNG ou WEBP — até 20MB.</p>
+        <p className="mt-2 text-xs text-silver-500">
+          {enableBatchUpload
+            ? 'Selecione ou arraste arquivos; revise o tipo de cada um antes de enviar.'
+            : 'PDF, JPG, PNG ou WEBP — até 20 MB.'}
+        </p>
+        {enableBatchUpload && uploadQueue.length > 0 && (
+          <div className="mt-4 space-y-3" aria-live="polite">
+            <ul className="divide-y divide-silver-200 rounded-md border border-silver-200 bg-white">
+              {uploadQueue.map((item) => (
+                <li key={item.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 sm:flex-1">
+                    <p className="truncate text-sm font-medium text-navy" title={item.file.name}>{item.file.name}</p>
+                    <p className="text-xs text-silver-500">{formatFileSize(item.file.size)}</p>
+                  </div>
+                  <label className="grid min-w-0 gap-1 text-xs font-medium text-silver-600 sm:w-56">
+                    <span>Tipo deste arquivo</span>
+                    <select
+                      className="w-full rounded-md border border-silver-300 bg-white px-2 py-1.5 text-sm text-navy"
+                      aria-label={`Tipo de documento para ${item.file.name}`}
+                      value={item.tipo}
+                      disabled={isUploading || item.status === 'success'}
+                      onChange={(event) => setUploadQueue((current) => current.map((entry) => entry.id === item.id
+                        ? { ...entry, tipo: event.target.value as DocumentoTipo }
+                        : entry))}
+                    >
+                      {tipos.map((tipo) => <option key={tipo} value={tipo}>{TIPO_LABEL[tipo]}</option>)}
+                    </select>
+                  </label>
+                  <div className="flex shrink-0 items-center gap-2 sm:min-w-36 sm:justify-end">
+                    <p className={cn('text-xs', item.status === 'error' ? 'text-danger' : 'text-silver-500')}>
+                      {item.status === 'queued' ? 'Aguardando envio' : item.status === 'uploading' ? 'Enviando…' : item.status === 'success' ? 'Enviado' : item.message}
+                    </p>
+                    {item.status === 'success' && <CheckCircle2 className="h-4 w-4 text-success" aria-label="Enviado" />}
+                    {item.status === 'uploading' && <Loader2 className="h-4 w-4 animate-spin text-gold" aria-label="Enviando" />}
+                    {item.status === 'error' && item.retryable && (
+                      <button type="button" className="btn-no-liquid text-xs text-danger" disabled={isUploading} onClick={() => void processQueue([{ ...item, status: 'queued', retryable: false }])}>
+                        Tentar novamente
+                      </button>
+                    )}
+                    {(item.status === 'queued' || item.status === 'error') && !isUploading && (
+                      <button type="button" className="btn-no-liquid rounded-full p-1 text-silver-500 hover:text-danger" aria-label={`Remover ${item.file.name} da fila`} title="Remover da fila" onClick={() => setUploadQueue((current) => current.filter((entry) => entry.id !== item.id))}>
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {queuedFiles.length > 0 && (
+              <button type="button" className="btn-no-liquid btn-gold" disabled={isUploading} onClick={() => void processQueue(queuedFiles)}>
+                {isBatchUploading ? 'Enviando lote…' : `Enviar ${queuedFiles.length} ${queuedFiles.length === 1 ? 'arquivo' : 'arquivos'}`}
+              </button>
+            )}
+            {failedFiles.length > 0 && !failedFiles.some((item) => item.retryable) && (
+              <p className="text-xs text-danger">Revise os arquivos inválidos e selecione-os novamente após corrigir o problema.</p>
+            )}
+          </div>
+        )}
       </div>
 
       {error && (

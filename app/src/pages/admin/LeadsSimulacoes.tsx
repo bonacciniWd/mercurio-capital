@@ -134,7 +134,7 @@ export function AdminLeadsSimulacoes() {
     return (leadsQuery.data ?? []).filter((lead) => {
       const created = new Date(lead.created_at)
       const location = locationFor(lead)
-      const matchesSearch = !term || [lead.nome_completo, lead.email, lead.telefone, location?.cidade, location?.uf].some(value => value?.toLowerCase().includes(term))
+      const matchesSearch = !term || [lead.nome_completo, lead.email, lead.telefone, lead.cidade, location?.cidade, location?.uf, leadType(lead), lead.interesse].some(value => value?.toLowerCase().includes(term))
       const matchesFrom = !fromDate || created >= fromDate
       const matchesTo = !toDate || created <= toDate
       const matchesStatus = emailStatus === 'all' || lead.status_email_prospect === emailStatus || lead.status_email_interno === emailStatus
@@ -162,7 +162,8 @@ export function AdminLeadsSimulacoes() {
   const invalidRange = Boolean(from && to && from > to)
   // A seleção de UF filtra a tabela, mas não recalcula a demografia do mapa.
   const located = leadsBeforeRegion.filter(lead => locationFor(lead))
-  const unlocatedCount = leadsBeforeRegion.length - located.length
+  const cityWithoutUfCount = leadsBeforeRegion.filter(lead => Boolean(lead.cidade) && !locationFor(lead)).length
+  const unlocatedCount = leadsBeforeRegion.filter(lead => !lead.cidade && !locationFor(lead)).length
   const ufCounts = located.reduce<Record<string, number>>((counts, lead) => {
     const uf = locationFor(lead)?.uf
     if (uf) counts[uf] = (counts[uf] ?? 0) + 1
@@ -173,7 +174,7 @@ export function AdminLeadsSimulacoes() {
   const averageValue = leads.filter(lead => Number(lead.valor_credito) > 0).length
     ? totalValue / leads.filter(lead => Number(lead.valor_credito) > 0).length : 0
   const receivedProspect = leads.filter(lead => lead.status_email_prospect === 'enviado').length
-  const prospectEligible = leads.filter(lead => lead.tipo_simulacao !== 'cpc').length
+  const prospectEligible = leads.filter(lead => lead.tipo_simulacao !== 'cpc' && lead.tipo_simulacao !== 'merx').length
   const responseRate = prospectEligible ? Math.round(receivedProspect / prospectEligible * 100) : null
   const recentLeads = showAll ? visibleLeads : leads.slice(0, 6)
   const ufs = BRAZIL_UFS
@@ -184,13 +185,13 @@ export function AdminLeadsSimulacoes() {
         <div><p className="admin-leads__eyebrow">VISÃO GERAL</p><h1>Distribuição de leads</h1><p>Entenda de onde vêm as oportunidades e acompanhe a localização dos imóveis e projetos.</p></div>
         <div className="admin-leads__heading-filters">
           <label>Período<select value={period} onChange={event => setPeriod(event.target.value as Period)}><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="quarter">Este trimestre</option><option value="year">Este ano</option><option value="all">Todo o período</option></select></label>
-          <label>Produto<select value={product} onChange={event => setProduct(event.target.value)}><option value="all">Todos os produtos</option><option value="home_equity">Home Equity</option><option value="amortizacao">Amortização</option><option value="cpc">Crédito para Construção</option></select></label>
+          <label>Produto<select value={product} onChange={event => setProduct(event.target.value)}><option value="all">Todos os produtos e origens</option><option value="home_equity">Home Equity</option><option value="amortizacao">Amortização</option><option value="cpc">Crédito para Construção</option><option value="merx">Atendimento MERX</option></select></label>
         </div>
       </div>
 
       <section className="admin-leads__stats" aria-label="Indicadores dos leads filtrados">
         <Stat icon={<UserRoundPlus />} label="Leads encontrados" value={String(leads.length)} detail="Nos filtros selecionados" emphasis />
-        <Stat icon={<Globe2 />} label="Localizações identificadas" value={String(located.length)} detail={`${unlocatedCount} sem localização`} />
+        <Stat icon={<Globe2 />} label="Localizações identificadas" value={String(located.length)} detail={`${cityWithoutUfCount} com cidade sem UF · ${unlocatedCount} sem localização`} />
         <Stat icon={<TrendingUp />} label="Volume potencial" value={leads.some(lead => lead.valor_credito != null) ? leadMoney(totalValue) : '—'} detail="Soma dos créditos informados" />
         <Stat icon={<Mail />} label="E-mails ao prospect enviados" value={responseRate === null ? '—' : `${responseRate}%`} detail={`${receivedProspect} de ${prospectEligible} leads de simulador`} />
       </section>
@@ -199,16 +200,16 @@ export function AdminLeadsSimulacoes() {
         <div className="admin-leads__panel admin-leads__map-panel">
           <div className="admin-leads__panel-header"><div><h2>Presença geográfica</h2><p>Localização dos imóveis e projetos informados pelos leads</p></div><label>Região<select value={region} onChange={event => setRegion(event.target.value)}><option value="all">Todas as regiões</option>{ufs.map(uf => <option key={uf} value={uf}>{uf}</option>)}<option value="unknown">Não informada</option></select></label></div>
           <LeadGeographyMap ufCounts={ufCounts} locatedCount={located.length} selectedRegion={region} onSelectRegion={setRegion} />
-          <p className="admin-leads__map-note">Distribuição brasileira por UF · {locationsQuery.isFetching ? 'Consultando CEPs…' : `${unlocatedCount} sem localização identificada`}</p>
+          <p className="admin-leads__map-note">Distribuição brasileira por UF · {locationsQuery.isFetching ? 'Consultando CEPs…' : `${cityWithoutUfCount} com cidade sem UF · ${unlocatedCount} sem localização informada`}</p>
         </div>
-        <aside className="admin-leads__panel admin-leads__insight"><p className="admin-leads__eyebrow">REGIÃO EM DESTAQUE</p><h2>{topUf ? topUf[0] : 'Sem localização'}</h2><p>{topUf ? 'UF com maior número de imóveis ou projetos localizados neste recorte.' : 'Os leads deste recorte ainda não têm localização resolvida.'}</p><div className="admin-leads__donut" style={{ '--progress': `${located.length ? Math.round((topUf?.[1] ?? 0) / located.length * 360) : 0}deg` } as CSSProperties}><div><strong>{topUf?.[1] ?? 0}</strong><span>leads</span></div></div><div className="admin-leads__uf-list">{Object.entries(ufCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([uf, count]) => <div key={uf}><span>{uf}</span><strong>{count}</strong></div>)}<div><span>Ticket médio informado</span><strong>{averageValue ? leadMoney(averageValue) : '—'}</strong></div><div><span>Sem localização</span><strong>{unlocatedCount}</strong></div></div></aside>
+        <aside className="admin-leads__panel admin-leads__insight"><p className="admin-leads__eyebrow">REGIÃO EM DESTAQUE</p><h2>{topUf ? topUf[0] : 'Sem UF no mapa'}</h2><p>{topUf ? 'UF com maior número de imóveis ou projetos localizados neste recorte.' : 'Os leads deste recorte ainda não têm UF para exibição no mapa.'}</p><div className="admin-leads__donut" style={{ '--progress': `${located.length ? Math.round((topUf?.[1] ?? 0) / located.length * 360) : 0}deg` } as CSSProperties}><div><strong>{topUf?.[1] ?? 0}</strong><span>leads</span></div></div><div className="admin-leads__uf-list">{Object.entries(ufCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([uf, count]) => <div key={uf}><span>{uf}</span><strong>{count}</strong></div>)}<div><span>Ticket médio informado</span><strong>{averageValue ? leadMoney(averageValue) : '—'}</strong></div><div><span>Cidade sem UF no mapa</span><strong>{cityWithoutUfCount}</strong></div><div><span>Sem localização informada</span><strong>{unlocatedCount}</strong></div></div></aside>
       </section>
 
       <section aria-label="Filtros de leads" className="admin-leads__filters">
         <div className="grid items-end gap-4 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_165px_165px_185px_185px]">
           <label className="block text-xs font-medium text-silver-700">
             Buscar lead
-            <span className="relative mt-2 block"><Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-3.5 h-4 w-4 text-silver-600" /><input className={`${filterControl} pl-10 pr-3`} placeholder="Nome, e-mail ou telefone" value={search} onChange={event => setSearch(event.target.value)} /></span>
+            <span className="relative mt-2 block"><Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-3.5 h-4 w-4 text-silver-600" /><input className={`${filterControl} pl-10 pr-3`} placeholder="Nome, cidade, e-mail ou telefone" value={search} onChange={event => setSearch(event.target.value)} /></span>
           </label>
           <OptionalDateFilter label="Recebido de" value={from} onChange={setFrom} invalid={invalidRange} />
           <OptionalDateFilter label="Recebido até" value={to} onChange={setTo} invalid={invalidRange} />
@@ -253,7 +254,7 @@ export function AdminLeadsSimulacoes() {
                       const received = leadReceived(lead.created_at)
                       return <tr key={lead.id}>
                         <td><strong>{lead.nome_completo}</strong><span className="admin-leads__contact"><Mail aria-hidden="true" />{lead.email}</span><span className="admin-leads__contact"><Phone aria-hidden="true" />{formatLeadPhone(lead.telefone)}</span></td>
-                        <td><strong>{location?.cidade ?? 'Não informada'}</strong><small>{location ? `${location.uf} · Brasil` : 'Localização indisponível'}</small></td>
+                        <td><strong>{location?.cidade ?? lead.cidade ?? 'Não informada'}</strong><small>{location ? `${location.uf} · Brasil` : lead.cidade ? 'Cidade informada · sem UF' : 'Localização indisponível'}</small></td>
                         <td><span className="admin-leads__product">{leadType(lead)}</span></td>
                         <td><strong>{lead.tipo_simulacao === 'cpc' ? 'Não informado' : leadMoney(lead.valor_credito)}</strong><small>{lead.tipo_simulacao === 'cpc' ? leadProjectStage(lead.fase_projeto) : 'Crédito solicitado'}</small></td>
                         <td><label className="admin-leads__commercial-label"><span className="sr-only">Estado comercial de {lead.nome_completo}</span><select className={`admin-leads__commercial-select is-${lead.status_comercial ?? 'novo'}`} value={lead.status_comercial ?? 'novo'} disabled={!canEditCommercial || statusMutation.isPending} title={canEditCommercial ? 'Alterar estado comercial' : 'Somente leitura'} onChange={event => statusMutation.mutate({ id: lead.id, next: event.target.value as CommercialStatus, expected: lead.status_comercial ?? 'novo' })}>{Object.entries(commercialStatusLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></td>

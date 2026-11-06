@@ -7,6 +7,8 @@ import {
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
 import { BrandLoading } from '@/components/BrandLoading'
+import { useAuth } from '@/auth/AuthContext'
+import { SerasaPFReport } from '@/components/SerasaPFReport'
 
 const TIPO_LABEL: Record<string, string> = {
   bacen_cpf: 'Bacen CPF',
@@ -23,7 +25,7 @@ const TIPO_LABEL: Record<string, string> = {
 const TIPO_META: Record<string, { Icon: typeof Building2; cor: string; grupo: string; hint: string }> = {
   bacen_cpf:               { Icon: Landmark,    cor: 'text-blue-600 bg-blue-50',    grupo: 'Banco Central', hint: 'Relacionamentos bancários PF' },
   bacen_cnpj:              { Icon: Landmark,    cor: 'text-blue-600 bg-blue-50',    grupo: 'Banco Central', hint: 'Relacionamentos bancários PJ' },
-  serasa_pf:               { Icon: ShieldCheck, cor: 'text-orange-600 bg-orange-50', grupo: 'Serasa',       hint: 'Relatório avançado PF com Score' },
+  serasa_pf:               { Icon: ShieldCheck, cor: 'text-orange-600 bg-orange-50', grupo: 'Serasa',       hint: 'Relatório Avançado PF' },
   serasa_pj:               { Icon: ShieldCheck, cor: 'text-orange-600 bg-orange-50', grupo: 'Serasa',       hint: 'Relatório avançado analítico PJ' },
   jusbrasil_cnpj:          { Icon: Scale,       cor: 'text-purple-600 bg-purple-50', grupo: 'Jusbrasil',    hint: 'Processos judiciais CNPJ' },
   escavador_cnpj:          { Icon: Scale,       cor: 'text-purple-600 bg-purple-50', grupo: 'Escavador',    hint: 'Processos e sócios CNPJ' },
@@ -40,6 +42,7 @@ interface Preco {
 
 interface LogRow {
   id: string
+  proponente_id?: string | null
   tipo: string
   status: 'em_andamento' | 'concluida' | 'falha' | 'estornada' | 'reconciliacao_pendente'
   preco_centavos: number
@@ -51,6 +54,24 @@ interface LogRow {
   iniciado_por_nome: string | null
   ambiente?: string | null
   produto_relatorio?: string | null
+  cobranca_modalidade?: 'carteira_parceiro' | 'operacao_interna'
+}
+
+interface ConsultaProponente {
+  id: string
+  nome: string
+  pessoa_tipo: 'PF' | 'PJ' | string
+}
+
+interface ConsultaAceite {
+  id: string
+  escopos: string[]
+  origem: 'portal_digital' | 'atestado_controlador'
+  aceito_em: string | null
+  registrado_em: string
+  atestado_em: string | null
+  revogado_em: string | null
+  versao_texto: string
 }
 
 interface Props {
@@ -59,15 +80,31 @@ interface Props {
 }
 
 export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
+  const { session } = useAuth()
+  const isAdmin = session?.role === 'admin'
   const qc = useQueryClient()
   const [erro, setErro] = useState<string | null>(null)
   const [executingTipo, setExecutingTipo] = useState<string | null>(null)
   const [detalheLog, setDetalheLog] = useState<string | null>(null)
   const [tipoAutorizando, setTipoAutorizando] = useState<string | null>(null)
+  const [proponenteAutorizando, setProponenteAutorizando] = useState<ConsultaProponente | null>(null)
   const [evidenciaId, setEvidenciaId] = useState('')
   const [baseLegal, setBaseLegal] = useState<'procedimentos_preliminares_contrato' | 'protecao_do_credito'>('procedimentos_preliminares_contrato')
   const authorizationKeys = useRef(new Map<string, string>())
   const requestKeys = useRef(new Map<string, string>())
+
+  const proponentesQuery = useQuery({
+    queryKey: ['consulta-proponentes', propostaId],
+    enabled: !!propostaId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('proponentes')
+        .select('id, nome, pessoa_tipo')
+        .eq('proposta_id', propostaId)
+        .order('principal', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as ConsultaProponente[]
+    },
+  })
 
   const evidenciasQuery = useQuery({
     queryKey: ['consulta-evidencias-aprovadas', propostaId],
@@ -82,6 +119,20 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
         .order('created_at', { ascending: false })
       if (error) throw error
       return data ?? []
+    },
+  })
+
+  const aceitesQuery = useQuery({
+    queryKey: ['consulta-aceite-proposta', propostaId],
+    enabled: !!propostaId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('proposta_consulta_aceites')
+        .select('id, escopos, origem, aceito_em, registrado_em, atestado_em, revogado_em, versao_texto')
+        .eq('proposta_id', propostaId)
+        .is('revogado_em', null)
+        .order('registrado_em', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as ConsultaAceite[]
     },
   })
 
@@ -103,7 +154,7 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('v_consultas_proposta')
-        .select('id, tipo, status, preco_centavos, resumo, erro, provedor, ambiente, produto_relatorio, iniciado_em, concluido_em, iniciado_por_nome')
+        .select('id, tipo, proponente_id, status, preco_centavos, resumo, erro, provedor, ambiente, produto_relatorio, iniciado_em, concluido_em, iniciado_por_nome, cobranca_modalidade')
         .eq('proposta_id', propostaId)
         .order('iniciado_em', { ascending: false })
       if (error) throw error
@@ -112,20 +163,36 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
   })
 
   const executar = useMutation({
-    mutationFn: async (input: { tipo: string; documentoId: string; baseLegal: string }) => {
-      const { tipo, documentoId } = input
-      const scope = `${propostaId}:${tipo}`
-      const authorizationKey = authorizationKeys.current.get(scope) ?? crypto.randomUUID()
-      authorizationKeys.current.set(scope, authorizationKey)
-      const { data: authorizationId, error: authorizationError } = await supabase.rpc('consulta_autorizacao_registrar', {
-        p_proposta_id: propostaId,
-        p_tipo: tipo,
-        p_documento_evidencia_id: documentoId,
-        p_base_legal: input.baseLegal,
-        p_chave_registro: authorizationKey,
-      })
-      if (authorizationError || !authorizationId) {
-        throw new Error(authorizationError?.message ?? 'Não foi possível registrar a autorização documentada.')
+    mutationFn: async (input: { tipo: string; proponenteId?: string; documentoId?: string; aceiteConsultaId?: string; baseLegal: string }) => {
+      const { tipo, proponenteId, documentoId, aceiteConsultaId } = input
+      const scope = `${propostaId}:${tipo}:${proponenteId ?? 'sem-proponente'}`
+      let authorizationId: string | null = null
+      if (tipo === 'serasa_pf' || tipo === 'serasa_pj') {
+        const authorizationKey = authorizationKeys.current.get(scope) ?? crypto.randomUUID()
+        authorizationKeys.current.set(scope, authorizationKey)
+        const authorization = aceiteConsultaId
+          ? await supabase.rpc('consulta_autorizacao_registrar_proponente', {
+              p_proposta_id: propostaId,
+              p_tipo: tipo,
+              p_proponente_id: proponenteId,
+              p_documento_evidencia_id: null,
+              p_aceite_consulta_id: aceiteConsultaId,
+              p_base_legal: null,
+              p_chave_registro: authorizationKey,
+            })
+          : await supabase.rpc('consulta_autorizacao_registrar_proponente', {
+              p_proposta_id: propostaId,
+              p_tipo: tipo,
+              p_proponente_id: proponenteId,
+              p_documento_evidencia_id: documentoId,
+              p_aceite_consulta_id: null,
+              p_base_legal: input.baseLegal,
+              p_chave_registro: authorizationKey,
+            })
+        if (authorization.error || !authorization.data) {
+          throw new Error(authorization.error?.message ?? 'Não foi possível registrar a autorização da consulta.')
+        }
+        authorizationId = authorization.data
       }
 
       const requestKey = requestKeys.current.get(scope) ?? crypto.randomUUID()
@@ -133,8 +200,9 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
       const { data, error } = await supabase.functions.invoke('consulta-executar', {
         body: {
           proposta_id: propostaId,
+          ...(proponenteId ? { proponente_id: proponenteId } : {}),
           tipo,
-          autorizacao_id: authorizationId,
+          ...(authorizationId ? { autorizacao_id: authorizationId } : {}),
           chave_idempotencia: requestKey,
         },
       })
@@ -153,9 +221,16 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
 
         const map: Record<string, string> = {
           saldo_insuficiente: 'Saldo insuficiente — recarregue a carteira.',
+          serasa_admin_cota_diaria_excedida: 'Limite diário de consultas Serasa deste Admin atingido. Tente novamente amanhã.',
+          serasa_admin_limite_nao_configurado: 'Limite interno de consultas Serasa indisponível. Contate o administrador.',
+          proponente_obrigatorio: 'Selecione o proponente para esta consulta.',
+          proponente_ou_documento_invalido: 'O documento cadastrado não corresponde ao tipo de pessoa deste proponente.',
+          documento_proponente_invalido: 'O CPF/CNPJ cadastrado para este proponente está ausente ou inválido.',
           wallet_bloqueada: 'Carteira bloqueada pelo admin.',
           preco_nao_configurado: 'Preço não configurado para este tipo.',
-          falha_provedor: 'Falha no provedor — confira o histórico e o estorno.',
+          falha_provedor: isAdmin && (tipo === 'serasa_pf' || tipo === 'serasa_pj')
+            ? 'Falha no provedor — confira o histórico da consulta. Nenhum débito foi feito na carteira do parceiro.'
+            : 'Falha no provedor — confira o histórico e o estorno.',
           bacen_nao_configurado: 'Bacen ainda não configurado — nenhuma consulta foi realizada.',
           serasa_nao_configurado: 'Serasa ainda não configurado — nenhuma consulta foi realizada.',
           documento_titular_invalido: 'O CPF/CNPJ da proposta está ausente ou inválido.',
@@ -169,6 +244,8 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
           resultado_pendente_reconciliacao: 'A consulta foi enviada; o resultado aguarda reconciliação. Não repita agora.',
           estorno_pendente_reconciliacao: 'O estorno aguarda reconciliação. Não repita agora.',
           consulta_em_andamento: 'Esta consulta ainda está em processamento.',
+          provedor_mock_indisponivel: 'Este serviço ainda não está conectado ao provedor real. Nenhum débito foi feito.',
+          aceite_digital_ausente_ou_escopo_invalido: 'O aceite digital do cliente principal ainda não cobre esta consulta.',
         }
         if (ctx?.status && ctx.status >= 400 && ctx.status < 500) {
           authorizationKeys.current.delete(scope)
@@ -190,6 +267,7 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
     onSettled: () => setExecutingTipo(null),
     onSuccess: () => {
       setTipoAutorizando(null)
+      setProponenteAutorizando(null)
       void qc.invalidateQueries({ queryKey: ['consultas-proposta', propostaId] })
       void qc.invalidateQueries({ queryKey: ['wallet-resumo'] })
     },
@@ -206,16 +284,23 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('v_consultas_proposta')
-        .select('id, tipo, status, resumo, erro, provedor, ambiente, produto_relatorio, iniciado_em, concluido_em, preco_centavos')
+        .select('id, tipo, proponente_id, status, resumo, erro, provedor, ambiente, produto_relatorio, iniciado_em, concluido_em, preco_centavos')
         .eq('id', detalheLog!)
         .single()
       if (error) throw error
-      return data
+      if (data.tipo === 'serasa_pf' && data.status === 'concluida') {
+        const { data: report, error: reportError } = await supabase.rpc('consulta_relatorio_obter', { p_log_id: detalheLog! })
+        if (reportError) throw reportError
+        return { ...data, relatorio: report }
+      }
+      return { ...data, relatorio: null }
     },
   })
 
   const precos = precosQuery.data ?? []
   const logs = logsQuery.data ?? []
+  const proponentes = proponentesQuery.data ?? []
+  const aceiteAtivo = aceitesQuery.data?.find(aceite => aceite.revogado_em === null && aceite.escopos.includes(tipoAutorizando ?? '')) ?? null
 
   const ultimoLogPorTipo = new Map<string, LogRow>()
   for (const log of logs) {
@@ -232,7 +317,9 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
             <div>
               <h3 className="text-base font-semibold text-navy">Consultas disponíveis</h3>
               <p className="mt-0.5 text-xs text-silver-500">
-                Cada consulta debita a carteira. Em caso de falha do provedor o valor é estornado automaticamente.
+                {isAdmin
+                  ? 'Consultas Serasa iniciadas por Admin são custo interno da Mercúrio e seguem uma cota diária por usuário. Outros serviços seguem as regras da carteira.'
+                  : 'Cada consulta debita a carteira. Em caso de falha do provedor o valor é estornado automaticamente.'}
               </p>
             </div>
           </div>
@@ -247,6 +334,11 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
                 const meta = TIPO_META[p.tipo]
                 const Icon = meta?.Icon ?? FileSearch
                 const isRunning = executingTipo === p.tipo
+                const isSerasa = p.tipo === 'serasa_pf' || p.tipo === 'serasa_pj'
+                const eligibleProponentes = proponentes.filter(proponente =>
+                  (p.tipo === 'serasa_pf' && proponente.pessoa_tipo === 'PF') ||
+                  (p.tipo === 'serasa_pj' && proponente.pessoa_tipo === 'PJ'),
+                )
                 const ultimo = ultimoLogPorTipo.get(p.tipo)
 
                 const statusClass = ultimo
@@ -279,7 +371,7 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
                       </div>
 
                       <div className="text-right">
-                        <p className="text-[10px] uppercase tracking-wide text-silver-400">Custo</p>
+                        <p className="text-[10px] uppercase tracking-wide text-silver-400">{isAdmin && (p.tipo === 'serasa_pf' || p.tipo === 'serasa_pj') ? 'Custo interno' : 'Custo'}</p>
                         <p className="text-sm font-bold text-red-600">{brl(p.preco_centavos)}</p>
                       </div>
                     </div>
@@ -309,10 +401,35 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
                       <span className="text-silver-500">{ultimo ? formatWhen(ultimo.iniciado_em) : '—'}</span>
                     </div>
 
-                    <button
+                    {isSerasa ? (
+                      <div className="mt-3 space-y-2 border-t border-silver-100 pt-3">
+                        <p className="text-[11px] font-semibold text-silver-600">Escolha o proponente da consulta</p>
+                        {eligibleProponentes.length === 0 ? (
+                          <p className="text-xs text-silver-500">Não há proponente {p.tipo === 'serasa_pf' ? 'PF' : 'PJ'} cadastrado nesta proposta.</p>
+                        ) : eligibleProponentes.map(proponente => {
+                          const applicantLog = logs.find(log => log.tipo === p.tipo && log.proponente_id === proponente.id)
+                          return <button
+                            key={proponente.id}
+                            type="button"
+                            onClick={() => {
+                              setTipoAutorizando(p.tipo)
+                              setProponenteAutorizando(proponente)
+                              setEvidenciaId('')
+                              setBaseLegal('procedimentos_preliminares_contrato')
+                            }}
+                            disabled={executar.isPending}
+                            className="btn-no-liquid inline-flex w-full items-center justify-between gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-left text-sm font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <span className="min-w-0 truncate"><Play className="mr-1 inline h-3.5 w-3.5" />{proponente.nome}</span>
+                            <span className="shrink-0 text-[11px] font-medium">{applicantLog ? statusLabel(applicantLog.status) : 'Consultar'}</span>
+                          </button>
+                        })}
+                      </div>
+                    ) : <button
                       type="button"
                       onClick={() => {
                         setTipoAutorizando(p.tipo)
+                        setProponenteAutorizando(null)
                         setEvidenciaId('')
                         setBaseLegal('procedimentos_preliminares_contrato')
                       }}
@@ -328,7 +445,7 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
                           <Play className="h-4 w-4" /> Executar consulta <ArrowRight className="h-4 w-4" />
                         </>
                       )}
-                    </button>
+                    </button>}
                   </article>
                 )
               })}
@@ -366,10 +483,14 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
             <tbody>
               {logs.map(l => (
                 <tr key={l.id} className="border-t border-silver-100 hover:bg-silver-50">
-                  <td className="px-4 py-3 font-medium text-navy">{TIPO_LABEL[l.tipo] ?? l.tipo}</td>
+                  <td className="px-4 py-3 font-medium text-navy">
+                    {TIPO_LABEL[l.tipo] ?? l.tipo}
+                    {l.proponente_id && <span className="mt-1 block text-[10px] font-normal text-silver-500">{proponentes.find(proponente => proponente.id === l.proponente_id)?.nome ?? 'Proponente'}</span>}
+                  </td>
                   <td className="px-4 py-3"><StatusPill status={l.status} /></td>
                   <td className="px-4 py-3 text-right font-medium">
                     {l.status === 'estornada' ? <span className="text-silver-400 line-through">{brl(l.preco_centavos)}</span> : brl(l.preco_centavos)}
+                    {l.cobranca_modalidade === 'operacao_interna' && <span className="block text-[10px] font-normal text-silver-500">Interno</span>}
                   </td>
                   <td className="px-4 py-3 text-xs text-silver-600">
                     {l.erro ? <span className="text-danger">{l.erro}</span> : <ResumoCell resumo={l.resumo} />}
@@ -386,64 +507,101 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
       </div>
 
       {detalheLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDetalheLog(null)}>
-          <div className="card w-full max-w-2xl p-5" onClick={e => e.stopPropagation()}>
-            <h3 className="mb-3 text-lg font-bold text-navy">Detalhe da consulta</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-6" onClick={() => setDetalheLog(null)}>
+          <div className="card flex max-h-[calc(100vh-24px)] w-full max-w-6xl flex-col overflow-hidden p-4 sm:max-h-[calc(100vh-48px)] sm:p-5" role="dialog" aria-modal="true" aria-labelledby="consulta-detalhe-titulo" onClick={e => e.stopPropagation()}>
+            <div className="mb-3 flex shrink-0 items-start justify-between gap-3">
+              <div><h3 id="consulta-detalhe-titulo" className="text-lg font-bold text-navy">Detalhe da consulta</h3>
+                {detalheQuery.data?.proponente_id && <p className="mt-1 text-xs text-silver-500">{proponentes.find(proponente => proponente.id === detalheQuery.data?.proponente_id)?.nome ?? 'Proponente'}</p>}
+              </div>
+              <button type="button" className="btn-no-liquid btn-outline shrink-0 px-3 py-1.5 text-xs" onClick={() => setDetalheLog(null)}>Fechar</button>
+            </div>
             {detalheQuery.isLoading ? (
               <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+            ) : detalheQuery.isError ? (
+              <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">Não foi possível carregar o relatório detalhado. O acesso e o vínculo à proposta foram validados no servidor.</p>
             ) : detalheQuery.data ? (
-              <div className="max-h-96 overflow-auto rounded bg-silver-50 p-3 text-xs">
-                <p><strong>Provedor:</strong> {detalheQuery.data.provedor ?? '—'}</p>
-                <p><strong>Ambiente:</strong> {detalheQuery.data.ambiente ?? 'histórico anterior'}</p>
-                <p><strong>Produto:</strong> {detalheQuery.data.produto_relatorio ?? 'registro legado'}</p>
-                <p><strong>Status:</strong> {detalheQuery.data.status}</p>
-                <p className="mt-2 font-semibold">Resumo normalizado</p>
-                <pre className="mt-1 whitespace-pre-wrap">{JSON.stringify(detalheQuery.data.resumo ?? {}, null, 2)}</pre>
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 rounded-lg bg-silver-50 px-3 py-2 text-[11px] text-silver-600">
+                  <span><strong>Provedor:</strong> {detalheQuery.data.provedor ?? '—'}</span>
+                  <span><strong>Ambiente:</strong> {detalheQuery.data.ambiente ?? 'histórico anterior'}</span>
+                  <span><strong>Produto:</strong> {detalheQuery.data.produto_relatorio ?? 'registro legado'}</span>
+                  <span><strong>Status:</strong> {detalheQuery.data.status}</span>
+                </div>
+                {detalheQuery.data.tipo === 'serasa_pf'
+                  ? <SerasaPFReport report={detalheQuery.data.relatorio} />
+                  : <div className="rounded bg-silver-50 p-3 text-xs">
+                    <p className="font-semibold">Resumo normalizado</p>
+                    {isSerasaSummary(detalheQuery.data.resumo)
+                      ? <SerasaReportDetails summary={detalheQuery.data.resumo} />
+                      : <pre className="mt-1 whitespace-pre-wrap">{JSON.stringify(detalheQuery.data.resumo ?? {}, null, 2)}</pre>}
+                  </div>}
               </div>
             ) : null}
-            <div className="mt-3 flex justify-end">
-              <button className="btn-outline" onClick={() => setDetalheLog(null)}>Fechar</button>
-            </div>
           </div>
         </div>
       )}
 
       {tipoAutorizando && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onClick={() => setTipoAutorizando(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onClick={() => { setTipoAutorizando(null); setProponenteAutorizando(null) }}>
           <section className="card w-full max-w-lg p-5" role="dialog" aria-modal="true" aria-labelledby="consulta-autorizacao-titulo" onClick={event => event.stopPropagation()}>
-            <h3 id="consulta-autorizacao-titulo" className="text-lg font-bold text-navy">Autorização documentada</h3>
-            <p className="mt-2 text-sm text-silver-600">Selecione o documento aprovado da proposta que registra a autorização do titular para esta consulta Serasa.</p>
-            <label className="mt-4 block text-xs font-semibold text-silver-600" htmlFor="consulta-evidencia">Documento aprovado</label>
-            <select id="consulta-evidencia" className="input mt-1 w-full" value={evidenciaId} onChange={event => setEvidenciaId(event.target.value)}>
-              <option value="">Selecione um documento</option>
-              {(evidenciasQuery.data ?? []).map(document => (
-                <option key={document.id} value={document.id}>{document.tipo} · {new Date(document.created_at).toLocaleDateString('pt-BR')}</option>
-              ))}
-            </select>
-            {evidenciasQuery.isLoading && <p className="mt-2 text-xs text-silver-500">Carregando documentos...</p>}
-            {!evidenciasQuery.isLoading && (evidenciasQuery.data ?? []).length === 0 && (
-              <p className="mt-2 text-xs text-danger">Não há documento aprovado para comprovar a autorização. Anexe e aprove o documento antes de consultar.</p>
+            <h3 id="consulta-autorizacao-titulo" className="text-lg font-bold text-navy">Consulta de {proponenteAutorizando?.nome ?? 'proponente'}</h3>
+            {aceitesQuery.isLoading ? (
+              <p className="mt-3 text-sm text-silver-600">Verificando o aceite registrado pelo cliente...</p>
+            ) : aceiteAtivo?.escopos.includes(tipoAutorizando) ? (
+              <div className="mt-3 rounded-lg border border-success/20 bg-success/5 p-3 text-sm text-silver-700">
+                <p className="font-semibold text-success">{aceiteAtivo.origem === 'atestado_controlador' ? 'Atestado retrospectivo do controlador' : 'Aceite digital do cliente principal localizado'}</p>
+                <p className="mt-1 text-xs">Versão {aceiteAtivo.versao_texto} · {aceiteAtivo.origem === 'atestado_controlador'
+                  ? `Atestado registrado em ${new Date(aceiteAtivo.atestado_em ?? aceiteAtivo.registrado_em).toLocaleString('pt-BR')}. O registro documenta a confirmação do controlador; não comprova clique digital nem informa a data original do aceite.`
+                  : `Aceite registrado em ${new Date(aceiteAtivo.aceito_em ?? aceiteAtivo.registrado_em).toLocaleString('pt-BR')}.`}
+                  {' '}Este registro cobre o escopo desta proposta. A execução ainda depende de integração real, validações e saldo disponível.</p>
+              </div>
+            ) : tipoAutorizando === 'serasa_pf' || tipoAutorizando === 'serasa_pj' ? (
+              <>
+                <p className="mt-2 text-sm text-silver-600">A consulta será feita no documento cadastrado para este proponente. O aceite registrado é do cliente principal e cobre o escopo desta proposta; ele não é um aceite individual do proponente.</p>
+                <label className="mt-4 block text-xs font-semibold text-silver-600" htmlFor="consulta-evidencia">Documento aprovado</label>
+                <select id="consulta-evidencia" className="input mt-1 w-full" value={evidenciaId} onChange={event => setEvidenciaId(event.target.value)}>
+                  <option value="">Selecione um documento</option>
+                  {(evidenciasQuery.data ?? []).map(document => (
+                    <option key={document.id} value={document.id}>{document.tipo} · {new Date(document.created_at).toLocaleDateString('pt-BR')}</option>
+                  ))}
+                </select>
+                {evidenciasQuery.isLoading && <p className="mt-2 text-xs text-silver-500">Carregando documentos...</p>}
+                {!evidenciasQuery.isLoading && (evidenciasQuery.data ?? []).length === 0 && (
+                  <p className="mt-2 text-xs text-danger">Não há documento aprovado para comprovar a autorização. Anexe e aprove o documento antes de consultar.</p>
+                )}
+              </>
+            ) : tipoAutorizando === 'bacen_cpf' || tipoAutorizando === 'bacen_cnpj' ? (
+              <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">O aceite digital do cliente principal é necessário para essa consulta. Sem ele, nenhuma consulta será iniciada.</p>
+            ) : (
+              <p className="mt-3 rounded-lg border border-silver-200 bg-silver-50 p-3 text-sm text-silver-700">Este serviço ainda não está conectado a um provedor real. A execução e a cobrança estão bloqueadas.</p>
             )}
-            <fieldset className="mt-4 space-y-2">
-              <legend className="text-xs font-semibold text-silver-600">Finalidade e base legal registrada</legend>
-              <label className="flex items-center gap-2 text-sm text-silver-700">
-                <input type="radio" name="consulta-base-legal" checked={baseLegal === 'procedimentos_preliminares_contrato'} onChange={() => setBaseLegal('procedimentos_preliminares_contrato')} />
-                Análise de crédito solicitada pelo titular · procedimentos preliminares
-              </label>
-              <label className="flex items-center gap-2 text-sm text-silver-700">
-                <input type="radio" name="consulta-base-legal" checked={baseLegal === 'protecao_do_credito'} onChange={() => setBaseLegal('protecao_do_credito')} />
-                Proteção do crédito
-              </label>
-            </fieldset>
+            {!aceiteAtivo?.escopos.includes(tipoAutorizando) && (tipoAutorizando === 'serasa_pf' || tipoAutorizando === 'serasa_pj') && (
+              <fieldset className="mt-4 space-y-2">
+                <legend className="text-xs font-semibold text-silver-600">Finalidade e base legal da autorização documental</legend>
+                <label className="flex items-center gap-2 text-sm text-silver-700">
+                  <input type="radio" name="consulta-base-legal" checked={baseLegal === 'procedimentos_preliminares_contrato'} onChange={() => setBaseLegal('procedimentos_preliminares_contrato')} />
+                  Análise de crédito solicitada pelo titular · procedimentos preliminares
+                </label>
+                <label className="flex items-center gap-2 text-sm text-silver-700">
+                  <input type="radio" name="consulta-base-legal" checked={baseLegal === 'protecao_do_credito'} onChange={() => setBaseLegal('protecao_do_credito')} />
+                  Proteção do crédito
+                </label>
+              </fieldset>
+            )}
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" className="btn-outline" onClick={() => setTipoAutorizando(null)}>Cancelar</button>
+              <button type="button" className="btn-outline" onClick={() => { setTipoAutorizando(null); setProponenteAutorizando(null) }}>Cancelar</button>
               <button
                 type="button"
                 className="btn-primary"
-                disabled={!evidenciaId || executar.isPending || evidenciasQuery.isLoading}
-                onClick={() => executar.mutate({ tipo: tipoAutorizando, documentoId: evidenciaId, baseLegal })}
+                disabled={executar.isPending || aceitesQuery.isLoading || (!aceiteAtivo?.escopos.includes(tipoAutorizando) && (tipoAutorizando === 'serasa_pf' || tipoAutorizando === 'serasa_pj') && (!evidenciaId || evidenciasQuery.isLoading)) || (!aceiteAtivo?.escopos.includes(tipoAutorizando) && tipoAutorizando !== 'serasa_pf' && tipoAutorizando !== 'serasa_pj')}
+                onClick={() => executar.mutate({
+                  tipo: tipoAutorizando,
+                  ...(proponenteAutorizando ? { proponenteId: proponenteAutorizando.id } : {}),
+                  ...(aceiteAtivo?.escopos.includes(tipoAutorizando) ? { aceiteConsultaId: aceiteAtivo.id } : { documentoId: evidenciaId }),
+                  baseLegal,
+                })}
               >
-                {executar.isPending ? 'Consultando...' : 'Registrar e consultar'}
+                {executar.isPending ? 'Consultando...' : aceiteAtivo?.origem === 'atestado_controlador' ? 'Consultar com atestado registrado' : aceiteAtivo ? 'Consultar com aceite digital' : 'Registrar e consultar'}
               </button>
             </div>
           </section>
@@ -453,6 +611,48 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
       {executar.isPending && (
         <BrandLoading message="Consultando dados externos. Isso pode levar alguns instantes." />
       )}
+    </div>
+  )
+}
+
+export function ProponenteSerasaResumo({
+  propostaId,
+  proponenteId,
+  onOpenConsultas,
+}: {
+  propostaId: string
+  proponenteId: string
+  onOpenConsultas: () => void
+}) {
+  const query = useQuery({
+    queryKey: ['consultas-proposta', propostaId],
+    enabled: !!propostaId && !!proponenteId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('v_consultas_proposta')
+        .select('id, tipo, proponente_id, status, preco_centavos, resumo, erro, provedor, iniciado_em, concluido_em, iniciado_por_nome, ambiente, produto_relatorio, cobranca_modalidade')
+        .eq('proposta_id', propostaId)
+        .order('iniciado_em', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as LogRow[]
+    },
+  })
+  const latest = query.data?.find(log => log.proponente_id === proponenteId && (log.tipo === 'serasa_pf' || log.tipo === 'serasa_pj'))
+
+  if (query.isLoading) return <p className="mt-3 text-xs text-silver-500">Carregando resultados de consulta...</p>
+  if (!latest) return <p className="mt-3 text-xs text-silver-500">Nenhuma consulta Serasa vinculada a este proponente.</p>
+
+  return (
+    <div className="mt-3 rounded-lg border border-silver-200 bg-silver-50 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <strong className="text-xs text-navy">Consulta Serasa mais recente</strong>
+        <StatusPill status={latest.status} />
+      </div>
+      {latest.erro ? <p className="mt-2 text-xs text-danger">{latest.erro}</p> : latest.status === 'concluida' ? (
+        <div className="mt-2 text-xs text-silver-600"><ResumoCell resumo={latest.resumo} /></div>
+      ) : <p className="mt-2 text-xs text-silver-600">Resultado ainda não disponível.</p>}
+      <button type="button" className="btn-no-liquid btn-outline mt-2 text-xs" onClick={onOpenConsultas}>
+        Abrir histórico de consultas
+      </button>
     </div>
   )
 }
@@ -499,6 +699,28 @@ function StatusPill({ status }: { status: LogRow['status'] }) {
 
 function ResumoCell({ resumo }: { resumo: Record<string, unknown> | null }) {
   if (!resumo) return <span className="text-silver-400">—</span>
+  if (isSerasaSummary(resumo)) {
+    const score = resumo.score && typeof resumo.score === 'object'
+      ? resumo.score as Record<string, unknown>
+      : null
+    const negatives = resumo.negativeData && typeof resumo.negativeData === 'object'
+      ? resumo.negativeData as Record<string, unknown>
+      : null
+    const sources = negatives?.sources && typeof negatives.sources === 'object'
+      ? Object.entries(negatives.sources as Record<string, Record<string, unknown>>)
+      : []
+    const parts: string[] = []
+    if (typeof score?.value === 'number') parts.push(`Score ${score.value}`)
+    else parts.push('Score não retornado')
+    for (const [name, data] of sources) {
+      const label = name === 'collectionRecords' ? 'cobranças' : name
+      if (typeof data.count === 'number') parts.push(`${label}: ${data.count}`)
+      else if (typeof data.balance === 'number') parts.push(`${label}: ${formatSerasaCurrency(data.balance)}`)
+    }
+    if (!sources.length && negatives?.available === false) parts.push('negativos não retornados')
+    return <span>{parts.join(' · ')}</span>
+  }
+
   const score = resumo.score
   const totals = resumo.totals as Record<string, unknown> | undefined
   const parts: string[] = []
@@ -512,4 +734,133 @@ function ResumoCell({ resumo }: { resumo: Record<string, unknown> | null }) {
     }
   }
   return <span>{parts.length ? parts.join(' · ') : 'ok'}</span>
+}
+
+function isSerasaSummary(value: unknown): value is Record<string, unknown> & { source: 'serasa_experian' } {
+  return !!value && typeof value === 'object' && (value as Record<string, unknown>).source === 'serasa_experian'
+}
+
+function formatSerasaCurrency(value: number) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+}
+
+function SerasaReportDetails({ summary }: { summary: Record<string, unknown> }) {
+  const score = summary.score && typeof summary.score === 'object'
+    ? summary.score as Record<string, unknown>
+    : null
+  const negativeData = summary.negativeData && typeof summary.negativeData === 'object'
+    ? summary.negativeData as Record<string, unknown>
+    : null
+  const sources = negativeData?.sources && typeof negativeData.sources === 'object'
+    ? Object.entries(negativeData.sources as Record<string, Record<string, unknown>>)
+    : []
+  const sections = Array.isArray(summary.availableSections)
+    ? summary.availableSections.filter((section): section is string => typeof section === 'string')
+    : []
+
+  return (
+    <div className="mt-2 space-y-2">
+      <p><strong>Relatório:</strong> {String(summary.reportName ?? summary.product ?? '—')}</p>
+      <p><strong>Identificação:</strong> {summary.identityAvailable === true ? 'dados retornados' : 'não retornada'}</p>
+      <p><strong>Score:</strong> {typeof score?.value === 'number'
+        ? `${score.value}${typeof score.model === 'string' ? ` · modelo ${score.model}` : ''}`
+        : 'não retornado neste relatório'}</p>
+      <div>
+        <strong>Dados negativos:</strong>
+        {negativeData?.available === false ? (
+          <p>Não retornados pelo provedor.</p>
+        ) : sources.length ? (
+          <ul className="ml-4 list-disc">
+            {sources.map(([name, data]) => (
+              <li key={name}>
+                {name}: {typeof data.count === 'number' ? `${data.count} registro(s)` : 'quantidade não informada'}
+                {typeof data.balance === 'number' ? ` · ${formatSerasaCurrency(data.balance)}` : ''}
+              {name === 'refin' && Array.isArray(data.occurrences) && data.occurrences.length > 0 && (
+                <ul className="ml-4 mt-1 list-[circle]">
+                  {data.occurrences.map((item, index) => {
+                    const occurrence = item && typeof item === 'object'
+                      ? item as Record<string, unknown>
+                      : {}
+                    const parts = [
+                      typeof occurrence.occurrenceDate === 'string' ? occurrence.occurrenceDate : null,
+                      typeof occurrence.legalNatureId === 'string' ? occurrence.legalNatureId : null,
+                      typeof occurrence.legalNature === 'string' ? occurrence.legalNature : null,
+                    ].filter((part): part is string => !!part)
+                    return <li key={`${parts.join('-')}-${index}`}>{parts.join(' · ') || 'Natureza não informada'}</li>
+                  })}
+                </ul>
+              )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>Sem categorias resumidas na resposta. Isso não representa ausência de apontamentos.</p>
+        )}
+      </div>
+      {summary.negativeSummary && typeof summary.negativeSummary === 'object' ? (() => {
+        const negativeSummary = summary.negativeSummary as Record<string, unknown>
+        const rows = Array.isArray(negativeSummary.summaries)
+          ? negativeSummary.summaries.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+          : []
+        return (
+          <div>
+            <strong>Resumo de negativos:</strong>
+            <p>{negativeSummary.hasNegative === true ? 'Há apontamentos negativos.' : negativeSummary.hasNegative === false ? 'O relatório não indica apontamentos negativos.' : 'Resultado não informado.'}</p>
+            {rows.length > 0 && <ul className="ml-4 list-disc">
+              {rows.map((item, index) => <li key={`${String(item.negativeType)}-${index}`}>
+                {String(item.negativeType ?? 'Tipo não informado')}: {typeof item.count === 'number' ? `${item.count} registro(s)` : 'quantidade não informada'}
+                {typeof item.balance === 'number' ? ` · ${formatSerasaCurrency(item.balance)}` : ''}
+                {typeof item.newestNegativeDate === 'string' ? ` · mais recente ${item.newestNegativeDate}` : ''}
+              </li>)}
+            </ul>}
+          </div>
+        )
+      })() : null}
+      {summary.facts && typeof summary.facts === 'object' ? (() => {
+        const facts = summary.facts as Record<string, unknown>
+        const inquiry = facts.inquirySummary && typeof facts.inquirySummary === 'object'
+          ? facts.inquirySummary as Record<string, unknown>
+          : null
+        const monthly = Array.isArray(inquiry?.monthlyCreditInquiries) ? inquiry.monthlyCreditInquiries : []
+        return <div>
+          <strong>Consultas ao crédito:</strong>
+          {inquiry ? <>
+            <p>Mês atual: {typeof inquiry.currentMonth === 'number' ? inquiry.currentMonth : 'não informado'} · bancos: {typeof inquiry.currentMonthBanks === 'number' ? inquiry.currentMonthBanks : '—'} · empresas: {typeof inquiry.currentMonthCompanies === 'number' ? inquiry.currentMonthCompanies : '—'}</p>
+            {monthly.length > 0 && <ul className="ml-4 list-disc">{monthly.map((value, index) => {
+              const row = value && typeof value === 'object' ? value as Record<string, unknown> : {}
+              return <li key={`${String(row.month)}-${index}`}>{String(row.month ?? 'Período não informado')}: {typeof row.occurrences === 'number' ? `${row.occurrences} consulta(s)` : 'quantidade não informada'}</li>
+            })}</ul>}
+          </> : <p>Seção recebida sem resumo de consultas normalizado.</p>}
+        </div>
+      })() : null}
+      {summary.partner && typeof summary.partner === 'object' ? (() => {
+        const partner = summary.partner as Record<string, unknown>
+        const items = Array.isArray(partner.items) ? partner.items : []
+        return <div>
+          <strong>Participações societárias:</strong>
+          {items.length ? <ul className="ml-4 list-disc">{items.map((value, index) => {
+            const row = value && typeof value === 'object' ? value as Record<string, unknown> : {}
+            return <li key={`${String(row.companyName)}-${index}`}>
+              {String(row.companyName ?? 'Empresa não informada')}
+              {typeof row.participationType === 'string' ? ` · ${row.participationType}` : ''}
+              {typeof row.participationPercentage === 'number' ? ` · ${row.participationPercentage}%` : ''}
+              {typeof row.companyStatus === 'string' ? ` · ${row.companyStatus}` : ''}
+            </li>
+          })}</ul> : <p>Nenhuma participação retornada.</p>}
+        </div>
+      })() : null}
+      {summary.checkFilingsHistorical && typeof summary.checkFilingsHistorical === 'object' ? (() => {
+        const checks = summary.checkFilingsHistorical as Record<string, unknown>
+        return <div>
+          <strong>Cheques históricos:</strong>
+          <p>{typeof checks.records === 'number' ? `${checks.records} registro(s)` : 'quantidade não informada'}
+            {typeof checks.quantityChecks === 'number' ? ` · ${checks.quantityChecks} cheque(s)` : ''}
+            {typeof checks.amount === 'number' ? ` · ${formatSerasaCurrency(checks.amount)}` : ''}
+          </p>
+        </div>
+      })() : null}
+      {sections.length > 0 && <p><strong>Seções recebidas:</strong> {sections.join(', ')}</p>}
+      <p><strong>Consultado em:</strong> {typeof summary.consultedAt === 'string' ? new Date(summary.consultedAt).toLocaleString('pt-BR') : '—'}</p>
+    </div>
+  )
 }

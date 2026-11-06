@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sumFundWinnerTotals } from './fundosDashboard'
+import { fundTotalsReconcile, sumFundWinnerTotals } from './fundosDashboard'
 
 describe('totais da distribuição por fundos', () => {
   it('soma somente as operações já atribuídas a um fundo vencedor', () => {
@@ -14,5 +14,27 @@ describe('totais da distribuição por fundos', () => {
       volume_solicitado: 1_200_000,
       volume_ganho: 500_000,
     })
+  })
+
+  it('reconcilia operações e valores sem contar standby entre as elegíveis', () => {
+    expect(fundTotalsReconcile({
+      eligibleOperations: 43,
+      winnerOperations: 3,
+      unassignedOperations: 40,
+      requestedVolume: 121_256_922.12,
+      winnerRequestedVolume: 13_250_000,
+      unassignedRequestedVolume: 108_006_922.12,
+    })).toBe(true)
+  })
+
+  it('detecta contagem ou valor financeiro que não fecha', () => {
+    expect(fundTotalsReconcile({
+      eligibleOperations: 43,
+      winnerOperations: 4,
+      unassignedOperations: 40,
+      requestedVolume: 121_256_922.12,
+      winnerRequestedVolume: 13_250_000,
+      unassignedRequestedVolume: 108_006_922.12,
+    })).toBe(false)
   })
 })

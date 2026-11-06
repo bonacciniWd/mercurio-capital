@@ -27,7 +27,7 @@ import { formatDateBr } from '@/lib/dateBr'
 import { maskCpf, maskCnpj } from '@/lib/documentoBr'
 import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
 import { PropostaPendencias } from '@/components/PropostaPendencias'
-import { PropostaConsultas } from '@/components/PropostaConsultas'
+import { ProponenteSerasaResumo, PropostaConsultas } from '@/components/PropostaConsultas'
 import { PropostaContrato } from '@/components/PropostaContrato'
 
 const TABS = ['Resumo', 'Proponentes', 'Imóveis', 'Documentos', 'Pendências', 'Consultas', 'Contrato', 'Histórico'] as const
@@ -433,6 +433,7 @@ export function PartnerPropostaDetalhe() {
                         <PartnerRow k="Renda declarada" v={p.renda_mensal != null ? brl(Number(p.renda_mensal) * 100) : '—'} />
                       </dl>
                       <div className="proposal-registration-note"><FileText className="h-4 w-4" /><span>Dados declarados no cadastro da proposta.</span></div>
+                      <ProponenteSerasaResumo propostaId={id ?? ''} proponenteId={p.id} onOpenConsultas={() => setTab('Consultas')} />
                     </article>
                   )
                 })}
@@ -485,7 +486,7 @@ export function PartnerPropostaDetalhe() {
       )}
 
       {tab === 'Documentos' && id && (
-        <PropostaDocsUploader propostaId={id} origem="parceiro" />
+        <PropostaDocsUploader propostaId={id} origem="parceiro" enableBatchUpload />
       )}
 
       {tab === 'Pendências' && id && (

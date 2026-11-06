@@ -1,3 +1,4 @@
+import { WhatsAppFlowEditor } from '@/components/admin/whatsapp/FlowEditor'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -149,7 +150,7 @@ function flowToFluxoPatch(nodes: Node[], baseCondicoes: FluxoCondicoes) {
   return { acoes, condicoes: { ...baseCondicoes, _layout: { positions } } as FluxoCondicoes }
 }
 
-export function AdminFluxos() {
+function LegacyAdminFluxos() {
   const qc = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
@@ -527,4 +528,9 @@ export function AdminFluxos() {
       </div>
     </>
   )
+}
+
+export function AdminFluxos() {
+ const [legacy, setLegacy] = useState(false)
+ return <><div className="mb-4 flex gap-2"><button className="btn-no-liquid btn-outline" aria-pressed={!legacy} onClick={() => setLegacy(false)}>WhatsApp · Notificações e atendimento</button><button className="btn-no-liquid btn-outline" aria-pressed={legacy} onClick={() => setLegacy(true)}>Fluxos multicanal existentes</button></div>{legacy ? <LegacyAdminFluxos /> : <WhatsAppFlowEditor />}</>
 }

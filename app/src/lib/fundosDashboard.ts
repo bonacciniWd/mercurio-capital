@@ -17,3 +17,16 @@ export function sumFundWinnerTotals(rows: readonly FundWinnerTotalsRow[]): FundW
     volume_ganho: sum.volume_ganho + Number(row.volume_ganho),
   }), { operacoes_unicas: 0, volume_solicitado: 0, volume_ganho: 0 })
 }
+
+export function fundTotalsReconcile(input: {
+  eligibleOperations: number
+  winnerOperations: number
+  unassignedOperations: number
+  requestedVolume: number
+  winnerRequestedVolume: number
+  unassignedRequestedVolume: number
+}): boolean {
+  const cents = (value: number) => Math.round(value * 100)
+  return input.winnerOperations + input.unassignedOperations === input.eligibleOperations
+    && cents(input.winnerRequestedVolume + input.unassignedRequestedVolume) === cents(input.requestedVolume)
+}

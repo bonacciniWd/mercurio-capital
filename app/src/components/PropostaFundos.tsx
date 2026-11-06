@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Plus, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { invalidateAdminDashboardQueries } from '@/lib/adminDashboardCache'
 import {
   FUNDO_COR_PADRAO,
   FUNDO_STATUS,
@@ -22,6 +23,8 @@ interface AtribuicaoRow {
   fundos: { id: string; nome: string; cor_hex: string; ativo: boolean } | null
 }
 
+interface VencedorRow { proposta_id: string; fundo_id: string; aprovado_em: string }
+
 export function PropostaFundos({ propostaId }: { propostaId: string }) {
   const qc = useQueryClient()
   const [fundoSelecionado, setFundoSelecionado] = useState('')
@@ -31,6 +34,17 @@ export function PropostaFundos({ propostaId }: { propostaId: string }) {
 
   const atribuidosKey = ['admin-proposta-fundos', propostaId]
   const catalogoKey = ['admin-fundos-catalogo']
+
+  const vencedorQuery = useQuery({
+    queryKey: ['admin-proposta-fundo-vencedor', propostaId],
+    enabled: !!propostaId,
+    queryFn: async (): Promise<VencedorRow | null> => {
+      const { data, error } = await supabase.rpc('admin_proposta_fundos_vencedores', { p_proposta_ids: [propostaId] })
+      if (error) throw error
+      return ((data ?? []) as VencedorRow[])[0] ?? null
+    },
+  })
+  const vencedorId = vencedorQuery.data?.fundo_id
 
   const { data: atribuidos = [], isLoading } = useQuery({
     queryKey: atribuidosKey,
@@ -68,6 +82,8 @@ export function PropostaFundos({ propostaId }: { propostaId: string }) {
     void qc.invalidateQueries({ queryKey: atribuidosKey })
     void qc.invalidateQueries({ queryKey: catalogoKey })
     void qc.invalidateQueries({ queryKey: ['admin-kanban-fundos'] })
+    void qc.invalidateQueries({ queryKey: ['admin-proposta-fundo-vencedor', propostaId] })
+    void invalidateAdminDashboardQueries(qc)
   }
 
   const atribuirMut = useMutation({
@@ -135,6 +151,8 @@ export function PropostaFundos({ propostaId }: { propostaId: string }) {
     <div className="card p-4">
       <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-silver-500">Fundos</p>
 
+      {vencedorQuery.error && <p className="mb-3 rounded-md border border-warning/30 bg-warning/5 p-2 text-xs text-silver-700">Não foi possível confirmar o primeiro fundo aprovado. Atualize as funções do Dashboard antes de consultar o vencedor.</p>}
+
       {isLoading ? (
         <div className="flex items-center gap-2 text-sm text-silver-500">
           <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
@@ -145,11 +163,9 @@ export function PropostaFundos({ propostaId }: { propostaId: string }) {
         <ul className="space-y-2">
           {atribuidos.map((a) => (
             <li key={a.fundo_id} className="flex items-center justify-between gap-2 rounded-lg border border-silver-200 p-2">
-              <span
-                className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold text-white"
-                style={{ backgroundColor: a.fundos?.cor_hex ?? '#64748b' }}
-              >
-                {a.fundos?.nome ?? 'Fundo'}
+              <span className="flex min-w-0 flex-col items-start gap-1">
+                <span className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold text-white" style={{ backgroundColor: a.fundos?.cor_hex ?? '#64748b' }}>{a.fundos?.nome ?? 'Fundo'}</span>
+                {a.fundo_id === vencedorId ? <span className="text-[10px] font-semibold text-success">Fundo vencedor · primeira aprovação</span> : a.status_fundo === 'aprovado' ? <span className="text-[10px] text-silver-500">Aprovado · não altera o vencedor</span> : null}
               </span>
               <div className="flex items-center gap-2">
                 <select

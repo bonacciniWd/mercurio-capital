@@ -6,6 +6,7 @@ import { PartnerDocsUploader, type DocSlot } from '@/components/PartnerDocsUploa
 import { supabase } from '@/lib/supabase'
 import { getSenhaMinLength, validarSenha } from '@/lib/securityConfig'
 import { maskCpf, isValidCpf, onlyDigits } from '@/lib/documentoBr'
+import { isValidEmailFormat, normalizeEmail } from '@/lib/emailValidation'
 import partnerRegister from '@/assets/partner-register.jpg'
 
 type Step = 1 | 2 | 3
@@ -52,8 +53,6 @@ const DOC_SLOTS: DocSlot[] = [
   },
 ]
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
 // Mesmo padrão usado no admin (Parceiros.tsx) para evitar divergência visual.
 function formatPhone(raw: string): string {
   const d = onlyDigits(raw).slice(0, 11)
@@ -87,8 +86,8 @@ export function Registro() {
     event.preventDefault()
     setError(null)
 
-    const emailNormalizado = form.email.trim().toLowerCase()
-    if (!EMAIL_REGEX.test(emailNormalizado)) {
+    const emailNormalizado = normalizeEmail(form.email)
+    if (!isValidEmailFormat(emailNormalizado)) {
       setError('Informe um e-mail válido.')
       return
     }
@@ -198,13 +197,14 @@ export function Registro() {
                       <input
                         className="input"
                         type="email"
+                        maxLength={254}
                         autoComplete="email"
                         value={form.email}
                         onChange={(e) => setField('email', e.target.value)}
                         placeholder="voce@empresa.com"
                         required
                       />
-                      {form.email && !EMAIL_REGEX.test(form.email.trim()) && (
+                      {form.email && !isValidEmailFormat(form.email) && (
                         <p className="mt-1 text-xs text-danger">E-mail inválido.</p>
                       )}
                     </div>

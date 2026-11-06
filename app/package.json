@@ -6,7 +6,7 @@
   "homepage": "https://www.mercuriocapitalsa.com.br",
   "author": {
     "name": "Mercurio Capital",
-    "email": "engineering@mercuriocapitalsa.com.br"
+    "email": "desenvolvimento@visionerifatta.space"
   },
   "type": "module",
   "main": "desktop/electron/main.cjs",

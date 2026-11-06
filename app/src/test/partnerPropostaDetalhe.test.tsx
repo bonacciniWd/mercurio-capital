@@ -29,7 +29,7 @@ vi.mock('@/lib/supabase', () => ({
     },
   },
 }))
-vi.mock('@/components/PropostaConsultas', () => ({ PropostaConsultas: () => <div>Consultas do cliente</div> }))
+vi.mock('@/components/PropostaConsultas', () => ({ PropostaConsultas: () => <div>Consultas do cliente</div>, ProponenteSerasaResumo: () => <div>Resumo Serasa</div> }))
 
 import { PartnerPropostaDetalhe } from '@/pages/partner/PropostaDetalhe'
 

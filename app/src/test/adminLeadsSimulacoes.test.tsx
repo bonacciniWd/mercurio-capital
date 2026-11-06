@@ -193,6 +193,49 @@ describe('leads do simulador — tabela e painel lateral', () => {
     expect(new URL(contact.getAttribute('href')!).searchParams.get('text')).toContain('Crédito para Construção (CPC)')
   })
 
+  it('exibe lead MERX, pesquisa pela cidade sem inventar UF ou valores e mostra consentimento no detalhe', async () => {
+    const merxLead = simulationLead({
+      id: 'merx:00000000-0000-4000-8000-000000000201', tipo_simulacao: 'merx', nome_completo: 'Pessoa MERX',
+      email: 'pessoa@example.com', telefone: '41999990000', cidade: 'Curitiba', uf: null, cep: null,
+      interesse: 'construcao', origem: 'Site da Mercúrio · MERX', consentimento_versao: 'merx_publica_v1',
+      valor_credito: null, valor_imovel: null, prazo_meses: 0, taxa_juros_mensal: 0,
+      parcela_estimada: null, ltv: null, tipo_imovel: null, situacao_imovel: null, renda_mensal: null,
+      objetivo_credito: null, tipo_renda: null, prazo_contratacao: null,
+      status_email_prospect: null, status_email_interno: null,
+    })
+    renderLeads([merxLead])
+    await screen.findByText('Pessoa MERX')
+    expect(screen.getByText('Atendimento · MERX')).toBeInTheDocument()
+    expect(screen.getByText('Cidade informada · sem UF')).toBeInTheDocument()
+    expect(screen.queryByText(/R\$\s*0,00/)).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Buscar lead'), { target: { value: 'Curitiba' } })
+    expect(screen.getByText('Pessoa MERX')).toBeInTheDocument()
+
+    const { dialog } = await openLead('Pessoa MERX')
+    expect(within(dialog).getByText('Solicitação de contato MERX')).toBeInTheDocument()
+    expect(within(dialog).getByText('Curitiba')).toBeInTheDocument()
+    expect(within(dialog).getByText(/Crédito para construção/i)).toBeInTheDocument()
+    expect(within(dialog).getByText(/merx_publica_v1/)).toBeInTheDocument()
+    expect(within(dialog).queryByText('Crédito simulado')).not.toBeInTheDocument()
+  })
+
+  it('identifica pedidos MERX de parceria como potenciais originadores no painel', async () => {
+    const partnerLead = simulationLead({
+      id: 'merx:00000000-0000-4000-8000-000000000202', tipo_simulacao: 'merx', nome_completo: 'Parceiro Interessado',
+      email: 'parceiro@example.com', telefone: '41999990000', cidade: 'Curitiba', uf: null, cep: null,
+      interesse: 'parceiro_originador', origem: 'Site da Mercúrio · MERX', consentimento_versao: 'merx_publica_v1',
+      valor_credito: null, valor_imovel: null, prazo_meses: 0, taxa_juros_mensal: 0,
+      parcela_estimada: null, ltv: null, tipo_imovel: null, situacao_imovel: null, renda_mensal: null,
+      objetivo_credito: null, tipo_renda: null, prazo_contratacao: null,
+      status_email_prospect: null, status_email_interno: null,
+    })
+    renderLeads([partnerLead])
+    await screen.findByText('Parceiro Interessado')
+    expect(screen.getByText('Potencial parceiro · MERX')).toBeInTheDocument()
+    const { dialog } = await openLead('Parceiro Interessado')
+    expect(within(dialog).getByText('Potencial parceiro originador')).toBeInTheDocument()
+  })
+
   it('parte de Novo, grava mudança comercial via RPC e mantém o estado do e-mail separado', async () => {
     renderLeads()
     const select = await screen.findByLabelText('Estado comercial de Marina Exemplo')

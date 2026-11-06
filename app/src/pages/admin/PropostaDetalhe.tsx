@@ -26,13 +26,14 @@ import {
   XCircle,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { invalidateAdminDashboardQueries } from '@/lib/adminDashboardCache'
 import { brl } from '@/lib/utils'
 import { calcularFinanciamento, calcularLTV, somarValoresImoveis } from '@/lib/credito'
 import { formatReais, parseReaisInput } from '@/components/MoneyInput'
 import { maskCpf, maskCnpj } from '@/lib/documentoBr'
 import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
 import { PropostaPendencias } from '@/components/PropostaPendencias'
-import { PropostaConsultas } from '@/components/PropostaConsultas'
+import { ProponenteSerasaResumo, PropostaConsultas } from '@/components/PropostaConsultas'
 import { PropostaContrato } from '@/components/PropostaContrato'
 import { PropostaFundos } from '@/components/PropostaFundos'
 import { PropostaCondicaoComercial } from '@/components/PropostaCondicaoComercial'
@@ -504,6 +505,7 @@ export function AdminPropostaDetalhe() {
       if (error) throw error
     },
     onSuccess: () => {
+      void invalidateAdminDashboardQueries(qc)
       qc.invalidateQueries({ queryKey: ['admin-proposta', id] })
       qc.invalidateQueries({ queryKey: ['admin-proposta-historico', id] })
       qc.invalidateQueries({ queryKey: ['admin-propostas'] })
@@ -521,6 +523,7 @@ export function AdminPropostaDetalhe() {
       if (error) throw error
     },
     onSuccess: () => {
+      void invalidateAdminDashboardQueries(qc)
       qc.invalidateQueries({ queryKey: ['admin-proposta-historico', id] })
       setDataComissao('')
       setMotivoComissao('')
@@ -545,6 +548,7 @@ export function AdminPropostaDetalhe() {
     },
     onSuccess: async () => {
       await Promise.all([
+        invalidateAdminDashboardQueries(qc),
         qc.invalidateQueries({ queryKey: ['admin-proposta', id] }),
         qc.invalidateQueries({ queryKey: ['admin-proposta-proponentes', id] }),
         qc.invalidateQueries({ queryKey: ['admin-proposta-imoveis', id] }),
@@ -1174,6 +1178,7 @@ export function AdminPropostaDetalhe() {
                           <Row k="Renda declarada" v={p.renda_mensal != null ? brl(Number(p.renda_mensal) * 100) : '—'} />
                         </dl>
                         <div className="proposal-registration-note"><FileText className="h-4 w-4" /><span>Dados declarados no cadastro da proposta.</span></div>
+                        <ProponenteSerasaResumo propostaId={id ?? ''} proponenteId={p.id} onOpenConsultas={() => setTab('Consultas')} />
                       </article>
                     )
                   })}
@@ -1432,7 +1437,7 @@ export function AdminPropostaDetalhe() {
             })()}
           </div>
 
-          <PropostaDocsUploader propostaId={id} origem="parceiro" onChange={() => qc.invalidateQueries({ queryKey: ['admin-proposta-docs', id] })} />
+          <PropostaDocsUploader propostaId={id} origem="parceiro" enableBatchUpload onChange={() => qc.invalidateQueries({ queryKey: ['admin-proposta-docs', id] })} />
         </div>
       )}
 

@@ -1,8 +1,12 @@
+import { WhatsAppInbox } from '@/components/admin/whatsapp/Inbox'
+import { WhatsAppAutomationSettings } from '@/components/admin/whatsapp/Settings'
+import { useAuth } from '@/auth/AuthContext'
+import { isRestrictedAdmin } from '@/lib/adminScope'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Zap, Save, Send, Loader2, CheckCircle2, AlertTriangle, Copy, RefreshCw,
+  ArrowLeft, Zap, Save, Loader2, CheckCircle2, AlertTriangle, Copy, RefreshCw,
 } from 'lucide-react'
 import { Badge } from '@/components/Badge'
 import { supabase } from '@/lib/supabase'
@@ -56,19 +60,17 @@ const MSG_BADGE: Record<string, 'green' | 'red' | 'yellow' | 'gray' | 'blue'> = 
 }
 
 const SECRETS_COMPLETOS = [
-  'WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID', 'WHATSAPP_BUSINESS_ACCOUNT_ID',
-  'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN',
+  'WHATSAPP_ACCESS_TOKEN',
+  'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'WHATSAPP_WORKER_SECRET',
 ]
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL ?? ''}/functions/v1/whatsapp-webhook`
 
-export function AdminWhatsAppConfig() {
+function LegacyWhatsAppConfig() {
   const qc = useQueryClient()
   const [cfg, setCfg] = useState<WhatsappConfigData>({})
   const [dirty, setDirty] = useState(false)
   const [testando, setTestando] = useState(false)
-  const [testeTel, setTesteTel] = useState('')
-  const [testeMsg, setTesteMsg] = useState('Olá! Mensagem de teste da Mercurio Capital via WhatsApp Cloud API.')
   const [feedback, setFeedback] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
   const [copiado, setCopiado] = useState(false)
 
@@ -142,27 +144,6 @@ export function AdminWhatsAppConfig() {
       setTestando(false)
     }
   }
-
-  const enviarTeste = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('whatsapp-send', {
-        body: { telefone: testeTel, corpo: testeMsg, referencia_tipo: 'teste_admin' },
-      })
-      if (error) throw error
-      return data as { status: string; dev_mode?: boolean }
-    },
-    onSuccess: (data) => {
-      setFeedback({
-        tipo: 'ok',
-        texto: data.dev_mode
-          ? 'Modo dev: mensagem registrada sem envio real (credenciais ausentes).'
-          : 'Mensagem enviada.',
-      })
-      qc.invalidateQueries({ queryKey: ['whatsapp-mensagens'] })
-      qc.invalidateQueries({ queryKey: ['whatsapp-config'] })
-    },
-    onError: (e: Error) => setFeedback({ tipo: 'erro', texto: e.message }),
-  })
 
   function patch(p: Partial<WhatsappConfigData>) {
     setCfg(prev => ({ ...prev, ...p }))
@@ -239,7 +220,7 @@ export function AdminWhatsAppConfig() {
             {/* Configurações avançadas */}
             <div className="card p-5">
               <h2 className="font-semibold text-navy">Configurações avançadas</h2>
-              <p className="mt-1 text-xs text-silver-500">Parâmetros não-secretos. Token, Phone Number ID e App Secret permanecem nos secrets do Supabase.</p>
+              <p className="mt-1 text-xs text-silver-500">IDs da conta e do número são parâmetros não secretos. Token, App Secret, Verify Token e Worker Secret permanecem nos secrets do Supabase.</p>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="label">Número (rótulo)</label>
@@ -314,29 +295,10 @@ export function AdminWhatsAppConfig() {
 
           {/* Coluna lateral */}
           <div className="space-y-6">
-            {/* Enviar teste */}
+            {/* Test send is available only through an authorized active conversation. */}
             <div className="card p-5">
-              <h2 className="font-semibold text-navy">Enviar mensagem de teste</h2>
-              <p className="mt-1 text-xs text-silver-500">Texto livre só é entregue dentro da janela de 24h após o cliente te responder; fora disso use templates aprovados.</p>
-              <div className="mt-3 space-y-3">
-                <div>
-                  <label className="label">Telefone (com DDD)</label>
-                  <input className="input" value={testeTel} placeholder="11999998888"
-                    onChange={e => setTesteTel(e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Mensagem</label>
-                  <textarea className="input min-h-[90px]" value={testeMsg} onChange={e => setTesteMsg(e.target.value)} />
-                </div>
-                <button
-                  onClick={() => enviarTeste.mutate()}
-                  disabled={enviarTeste.isPending || testeTel.replace(/\D/g, '').length < 10 || !testeMsg.trim()}
-                  className="btn-gold h-9 w-full"
-                >
-                  {enviarTeste.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  Enviar
-                </button>
-              </div>
+              <h2 className="font-semibold text-navy">Teste de atendimento</h2>
+              <p className="mt-1 text-xs text-silver-500">Para enviar uma mensagem de teste, abra um atendimento recebido, confirme a identidade e respeite a janela de 24 horas. O envio avulso por telefone foi removido para evitar mensagens sem consentimento ou vínculo verificado.</p>
             </div>
 
             {/* Webhook */}
@@ -356,7 +318,7 @@ export function AdminWhatsAppConfig() {
               <h2 className="font-semibold text-navy">Como conectar</h2>
               <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs text-silver-600">
                 <li>Siga o guia <code className="font-mono">docs/operacao/whatsapp-cloud-api-setup.md</code> (conta Meta, número, token).</li>
-                <li>Defina os secrets <code className="font-mono">WHATSAPP_ACCESS_TOKEN</code>, <code className="font-mono">WHATSAPP_PHONE_NUMBER_ID</code> e os demais no Supabase.</li>
+                <li>Defina os secrets <code className="font-mono">WHATSAPP_ACCESS_TOKEN</code>, <code className="font-mono">WHATSAPP_APP_SECRET</code>, <code className="font-mono">WHATSAPP_VERIFY_TOKEN</code> e <code className="font-mono">WHATSAPP_WORKER_SECRET</code> no Supabase; informe os IDs na configuração.</li>
                 <li>Cadastre o webhook acima no painel da Meta com o <code className="font-mono">WHATSAPP_VERIFY_TOKEN</code>.</li>
                 <li>Use “Testar conexão” e depois “Enviar mensagem de teste”.</li>
               </ol>
@@ -371,4 +333,10 @@ export function AdminWhatsAppConfig() {
       )}
     </>
   )
+}
+
+export function AdminWhatsAppConfig() {
+ const { session } = useAuth(); const restricted = isRestrictedAdmin(session)
+ const [tab, setTab] = useState<'config' | 'inbox'>('inbox')
+ return <><div className="mb-5 flex gap-2"><button className="btn-no-liquid btn-outline" onClick={() => setTab('inbox')}>Atendimentos</button>{!restricted && <button className="btn-no-liquid btn-outline" onClick={() => setTab('config')}>Conexão e automações</button>}</div>{tab === 'inbox' || restricted ? <WhatsAppInbox /> : <><WhatsAppAutomationSettings /><LegacyWhatsAppConfig /></>}</>
 }

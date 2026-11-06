@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/Badge'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/auth/AuthContext'
 
 type Status = 'conectado' | 'erro' | 'pendente' | 'desconectado'
 
@@ -29,6 +30,23 @@ interface Integracao {
   eventos_24h: number
   fila_pendente: number
 }
+
+interface BackfillAceitePreview {
+  protocolo: string
+  status_revisado: string
+  status_atual: string | null
+  elegivel: boolean
+  ja_registrado: boolean
+}
+
+interface BackfillAceiteResult {
+  protocolos_revisados: number
+  propostas_elegiveis: number
+  inseridos: number
+  ja_registrados: number
+}
+
+const BACKFILL_ACEITE_PROTOCOLOS_REVISADOS = 138
 
 const STATUS_BADGE: Record<Status, { variant: 'green' | 'red' | 'yellow' | 'gray'; label: string }> = {
   conectado:    { variant: 'green',  label: 'Conectado' },
@@ -69,12 +87,107 @@ function parseSecretsFaltando(ultimo_erro: string | null): string[] {
 type FiltroStatus = 'todos' | Status
 
 export function AdminIntegracoes() {
+  const { session } = useAuth()
   const qc = useQueryClient()
   const [testando, setTestando] = useState<string | null>(null)
   const [testandoTodas, setTestandoTodas] = useState(false)
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos')
   const [filtroCategoria, setFiltroCategoria] = useState<string>('todas')
+  const [avisoSerasa, setAvisoSerasa] = useState<string | null>(null)
+  const [avisoBackfillAceite, setAvisoBackfillAceite] = useState<string | null>(null)
+  const [featuresPf, setFeaturesPf] = useState<string[]>([])
+  const [scoreModelPf, setScoreModelPf] = useState('')
+  const [rendaModelPf, setRendaModelPf] = useState('HRM5')
+
+  const serasaReportQuery = useQuery({
+    queryKey: ['admin-serasa-relatorio-config', 'producao'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('serasa_relatorios_config')
+        .select('ambiente, ativo, report_pf, report_pj, parametros_pj, features_pf, parametros_pf')
+        .eq('ambiente', 'producao')
+        .maybeSingle()
+      if (error) throw error
+      return data
+    },
+  })
+
+  useEffect(() => {
+    const config = serasaReportQuery.data
+    if (!config) return
+    const features = Array.isArray(config.features_pf) ? config.features_pf.filter((item): item is string => typeof item === 'string') : []
+    const parameters = config.parametros_pf && typeof config.parametros_pf === 'object'
+      ? (config.parametros_pf as { reportParameters?: Array<{ name?: string; value?: string }> }).reportParameters ?? []
+      : []
+    setFeaturesPf(features)
+    setScoreModelPf(parameters.find(item => item.name === 'SCORE')?.value ?? '')
+    setRendaModelPf(parameters.find(item => item.name === 'RENDA_MAIS')?.value ?? 'HRM5')
+  }, [serasaReportQuery.data])
+
+  const serasaPfFeaturesMutation = useMutation({
+    mutationFn: async () => {
+      const reportParameters = [
+        ...(featuresPf.includes('SCORE') && scoreModelPf ? [{ name: 'SCORE', value: scoreModelPf }] : []),
+        ...(featuresPf.includes('RENDA_MAIS') ? [{ name: 'RENDA_MAIS', value: rendaModelPf }] : []),
+      ]
+      const { error } = await supabase.rpc('admin_serasa_pf_features_atualizar', {
+        p_ambiente: 'producao',
+        p_features: featuresPf,
+        p_parametros: reportParameters.length ? { reportParameters } : null,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      setAvisoSerasa('Features PF atualizadas. Novas consultas usarão a configuração; nenhuma consulta foi executada agora.')
+      void qc.invalidateQueries({ queryKey: ['admin-serasa-relatorio-config', 'producao'] })
+    },
+    onError: () => setAvisoSerasa('Não foi possível salvar as features PF. A RPC exige Admin full e valida os modelos permitidos.'),
+  })
+
+  const serasaReportMutation = useMutation({
+    mutationFn: async (ativo: boolean) => {
+      const { error } = await supabase.rpc('admin_serasa_relatorio_config_atualizar', {
+        p_ambiente: 'producao',
+        p_ativo: ativo,
+        p_segment_code: null,
+      })
+      if (error) throw error
+    },
+    onSuccess: (_, ativo) => {
+      setAvisoSerasa(ativo
+        ? 'Relatório PF de produção ativado. Nenhuma consulta foi executada.'
+        : 'Relatório PF de produção desativado.')
+      void qc.invalidateQueries({ queryKey: ['admin-serasa-relatorio-config', 'producao'] })
+    },
+    onError: () => setAvisoSerasa('Não foi possível alterar a configuração do relatório Serasa.'),
+  })
+
+  const backfillAceitePreviewQuery = useQuery({
+    queryKey: ['admin-proposta-consulta-aceites-backfill-preview'],
+    queryFn: async (): Promise<BackfillAceitePreview[]> => {
+      const { data, error } = await supabase.rpc('admin_proposta_consulta_aceites_atestar_retroativo_preview')
+      if (error) throw error
+      return (data ?? []) as unknown as BackfillAceitePreview[]
+    },
+  })
+
+  const backfillAceiteMutation = useMutation({
+    mutationFn: async (): Promise<BackfillAceiteResult> => {
+      const { data, error } = await supabase.rpc('admin_proposta_consulta_aceites_atestar_retroativo_revisado')
+      if (error) throw error
+      const result = Array.isArray(data) ? data[0] : data
+      if (!result || typeof result !== 'object') throw new Error('resposta_invalida')
+      return result as unknown as BackfillAceiteResult
+    },
+    onSuccess: (result) => {
+      setAvisoBackfillAceite(
+        `Backfill concluído para ${result.protocolos_revisados} protocolos: ${result.inseridos} novos atestados e ${result.ja_registrados} registros já existentes.`,
+      )
+      void backfillAceitePreviewQuery.refetch()
+    },
+    onError: () => setAvisoBackfillAceite('Não foi possível executar o backfill. Atualize a prévia e confira se algum protocolo mudou para status inelegível.'),
+  })
 
   const listQuery = useQuery({
     queryKey: ['admin-integracoes-web'],
@@ -84,6 +197,17 @@ export function AdminIntegracoes() {
       return (data ?? []) as Integracao[]
     },
   })
+
+  const backfillRows = backfillAceitePreviewQuery.data ?? []
+  const backfillInvalidCount = backfillRows.filter(row => !row.elegivel).length
+  const backfillAlreadyRegisteredCount = backfillRows.filter(row => row.ja_registrado).length
+  const backfillStatusChangedCount = backfillRows.filter(row => row.status_atual !== row.status_revisado).length
+  const backfillNewCount = backfillRows.filter(row => row.elegivel && !row.ja_registrado).length
+  const backfillCanRun = !backfillAceitePreviewQuery.isLoading
+    && !backfillAceitePreviewQuery.isError
+    && backfillRows.length === BACKFILL_ACEITE_PROTOCOLOS_REVISADOS
+    && backfillInvalidCount === 0
+    && !backfillAceiteMutation.isPending
 
   const toggleMut = useMutation({
     mutationFn: async ({ chave, ativo }: { chave: string; ativo: boolean }) => {
@@ -205,6 +329,171 @@ export function AdminIntegracoes() {
           )
         })}
       </div>
+
+      <section className="mb-6 rounded-xl border border-silver-200 bg-white p-5 shadow-sm" aria-labelledby="serasa-report-config-title">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-3xl">
+            <h2 id="serasa-report-config-title" className="font-semibold text-navy">Relatórios de crédito Serasa</h2>
+            <p className="mt-1 text-xs text-silver-600">
+              Controle exclusivo do relatório PF em produção. Ativar esta opção não executa consulta; cada consulta continua exigindo autorização válida na proposta e segue as regras de cobrança.
+            </p>
+            {serasaReportQuery.data && (
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-silver-600">
+                <span>Ambiente: <strong>Produção</strong></span>
+                <span>PF: <strong>{serasaReportQuery.data.report_pf}</strong></span>
+                <span>PJ: <strong>{serasaReportQuery.data.parametros_pj ? 'Parâmetros configurados' : 'Bloqueado — segmentCode não configurado'}</strong></span>
+                <span>Features PF: <strong>{Array.isArray(serasaReportQuery.data.features_pf) && serasaReportQuery.data.features_pf.length ? serasaReportQuery.data.features_pf.join(', ') : 'Nenhuma (padrão)'}</strong></span>
+                <span>Status: <strong>{serasaReportQuery.data.ativo ? 'Ativo' : 'Inativo'}</strong></span>
+              </div>
+            )}
+            {serasaReportQuery.isError && (
+              <p className="mt-3 text-xs text-red-700" role="alert">Não foi possível carregar a configuração de produção. Verifique o acesso de administrador e tente atualizar.</p>
+            )}
+            {avisoSerasa && <p className="mt-3 text-xs text-silver-600" role="status">{avisoSerasa}</p>}
+          </div>
+          <button
+            type="button"
+            disabled={serasaReportQuery.isLoading || serasaReportQuery.isError || serasaReportMutation.isPending || serasaReportQuery.data?.report_pf !== 'RELATORIO_AVANCADO_PF'}
+            onClick={() => {
+              const ativar = !serasaReportQuery.data?.ativo
+              const mensagem = ativar
+                ? 'Ativar somente o Relatório Avançado PF em produção? Nenhuma consulta será disparada. A configuração PJ permanecerá sem segmentCode.'
+                : 'Desativar o relatório Serasa em produção? Consultas novas serão bloqueadas.'
+              if (window.confirm(mensagem)) serasaReportMutation.mutate(ativar)
+            }}
+            className={`btn-no-liquid inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 ${serasaReportQuery.data?.ativo ? 'bg-silver-700 hover:bg-silver-800' : 'bg-red-600 hover:bg-red-700'}`}
+          >
+            {serasaReportMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            {serasaReportQuery.data?.ativo ? 'Desativar PF produção' : 'Ativar PF produção'}
+          </button>
+        </div>
+        <div className="mt-5 border-t border-silver-100 pt-4">
+          <h3 className="text-sm font-semibold text-navy">Campos adicionais do relatório PF</h3>
+          <p className="mt-1 max-w-4xl text-xs leading-relaxed text-silver-600">Features começam desativadas. Só habilite após confirmar que estão incluídas no contrato Serasa. Alterar esta configuração não consulta o bureau, mas passa a solicitar esses dados nas próximas consultas e pode alterar o consumo contratado.</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <label className="flex items-start gap-2 rounded-lg border border-silver-200 p-3 text-xs">
+              <input type="checkbox" checked={featuresPf.includes('SCORE')} onChange={event => setFeaturesPf(current => event.target.checked ? [...new Set([...current, 'SCORE'])] : current.filter(item => item !== 'SCORE'))} />
+              <span className="flex-1"><strong className="block text-silver-800">Score de crédito (SCORE)</strong><span className="mt-1 block text-silver-500">A Serasa informa score padrão do relatório quando disponível. Selecione o modelo apenas quando o canal estiver confirmado.</span>
+                {featuresPf.includes('SCORE') && <select aria-label="Modelo de score PF" className="input mt-2 w-full" value={scoreModelPf} onChange={event => setScoreModelPf(event.target.value)}><option value="">Usar modelo padrão do contrato</option><option value="HSPN">HSPN · Large</option><option value="HSV4">HSV4 · Large</option><option value="HRLD">HRLD · Distribuidor</option><option value="HRLN">HRLN · PME</option><option value="HRLB">HRLB · PME</option></select>}
+              </span>
+            </label>
+            <label className="flex items-start gap-2 rounded-lg border border-silver-200 p-3 text-xs">
+              <input type="checkbox" checked={featuresPf.includes('RENDA_MAIS')} onChange={event => setFeaturesPf(current => event.target.checked ? [...new Set([...current, 'RENDA_MAIS'])] : current.filter(item => item !== 'RENDA_MAIS'))} />
+              <span><strong className="block text-silver-800">Renda Mais 5.0 (RENDA_MAIS)</strong><span className="mt-1 block text-silver-500">O manual associa o modelo HRM5 à feature; disponibilidade comercial ainda precisa ser confirmada antes de habilitar.</span>
+                {featuresPf.includes('RENDA_MAIS') && <select aria-label="Modelo de Renda Mais" className="input mt-2 w-full" value={rendaModelPf} onChange={event => setRendaModelPf(event.target.value)}><option value="HRM5">HRM5 · Renda Mais 5.0</option></select>}
+              </span>
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button type="button" disabled={serasaPfFeaturesMutation.isPending || session?.adminNivel !== 'full' || (featuresPf.includes('SCORE') && !scoreModelPf)} onClick={() => {
+              if (window.confirm(`Salvar as features PF ${featuresPf.length ? `(${featuresPf.join(', ')})` : 'desativadas'} para produção? Isso afeta apenas futuras consultas; nenhuma consulta será executada agora.`)) serasaPfFeaturesMutation.mutate()
+            }} className="btn-no-liquid inline-flex items-center gap-2 rounded-lg border border-silver-200 px-4 py-2 text-xs font-medium text-silver-700 hover:bg-silver-50 disabled:cursor-not-allowed disabled:opacity-50">
+              {serasaPfFeaturesMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Salvar features PF
+            </button>
+            {session?.adminNivel !== 'full' && <span className="text-xs text-amber-700">A configuração exige perfil Admin full.</span>}
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-6 rounded-xl border border-silver-200 bg-white p-5 shadow-sm" aria-labelledby="backfill-aceite-title">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-4xl flex-1">
+            <h2 id="backfill-aceite-title" className="font-semibold text-navy">Aceites retrospectivos revisados</h2>
+            <p className="mt-1 text-xs text-silver-600">
+              Prévia e atestado administrativo limitados à lista de 138 protocolos revisada em 27/10/2026. O servidor impede a inclusão de outros protocolos e bloqueia a operação se algum item estiver cancelado, em simulação ou sem cliente associado.
+            </p>
+
+            {backfillAceitePreviewQuery.isLoading && (
+              <p className="mt-3 flex items-center gap-2 text-xs text-silver-500" role="status">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando a prévia atualizada…
+              </p>
+            )}
+            {backfillAceitePreviewQuery.isError && (
+              <p className="mt-3 text-xs text-red-700" role="alert">Não foi possível carregar a lista revisada. Verifique a sessão de administrador e atualize a página.</p>
+            )}
+
+            {backfillRows.length > 0 && (
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-lg bg-silver-50 px-3 py-2">
+                  <span className="block text-[10px] uppercase tracking-wide text-silver-500">Protocolos revisados</span>
+                  <strong className="text-sm text-silver-900">{backfillRows.length} / {BACKFILL_ACEITE_PROTOCOLOS_REVISADOS}</strong>
+                </div>
+                <div className="rounded-lg bg-silver-50 px-3 py-2">
+                  <span className="block text-[10px] uppercase tracking-wide text-silver-500">Novos atestados possíveis</span>
+                  <strong className="text-sm text-silver-900">{backfillNewCount}</strong>
+                </div>
+                <div className="rounded-lg bg-silver-50 px-3 py-2">
+                  <span className="block text-[10px] uppercase tracking-wide text-silver-500">Já registrados</span>
+                  <strong className="text-sm text-silver-900">{backfillAlreadyRegisteredCount}</strong>
+                </div>
+                <div className={`rounded-lg px-3 py-2 ${backfillInvalidCount ? 'bg-red-50' : 'bg-silver-50'}`}>
+                  <span className="block text-[10px] uppercase tracking-wide text-silver-500">Inelegíveis</span>
+                  <strong className={`text-sm ${backfillInvalidCount ? 'text-red-700' : 'text-silver-900'}`}>{backfillInvalidCount}</strong>
+                </div>
+              </div>
+            )}
+
+            {backfillStatusChangedCount > 0 && (
+              <p className="mt-3 flex items-start gap-2 rounded-lg bg-yellow-50 px-3 py-2 text-xs text-yellow-900" role="status">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                {backfillStatusChangedCount} propostas mudaram de status desde a revisão. Confira os protocolos e status atuais antes de confirmar.
+              </p>
+            )}
+            {backfillInvalidCount > 0 && (
+              <p className="mt-3 flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800" role="alert">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                A execução está bloqueada até revisar os protocolos inelegíveis. Nenhum atestado foi gravado.
+              </p>
+            )}
+            {avisoBackfillAceite && <p className="mt-3 text-xs text-silver-700" role="status">{avisoBackfillAceite}</p>}
+
+            {backfillRows.length > 0 && (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-medium text-silver-600 hover:text-silver-900">
+                  Conferir protocolos e status ({backfillRows.length})
+                </summary>
+                <div className="mt-2 max-h-52 overflow-y-auto rounded-lg border border-silver-100">
+                  {backfillRows.map(row => (
+                    <div key={row.protocolo} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-silver-100 px-3 py-2 text-[11px] last:border-b-0">
+                      <code className="font-mono text-silver-800">{row.protocolo}</code>
+                      <span className="text-silver-600">
+                        {row.status_revisado}{row.status_atual !== row.status_revisado ? ` → ${row.status_atual ?? 'não encontrada'}` : ''}
+                      </span>
+                      <span className={row.elegivel ? 'text-green-700' : 'font-medium text-red-700'}>
+                        {!row.elegivel ? 'Inelegível' : row.ja_registrado ? 'Já registrado' : 'Elegível'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+
+          <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+            <button
+              type="button"
+              onClick={() => void backfillAceitePreviewQuery.refetch()}
+              disabled={backfillAceitePreviewQuery.isFetching || backfillAceiteMutation.isPending}
+              className="btn-no-liquid inline-flex items-center justify-center gap-2 rounded-lg border border-silver-200 px-4 py-2 text-xs font-medium text-silver-700 hover:bg-silver-50 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${backfillAceitePreviewQuery.isFetching ? 'animate-spin' : ''}`} />
+              Atualizar prévia
+            </button>
+            <button
+              type="button"
+              disabled={!backfillCanRun}
+              onClick={() => {
+                const message = `Atestar retrospectivamente os ${BACKFILL_ACEITE_PROTOCOLOS_REVISADOS} protocolos revisados?\n\nElegíveis agora: ${backfillRows.length}. Novos registros: ${backfillNewCount}. Já registrados: ${backfillAlreadyRegisteredCount}. Status diferentes da revisão: ${backfillStatusChangedCount}.\n\nA ação será auditada e não executa consultas Serasa nem débitos.`
+                if (window.confirm(message)) backfillAceiteMutation.mutate()
+              }}
+              className="btn-no-liquid inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {backfillAceiteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Atestar lista revisada
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* Filtros */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
