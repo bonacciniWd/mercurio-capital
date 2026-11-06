@@ -1,6 +1,6 @@
 # Plano - publicação web e release desktop macOS v0.3.0
 
-Status: aprovado; validações locais e artefatos macOS concluídos; publicação manual em andamento.
+Status: publicado; validações e smoke pós-deploy concluídos.
 
 ## Objetivo
 
@@ -88,9 +88,12 @@ Publicar a interface web aprovada na Vercel e preparar a versão estável `v0.3.
 ## Aprovação recebida e evidências
 
 - O proprietário aprovou o plano completo, incluindo release `v0.3.0` web + macOS arm64/x64, cópia dos assets Windows/Linux v0.2.2, workflows GitHub desativados e deploy Vercel.
-- Snapshot isolado baseado em `main` `46e0be5e43af3dfdcc01e2dc031e653825146085`; somente arquivos allowlist estão staged para versão/release.
+- Snapshot isolado baseado em `main` `46e0be5e43af3dfdcc01e2dc031e653825146085`; commit `fdc58f458eee39e191f421ec05bbaf07c43f7515` enviado a `main` e tag `v0.3.0` publicada.
 - `validate:release`, lint (33 warnings, 0 errors), typecheck, testes (55 arquivos/241 testes) e build web passaram.
 - Build desktop web e empacotamento macOS x64/arm64 concluídos; assinatura Apple Developer ID e notarização dos ZIPs e DMGs aceitas. DMGs stapled; apps e DMGs passaram `codesign`, `stapler validate` e Gatekeeper.
 - `stable-mac.yml` confere SHA-512 e tamanho dos artefatos, inclusive DMGs pós-staple. Assets Windows/Linux e feeds preservados byte a byte pelos SHA-256 da release v0.2.2.
 - Workflows `CI` (276754843) e `Desktop Release` (309052925) foram desativados manualmente e relidos como `disabled_manually`; permissões globais de Actions seguem habilitadas, mas nenhum workflow será disparado por esta publicação.
-- Pendentes: commit/push/tag/release manual, conferir feed/links públicos, deploy Vercel e smoke pós-deploy.
+- Release GitHub pública: https://github.com/bonacciniWd/mercurio-capital/releases/tag/v0.3.0. Os 15 assets foram comparados com o inventário remoto e conferidos por nome, tamanho e SHA-256.
+- Deploy Vercel `dpl_HqTBPftSiurKknM644AVTCnsoXSb` em `READY`; os domínios apex e `www` foram associados a ele após o smoke detectar aliases antigos. `/`, `/download`, CSS e bundle responderam corretamente; o JS público contém `v0.3.0`.
+- Feed público `stable-mac.yml` anuncia `0.3.0`; o link do ZIP arm64 redireciona ao asset publicado com tamanho esperado. Rollback Vercel: deployment anterior `dpl_5FzAmKZWPYmHdk8uAD6CY4mx7z3T`; release `v0.2.2` permanece disponível.
+- Limitação: não foi feito teste em um cliente macOS instalado em `v0.2.2`; atualização automática real no dispositivo continua pendente, embora o feed, os artefatos assinados/notarizados e o link público estejam verificados.

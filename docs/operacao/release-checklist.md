@@ -10,11 +10,13 @@
 - [x] `validate:release`, lint (0 erros; 33 avisos), typecheck, 241 testes e build web aprovados.
 - [x] macOS arm64/x64 assinados e notarizados; apps e DMGs validados pelo Gatekeeper; DMGs grampeados.
 - [x] Assets Windows/Linux v0.2.2 e feeds preservados; SHA-256 conferido contra a release de origem.
-- [ ] Tag/release v0.3.0 publicada e feed `stable-mac.yml` verificado.
-- [ ] Deploy Vercel e smoke pós-deploy verificados.
-- [ ] Rollback disponível para Vercel e release anterior preservada.
+- [x] Tag/release v0.3.0 publicada; 15 assets conferidos por nome, tamanho e SHA-256; feed `stable-mac.yml` público aponta para v0.3.0.
+- [x] Deploy Vercel `dpl_HqTBPftSiurKknM644AVTCnsoXSb` Ready; domínio apex e `www` apontam para ele; `/`, `/download`, CSS e bundle conferidos.
+- [x] Rollback Vercel disponível pelo deployment anterior `dpl_5FzAmKZWPYmHdk8uAD6CY4mx7z3T`; release v0.2.2 preservada.
 
 As seções abaixo preservam evidências de releases anteriores; não são evidências da v0.3.0.
+
+Smoke de cliente instalado v0.2.2 atualizando no macOS não foi executado nesta máquina; o feed público e o ZIP de atualização foram verificados, mas a instalação real permanece pendente.
 
 ## Regra de bloqueio
 
