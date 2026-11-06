@@ -10,12 +10,12 @@
 - [x] macOS Intel e ARM empacotados; apps e DMGs assinados, notarizados, grampeados e aceitos pelo Gatekeeper.
 - [x] Smoke do processo principal Intel iniciou sem erro do updater; “Checking for update” confirmou carregamento. Interrompido antes do download porque `latest` permanece temporariamente em v0.2.2.
 - [x] Instaladores/feeds de Windows e Linux v0.2.2 copiados sem alteração para manter `/download` funcional na nova release; hashes SHA-256 comparados com v0.2.2.
-- [ ] Nova release estável v0.3.1 publicada com feed e hashes conferidos.
+- [x] Release estável v0.3.1 publicada; feed e SHA-256/tamanho dos 15 assets conferidos contra GitHub.
 - [ ] Confirmação de abertura no Mac do usuário sem regressão do updater.
 
-O web de produção permanece v0.3.0; esta correção é somente desktop e não inclui deploy manual Vercel/Supabase.
+Esta correção é somente desktop e não inclui deploy manual Vercel/Supabase. A rota pública `/download` usa a release estável via API do GitHub; após publicar v0.3.1, foi validada com HTTP 200 e os instaladores Intel, ARM, Windows e Linux responderam HTTP 200. O texto estático de versão do site só muda em deploy Vercel separado.
 
-Evidências locais v0.3.1 (2026-11-06): 55 arquivos/241 testes aprovados; lint 0 erros (33 avisos existentes); typecheck e `validate:release` aprovados. Notarizações Apple: app Intel `e159e1bf-18bd-47d3-88d0-3f9df53af512`, app ARM `71e87460-a159-4295-a2c4-eb29636fe43a`, DMG ARM `52cad72f-163a-411f-947f-123259e53252` e DMG Intel `892ee02c-5b83-46d3-b5ca-1ffcd911fd7e`, todas `Accepted`. Feed `stable-mac.yml` foi montado com hashes/tamanhos finais dos ZIPs e DMGs.
+Evidências locais v0.3.1 (2026-11-06): 55 arquivos/241 testes aprovados; lint 0 erros (33 avisos existentes); typecheck e `validate:release` aprovados. Notarizações Apple: app Intel `e159e1bf-18bd-47d3-88d0-3f9df53af512`, app ARM `71e87460-a159-4295-a2c4-eb29636fe43a`, DMG ARM `52cad72f-163a-411f-947f-123259e53252` e DMG Intel `892ee02c-5b83-46d3-b5ca-1ffcd911fd7e`, todas `Accepted`. Feed `stable-mac.yml` foi montado com hashes/tamanhos finais dos ZIPs e DMGs e conferido byte a byte com o arquivo público. Tag `v0.3.1`: commit `a10d506`; release: https://github.com/bonacciniWd/mercurio-capital/releases/tag/v0.3.1. GitHub Actions desativado antes do push da tag e permaneceu desativado.
 
 ## Release atual — v0.3.0 (2026-11-06)
 
