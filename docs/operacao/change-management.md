@@ -1,10 +1,10 @@
 # Gestao de mudancas — Mercurio Capital
 
-<!-- RELEASE_CURRENT_VERSION: 0.2.2 -->
+<!-- RELEASE_CURRENT_VERSION: 0.3.0 -->
 
 ## Objetivo
 
-Este documento define o fluxo obrigatorio para qualquer mudanca futura no Mercurio Capital. A versao de referencia e `v0.2.0`.
+Este documento define o fluxo obrigatorio para qualquer mudanca futura no Mercurio Capital. A versao de referencia e `v0.3.0`.
 
 Nenhuma solicitacao autoriza por si so deploy, migration remota, criacao de tag, GitHub Release ou publicacao mobile. Essas acoes exigem aprovacao explicita e um go/no-go separado depois do mapeamento completo da mudanca.
 

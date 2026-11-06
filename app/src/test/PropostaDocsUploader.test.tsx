@@ -57,6 +57,8 @@ describe('PropostaDocsUploader', () => {
 
   it('envia em sequência todos os arquivos selecionados e registra um documento por arquivo', async () => {
     renderUploader(true)
+    expect(screen.getByTestId('upload-illustration')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByText(/Até 20 MB por arquivo/)).toBeInTheDocument()
     const input = document.querySelector<HTMLInputElement>('input[type="file"]')!
     const files = [makeFile('contrato.pdf'), makeFile('matricula.pdf')]
 
@@ -126,6 +128,7 @@ describe('PropostaDocsUploader', () => {
 
   it('mantém o seletor unitário por padrão para o portal cliente', async () => {
     renderUploader()
+    expect(screen.queryByTestId('upload-illustration')).not.toBeInTheDocument()
     const input = document.querySelector<HTMLInputElement>('input[type="file"]')!
     expect(input.multiple).toBe(false)
     fireEvent.change(input, { target: { files: [makeFile('primeiro.pdf'), makeFile('segundo.pdf')] } })

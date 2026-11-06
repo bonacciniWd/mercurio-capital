@@ -1,10 +1,24 @@
 # Checklist de release — Mercurio Capital
 
-<!-- RELEASE_CURRENT_VERSION: 0.2.2 -->
+<!-- RELEASE_CURRENT_VERSION: 0.3.0 -->
+
+## Release atual — v0.3.0 (2026-11-06)
+
+- [x] Plano aprovado: `prompts/2026-11-06-release-web-desktop-v0-3-0.md`.
+- [x] Escopo: frontend Vercel e macOS arm64/x64; sem alterações Supabase e sem builds Windows/Linux.
+- [x] GitHub Actions ficam desativados; release e deploy são manuais.
+- [x] `validate:release`, lint (0 erros; 33 avisos), typecheck, 241 testes e build web aprovados.
+- [x] macOS arm64/x64 assinados e notarizados; apps e DMGs validados pelo Gatekeeper; DMGs grampeados.
+- [x] Assets Windows/Linux v0.2.2 e feeds preservados; SHA-256 conferido contra a release de origem.
+- [ ] Tag/release v0.3.0 publicada e feed `stable-mac.yml` verificado.
+- [ ] Deploy Vercel e smoke pós-deploy verificados.
+- [ ] Rollback disponível para Vercel e release anterior preservada.
+
+As seções abaixo preservam evidências de releases anteriores; não são evidências da v0.3.0.
 
 ## Regra de bloqueio
 
-Versao atualmente mapeada: `v0.2.2`.
+Versao atualmente mapeada: `v0.3.0`.
 
 Este checklist nao autoriza publicacao. E proibido criar tag, GitHub Release, promover deploy ou publicar build mobile antes de:
 

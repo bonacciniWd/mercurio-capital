@@ -224,13 +224,14 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
   const failedFiles = uploadQueue.filter((item) => item.status === 'error')
 
   return (
-    <div className={cn('space-y-4', className)}>
+    <div className={cn('space-y-4', enableBatchUpload && 'proposal-docs-uploader--batch', className)}>
       <div
         data-testid="proposta-docs-dropzone"
         className={cn(
-          'rounded-lg border-2 border-dashed border-silver-300 bg-silver-50 p-4 transition-colors',
-          enableBatchUpload && 'min-h-28',
-          isDragging && 'border-gold bg-gold/10',
+          enableBatchUpload
+            ? 'proposal-docs-dropzone'
+            : 'rounded-lg border-2 border-dashed border-silver-300 bg-silver-50 p-4 transition-colors',
+          isDragging && (enableBatchUpload ? 'is-dragging' : 'border-gold bg-gold/10'),
         )}
         onDragEnter={enableBatchUpload ? (event) => { event.preventDefault(); setIsDragging(true) } : undefined}
         onDragOver={enableBatchUpload ? (event) => { event.preventDefault(); setIsDragging(true) } : undefined}
@@ -239,12 +240,35 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
         } : undefined}
         onDrop={enableBatchUpload ? handleDrop : undefined}
       >
-        <p className="mb-3 text-sm font-medium text-navy">Enviar novo documento</p>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="grid gap-1 text-xs font-medium text-silver-600">
+        {enableBatchUpload && (
+          <svg
+            className="upload-illustration"
+            data-testid="upload-illustration"
+            aria-hidden="true"
+            viewBox="0 0 160 112"
+            fill="none"
+          >
+            <ellipse className="upload-shadow" cx="80" cy="96" rx="35" ry="5" fill="#ef3f3a" />
+            <circle className="upload-dot" cx="38" cy="27" r="3" fill="#ef3f3a" />
+            <circle className="upload-dot upload-dot-two" cx="121" cy="20" r="2.5" fill="#ef3f3a" />
+            <path d="M45 73h71c12 0 21-9 21-20 0-10-8-19-19-20-4-16-18-27-35-27-16 0-29 10-34 24-2-.5-4-.8-6-.8-13 0-23 10-23 22S30 73 45 73Z" stroke="#ef3f3a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            <g className="upload-arrow">
+              <path d="M80 55V31m0 0-9 9m9-9 9 9" stroke="#ef3f3a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            </g>
+            <g className="upload-file">
+              <path d="M67 36a4 4 0 0 1 4-4h17l12 12v28a4 4 0 0 1-4 4H71a4 4 0 0 1-4-4V36Z" fill="white" stroke="#ef3f3a" strokeWidth="2" strokeLinejoin="round" />
+              <path d="M88 32v13h12M74 60h19M74 66h15" stroke="#ef3f3a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </g>
+          </svg>
+        )}
+        <div className={cn(enableBatchUpload && 'proposal-docs-dropzone__content')}>
+        <p className={cn('mb-3 text-sm font-medium text-navy', enableBatchUpload && 'proposal-docs-dropzone__title')}>Enviar novo documento</p>
+        {enableBatchUpload && <p className="proposal-docs-dropzone__intro">Arraste seus arquivos para esta área ou selecione diretamente do seu dispositivo.</p>}
+        <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-end', enableBatchUpload && 'proposal-docs-dropzone__controls')}>
+          <label className={cn('grid gap-1 text-xs font-medium text-silver-600', enableBatchUpload && 'proposal-docs-dropzone__type')}>
             <span>{enableBatchUpload ? 'Tipo padrão para novos arquivos' : 'Tipo de documento'}</span>
             <select
-              className="rounded-md border border-silver-300 bg-white px-3 py-2 text-sm text-navy"
+              className={cn('rounded-md border border-silver-300 bg-white px-3 py-2 text-sm text-navy', enableBatchUpload && 'proposal-docs-select')}
               value={tipoSel}
               aria-label={enableBatchUpload ? 'Tipo padrão para novos arquivos' : 'Tipo de documento'}
               onChange={(e) => setTipoSel(e.target.value as DocumentoTipo)}
@@ -257,8 +281,7 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
           </label>
           <label
             className={cn(
-              'btn-gold inline-flex cursor-pointer items-center gap-2 text-sm',
-              'focus-within:ring-2 focus-within:ring-gold focus-within:ring-offset-2',
+              enableBatchUpload ? 'btn-no-liquid proposal-docs-picker' : 'btn-gold inline-flex cursor-pointer items-center gap-2 text-sm focus-within:ring-2 focus-within:ring-gold focus-within:ring-offset-2',
               isUploading && 'pointer-events-none opacity-60',
             )}
           >
@@ -278,14 +301,15 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
             />
           </label>
         </div>
-        <p className="mt-2 text-xs text-silver-500">
+        <p className={cn('mt-2 text-xs text-silver-500', enableBatchUpload && 'proposal-docs-dropzone__hint')}>
           {enableBatchUpload
-            ? 'Selecione ou arraste arquivos; revise o tipo de cada um antes de enviar.'
+            ? 'PDF, JPG, PNG, WEBP, HEIC ou HEIF. Até 20 MB por arquivo; revise os arquivos antes do envio.'
             : 'PDF, JPG, PNG ou WEBP — até 20 MB.'}
         </p>
+        </div>
         {enableBatchUpload && uploadQueue.length > 0 && (
-          <div className="mt-4 space-y-3" aria-live="polite">
-            <ul className="divide-y divide-silver-200 rounded-md border border-silver-200 bg-white">
+          <div className="proposal-docs-queue" aria-live="polite">
+            <ul className="proposal-docs-queue__list divide-y divide-silver-200 rounded-md border border-silver-200 bg-white">
               {uploadQueue.map((item) => (
                 <li key={item.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0 sm:flex-1">
@@ -346,7 +370,7 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
       )}
 
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-silver-500">
+        <p className={cn('mb-2 text-xs font-semibold uppercase tracking-wide text-silver-500', enableBatchUpload && 'proposal-docs-list-title')}>
           Documentos enviados
         </p>
         {isLoading ? (
@@ -354,11 +378,11 @@ export function PropostaDocsUploader({ propostaId, origem, tiposPermitidos, clas
             <Loader2 className="h-5 w-5 animate-spin text-gold" />
           </div>
         ) : !docs?.length ? (
-          <p className="rounded-md border border-silver-200 bg-white p-4 text-sm text-silver-500">
+          <p className={cn('rounded-md border border-silver-200 bg-white p-4 text-sm text-silver-500', enableBatchUpload && 'proposal-docs-empty')}>
             Nenhum documento enviado ainda.
           </p>
         ) : (
-          <ul className="divide-y divide-silver-100 rounded-md border border-silver-200 bg-white">
+          <ul className={cn('divide-y divide-silver-100 rounded-md border border-silver-200 bg-white', enableBatchUpload && 'proposal-docs-list')}>
             {docs.map((d) => (
               <li key={d.id} className="flex items-center justify-between gap-3 p-3">
                 <div className="flex items-center gap-3">
