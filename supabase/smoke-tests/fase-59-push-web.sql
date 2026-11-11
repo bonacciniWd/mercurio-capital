@@ -1,5 +1,5 @@
--- FASE 59 — contrato de segurança do Push Web (Frente A, issues #10/#12).
--- Executar depois da migration 20261111000001.
+-- FASE 59 — contrato de segurança do Push Web (Frente A, issues #10/#12/#16).
+-- Executar depois das migrations 20261111000001 e 20261111000002.
 -- Somente leitura: valida esquema, RLS, grants, índices, trigger e constraints.
 -- Casos comportamentais (upsert, fan-out, opt-out, backoff, sweeper, limpeza) vivem
 -- em fase-59-push-web-transacional.sql — transação com ROLLBACK, sem resíduo.
@@ -99,5 +99,11 @@ begin
     raise exception 'FASE 59 FAIL: check de status incompleto';
   end if;
 
-  raise notice 'FASE 59 OK: push web (modelo, RLS, grants, fan-out) verificado';
+  -- flag de rollout existe e nasce desligada (kill switch fail-closed)
+  if not exists(select 1 from public.feature_flags
+                 where chave='push_web' and ativo = false) then
+    raise exception 'FASE 59 FAIL: flag push_web ausente ou nasceu ligada';
+  end if;
+
+  raise notice 'FASE 59 OK: push web (modelo, RLS, grants, fan-out, flag) verificado';
 end $$;

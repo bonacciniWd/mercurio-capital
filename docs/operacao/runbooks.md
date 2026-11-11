@@ -931,7 +931,29 @@ Cobertura da Frente A (issues #10–#16, plano `prompts/2026-11-11-push-web-fcm.
    ```
 4. `PUSH_WORKER_SECRET` aleatório (32+ chars) como secret; o cron chama a edge com `Authorization: Bearer <segredo>`.
 5. Deploy da edge (após GO): `supabase functions deploy push-dispatcher --project-ref bhagksfvszeogtjvjtpx --no-verify-jwt`.
-6. `admin_feature_flag_upsert('push_web', ..., ativo=true)` quando for liberar — rollout gradual por `regras.roles`/`percent`.
+6. Cron a cada 5 min chamando a edge com `Authorization: Bearer $PUSH_WORKER_SECRET`.
+7. Rollout progressivo da flag `push_web` (UI `/admin/feature-flags` ou `admin_feature_flag_upsert`) — a flag nasce **desligada** pela migration `20261111000002`:
+
+| Etapa | `regras` | Critério para avançar |
+|---|---|---|
+| 0. Só admin | `{"roles":["admin"]}` + `ativo=true` | opt-in próprio funciona; push real recebido; outbox sem `falha`/`incerto` anômalo |
+| 1. Staff piloto | `{"roles":["admin","partner"], "partner_ids":["<piloto>"]}` | 3-7 dias sem incidente; taxa de token morto < 20% |
+| 2. Staff geral | `{"roles":["admin","partner","team_member"]}` | idem; suporte sem chamados de push |
+| 3. Clientes | `{"percent":100}` (sem `roles`) | métricas estáveis por 1 semana |
+
+Qualquer etapa regride desligando `ativo` (kill switch, sem deploy) — a fila acumula em `pendente` e o sweeper/higiene cuidam do resto.
+
+### Evidências de validação em staging (issue #16)
+
+Executar **após** os passos 1-6, com a flag na etapa 0, em 2 navegadores (Chrome + Firefox ou Safari):
+
+1. Opt-in: banner aparece na 2ª sessão → Ativar → permissão nativa → `push_devices` ganha linha `ativo=true` (`plataforma='web'`).
+2. Entrega: gerar evento real (ex.: pendência de documento numa proposta de teste) → push chega com a aba **fechada** → clique abre o deep link correto.
+3. Opt-out: Configurações → desligar mestre → novo evento → **nenhum** push; linha da outbox nasce `cancelado` no próximo dispatch.
+4. Token morto: revogar permissão no navegador → próximo dispatch marca token inativo (`UNREGISTERED`) sem derrubar a fila.
+5. Kill switch: flag off → dispatcher responde `{"paused":true}` e nada é enviado; flag on → fila volta a escoar.
+6. Degradê: Safari antigo/Electron não exibem nada de push (nem banner, nem seção).
+7. Registrar prints + saída do diagnóstico SQL na issue #16 antes de produção.
 
 ### Diagnóstico: push não está chegando
 
