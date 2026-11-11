@@ -323,6 +323,18 @@ N:N entre `proponentes` e `imoveis`.
 | `ocr_texto` | text | nullable |
 | `created_at` | timestamptz |
 
+### Acervo do cliente (migration `20261108000003_cliente_acervo_documental.sql`)
+`proposta_documentos` continua sendo o registro de uso e revisão por operação. O acervo acrescenta titularidade e versões imutáveis sem copiar os bytes ao reutilizar um arquivo.
+
+| Tabela/campo | Regra |
+|---|---|
+| `cliente_documentos` | Documento lógico vinculado ao `clientes.id`, com categoria PF/PJ ou imóvel e tipo do catálogo. `proposta_contexto_id` é obrigatório apenas para documentos de imóvel. |
+| `cliente_documento_versoes` | Arquivo privado/versionado: documento lógico, versão, bucket/caminho únicos, nome/MIME/tamanho, autor, proposta de envio, solicitação opcional e estado `preparado`/`recebido`. |
+| `proposta_documentos.cliente_documento_versao_id` | Nullable; liga cada uso na proposta à versão do acervo. Uma versão pode ser reutilizada em outras operações do mesmo titular, preservando a revisão independente em cada proposta. |
+| `proposta_pendencias.cliente_documento_id` | Nullable; vínculo opcional entre solicitação da equipe e documento lógico. |
+
+O bucket privado `cliente-docs` mantém URLs assinadas curtas. A leitura valida titularidade, participação na proposta ou Admin; não basta estar autenticado. Upload e associação passam pelas RPCs `cliente_documento_preparar`, `cliente_documento_finalizar` e `cliente_documento_reutilizar`. Exclusão de arquivo já incorporado ao acervo é bloqueada. A migration não move nem atribui automaticamente arquivos legados; `admin_cliente_acervo_dry_run()` classifica titularidade inequívoca, ambígua ou de imóvel para revisão.
+
 ### `proposta_status_historico`
 | Coluna | Tipo |
 |---|---|
@@ -559,18 +571,32 @@ Modelo de contrato por proposta enviado pelo admin (interno). **Distinto** do PD
 Tabelas específicas com payloads tipados (referências a `logs_consultas.id`).
 
 ### `whatsapp_mensagens`
+Fila/histórico de mensagens **de saída** (outbox). Mensagens inbound ficam em `whatsapp_mensagens_recebidas`.
 | Coluna | Tipo |
 |---|---|
 | `id` | uuid PK |
-| `proposta_id` | uuid FK | nullable |
 | `usuario_id` | uuid FK | nullable |
-| `direcao` | text | `out`, `in` |
-| `numero` | text |
-| `template` | text |
-| `payload` | jsonb |
+| `telefone` / `corpo` | text | destino e mensagem de saída |
+| `template_codigo` / `wa_template_nome` / `wa_idioma` / `wa_params` | text/jsonb | dados do template |
+| `referencia_tipo` / `referencia_id` | text/uuid | referência opcional |
 | `evolution_message_id` | text |
-| `status` | text | `enviado`, `entregue`, `lido`, `erro` |
-| `created_at` | timestamptz |
+| `status` | text | `pendente`, `enviado`, `entregue`, `lido`, `erro` |
+| `metadata` / `erro` | jsonb/text | despacho e falha |
+| `created_at` / `enviado_em` / `atualizado_em` | timestamptz |
+
+### `whatsapp_mensagens_recebidas`
+Inbox mínimo de eventos inbound da Meta. RLS permite leitura somente a Admin; escrita via Edge Function com service role. Mensagens não associadas não concedem acesso a propostas por telefone.
+| Coluna | Tipo |
+|---|---|
+| `id` | uuid PK |
+| `provider_message_id` | text UNIQUE | deduplicação da entrega Meta |
+| `phone_number_id` | text | número empresarial que recebeu |
+| `sender_phone` / `sender_profile_name` | text | remetente normalizado / nome opcional |
+| `message_type` / `text_body` / `body_truncated` | text/text/boolean | conteúdo de texto limitado a 4.000 caracteres; anexo não é baixado |
+| `received_at` | timestamptz | horário recebido do evento |
+| `association_status` | text | `unmatched`, `ambiguous` ou `linked` |
+| `usuario_id` / `proposta_id` | uuid FK nullable | somente vínculo explícito server-side |
+| `created_at` / `processed_at` / `expires_at` | timestamptz | retenção padrão de 60 dias; expurgo diário |
 
 ### `fluxos_evolution`
 | Coluna | Tipo |
@@ -594,6 +620,17 @@ Tabelas específicas com payloads tipados (referências a `logs_consultas.id`).
 | `status` | text | `pendente`, `executando`, `sucesso`, `falha` |
 | `log` | jsonb |
 | `created_at` / `concluido_em` | timestamptz |
+
+### Orquestração WhatsApp Cloud API (migration aditiva 20261106000002)
+
+- `whatsapp_template_versoes`: snapshots imutáveis por versão, com componentes, placeholders ordenados e status da Meta; `templates_mensagem.whatsapp_versao_id` aponta para a versão interna aprovada e sincronizada.
+- `whatsapp_fluxo_versoes`: snapshot de nós, conexões e viewport; `fluxos_evolution.whatsapp_versao_id` aponta para a versão publicada internamente. Status de Flow nativo da Meta é separado.
+- `whatsapp_eventos`: outbox transacional de eventos do sistema e mensagens recebidas, fixado a uma versão e deduplicado pela origem.
+- `whatsapp_atendimentos`: conversa/estado humano, versão, checkpoint e associação explícita opcional a usuário/proposta; índices impedem dois atendimentos abertos para o mesmo número/remetente.
+- `whatsapp_consentimentos`: autorização individual por número empresarial, telefone e finalidade; comprovante inbound opcional e opt-out preservado.
+- `whatsapp_mensagens`: continua sendo a outbox/histórico; ganha chaves idempotentes, versão/evento/atendimento, reserva, status incerto e papel para revalidar o destinatário antes do envio.
+
+Conteúdo e contexto são expurgados aos 60 dias; IDs, estados mínimos de consentimento e auditoria necessária permanecem. O dispatcher e o worker usam credencial interna do servidor; RPCs de fila e mutação não são executáveis por usuários/anon. Ver [runbook WhatsApp Cloud](../operacao/whatsapp-automacoes-atendimento.md) para os limites e estado real de publicação.
 
 ## 8. Plataforma
 

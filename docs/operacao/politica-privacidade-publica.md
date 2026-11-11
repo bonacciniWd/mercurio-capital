@@ -22,6 +22,7 @@ A rota `/politica-de-privacidade` descreve separadamente:
 ### Formulários públicos
 
 - CPC coleta nome, e-mail, telefone, fase do projeto e, se informados, cidade/UF e resumo curto. Não pede CPF, documentos, valor de crédito nem endereço completo. A Edge Function valida a configuração no servidor antes de gravar. A configuração efetiva de produção não foi verificada e não foi alterada.
+- MERX pública coleta nome, cidade, e-mail, telefone e assunto de interesse quando a pessoa solicita contato e marca o consentimento. O assunto pode registrar interesse em crédito ou em cadastro como parceiro originador; isso não cria uma conta. Mensagens livres do chat não são persistidas nem enviadas a um modelo de IA.
 - Home Equity coleta contato, dados da garantia e operação, CEP, renda opcional e perfil da solicitação.
 - Amortização coleta contato, dados da garantia, parâmetros do cálculo, planos extras e perfil da solicitação.
 - Os simuladores registram leads internos e os fluxos podem enfileirar resultado por e-mail e notificação interna. A simulação pública não solicita CPF/documentos e não executa consulta a bureau durante o cálculo.

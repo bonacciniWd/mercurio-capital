@@ -54,7 +54,7 @@ public (visitante)
 | 30 | Audit log | ✅ | ❌ | ❌ | ❌ | ❌ |
 | 31 | Ver saldo da carteira | ✅ | ✅ (própria) | ⚠️ apenas leitura | ❌ | ❌ |
 | 32 | Recarregar carteira (Stripe) | ✅ | ✅ | ❌ | ❌ | ❌ |
-| 33 | Executar consulta paga (debita carteira) | ✅ | ✅ se saldo ≥ preço | ❌ | ❌ | ❌ |
+| 33 | Executar consulta paga (debita carteira do parceiro; Serasa PF/PJ por Admin é custo interno com cota diária) | ✅ | ✅ se saldo ≥ preço | ❌ | ❌ | ❌ |
 | 34 | Ajuste manual de saldo (crédito/débito) | ✅ | ❌ | ❌ | ❌ | ❌ |
 | 35 | Bloquear/desbloquear carteira | ✅ | ❌ | ❌ | ❌ | ❌ |
 | 36 | Editar tabela `precos_consulta` | ✅ | ❌ | ❌ | ❌ | ❌ |
@@ -62,8 +62,11 @@ public (visitante)
 | 38 | Criar/atribuir **fundos** e alterar `status_fundo` | ✅ (admin operacional) | ❌ | ❌ | ❌ | ❌ |
 | 39 | Ver/baixar **modelo de contrato** da proposta | ✅ | ✅ (dono) | ✅ (equipe) | ✅ (cliente da proposta) | ❌ |
 | 40 | Enviar **modelo de contrato** | ✅ (admin operacional + jurídico) | ❌ | ❌ | ❌ | ❌ |
+| 41 | Operar atendimento WhatsApp atribuído | ✅ (full; limitado só no atendimento atribuído) | ❌ | ❌ | ❌ | ❌ |
 
 Legenda: ✅ pleno · ⚠️ parcial/condicional · ✏️ campos restritos · 🔒 público com restrição · ❌ negado.
+
+Consultas Serasa PF/PJ iniciadas por Admin não debitam a carteira do parceiro da proposta. O custo nominal fica auditado no log, com limite inicial de 20 novas consultas por usuário Admin por dia civil de São Paulo em produção. A permissão de consulta, a autorização do cliente e o escopo da proposta continuam obrigatórios. Consultas iniciadas por parceiro seguem a cobrança da carteira. A configuração e o fluxo de falha constam em [cota diária Serasa Admin](../operacao/serasa-admin-cota-diaria.md).
 
 > Nuances por `admin_nivel` (coluna **admin** acima é o caso `full`): **admin limitado** herda leitura de Propostas/Relatórios **e** pode **criar proposta** (item 6) via `/admin/propostas/nova`; **admin jurídico** tem leitura de Propostas/Relatórios mas **não** cria proposta (item 6 = ❌). Detalhes em §2.1 e §2.2.
 
@@ -89,11 +92,14 @@ Papel operacional que é `role='admin'` mas com escopo reduzido. Implementado se
 | **Nova proposta (criação)** | `/admin/propostas/nova` | ✅ | ✅ | ❌ |
 | Relatórios | `/admin/relatorios` | ✅ | ✅ | ✅ |
 | Leads do simulador público (leitura) | `/admin/leads/simulacoes` | ✅ | ✅ | ✅ |
+| Atendimento WhatsApp (somente atendimento atribuído e proposta permitida) | `/admin/integracoes/whatsapp` | ✅ | ⚠️ | ❌ |
 | Financeiro / Preços / Carteiras | `/admin/financeiro*` | ✅ | ❌ | ❌ |
 | Fluxos / Campanhas / Templates | `/admin/{fluxos,campanhas,templates}` | ✅ | ❌ | ❌ |
 | Feature flags / Integrações / Configurações | … | ✅ | ❌ | ❌ |
 
 No front, o gate é `app/src/guards/RequireAdminScope.tsx` (allowlist **por nível** em `app/src/lib/adminScope.ts`, via `isAdminPathAllowed(pathname, nivel)`) aplicado dentro do bloco `/admin`; o `AdminLayout` filtra a navegação pelo mesmo allowlist. O botão **"Nova proposta"** em `/admin/propostas` só aparece para `full` e `limitado` (`canCreateProposta`). Paridade no mobile: `mobile/lib/adminScope.ts` filtra o hub (`(admin)/index.tsx`), esconde o botão "Nova" (`(admin)/propostas.tsx`) e bloqueia deep link em `(admin)/propostas-nova.tsx`.
+
+O atendimento WhatsApp é uma exceção delimitada para Admin limitado: a rota permite apenas a caixa de entrada, e políticas/RPCs retornam somente conversas manualmente atribuídas ao operador e vinculadas a uma proposta que ele pode acessar. Configuração, templates, fluxos, vinculação de identidade e consentimento continuam exclusivos de Admin full.
 
 **Fundos** (item 38) ficam restritos a **admin operacional** (`app_is_admin_operacional()` = `full|limitado`). A **criação de proposta** (`admin_create_proposta`) também exige **admin operacional** (guard `app_is_admin_operacional()` desde `20260723000001`), recusando chamada direta do admin jurídico com `forbidden`.
 

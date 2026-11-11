@@ -145,9 +145,11 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 
 ### Regras
 - Cliente vê **somente** propostas onde figura como `cliente_id` ou `proponentes.cliente_id`.
-- Timeline visual baseada em `proposta_status_historico`.
+- Mobile: início e detalhe exibem o status atual da proposta; o histórico continua preservado internamente.
 - Upload de documentos solicitados (pendências).
 - `/c/documentos` usa o **checklist real** (placeholders `pendente` + upload), agrupado por categoria com abas Pendentes/Enviados/Aprovados; sem mock. A home do cliente exibe card “Documentos obrigatórios pendentes” com deep-link. Paridade mobile em `mobile/app/(cliente)/documentos.tsx` e `mobile/app/(cliente)/index.tsx`.
+- No app mobile, `Meus documentos` separa arquivos guardados de solicitações da equipe. Arquivos do mesmo titular podem ser vinculados a outra proposta sem duplicar bytes; atualização solicitada cria nova versão. PF/PJ e documentos de imóvel permanecem segregados. A migration `20261108000003_cliente_acervo_documental.sql` é pré-requisito para o novo fluxo; não aplicar sem revisar dry-run e compatibilidade com os clientes já instalados.
+- Universidade mobile consome catálogo e assinatura atuais e abre o conteúdo autorizado no portal existente; não implementa player ou cobrança novos.
 - Aba/tela de contrato exibe **modelos de contrato** para download (signed URL); para `admin` permanece acessível mesmo em pré-aprovação, enquanto partner/client continuam condicionados a `isPropostaAprovada(status)`.
 
 ---
@@ -178,6 +180,7 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - `/admin/documentos`, `/admin/documentos/pendentes`.
 - `/admin/financeiro`, `/admin/financeiro/contratos`.
 - `/admin/relatorios`, `/admin/relatorios/exportar`.
+- Relatórios administrativos: preset Mês atual, filtros de período, leads públicos capturados/atendidos, propostas criadas distribuídas por etapa atual e resumo agregado do financeiro. Exportação Excel compatível (abas) e versão para impressão/salvamento em PDF.
 
 ### Regras
 - Filtros: tipo de operação, valor de imóvel, valor pedido, originador, status, pendências.
@@ -186,6 +189,7 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 - **Fundos**: badges coloridos + filtro por fundo no Kanban admin; card Fundos no detalhe da proposta com troca de `status_fundo`. Paridade mobile em `mobile/app/(admin)/kanban.tsx` e `mobile/app/(admin)/proposta/[id].tsx`.
 - **Modelo de contrato**: upload por admin operacional e admin jurídico no detalhe da proposta; download por admin/parceiro/cliente.
 - **Admin de escopo reduzido** (`admin_nivel in ('limitado','juridico')`): acesso restrito a Dashboard, Aprovações, Parceiros, Rede, Kanban e Detalhe de proposta (ver §02.1).
+- **Relatórios**: leads usam contagem da `v_admin_leads_publicos`, sem exportar contatos; atendidos são os estados atuais `em_contato`/`qualificado`. Capturas e propostas/contas são métricas separadas porque a view não tem uma chave de relacionamento confiável. Propostas usam a etapa atual, normalizando status legados; Standby, rascunhos e canceladas aparecem separados. Financeiro usa apenas `admin_financeiro_resumo` agregado já usado pelo Dashboard, em competência mensal (meses completos que cruzam o período).
 
 ---
 
@@ -227,6 +231,15 @@ Cada módulo descreve **objetivo, telas, regras, dependências, integrações e 
 ### Push Notifications
 - Web Push (FCM) + WhatsApp (Evolution) + e-mail.
 - `push_devices` armazena tokens; revogação automática em 410.
+
+### WhatsApp Cloud API e MERX (implementação local de 06/11/2026)
+
+- Catálogo WhatsApp em `/admin/templates?canal=whatsapp` versiona componentes e compara a situação real da Meta; aprovação externa é independente da ativação interna.
+- `/admin/fluxos` oferece automações de notificação e atendimento conversacional sobre React Flow. Salvar rascunho, publicar versão interna e publicar formulário na Meta são etapas distintas.
+- `/admin/integracoes/whatsapp` mantém conexão, flags, fila e atendimento. Admin limitado opera somente conversas atribuídas e associadas ao seu escopo; configuração e gestão de destinatários seguem Admin full.
+- Eventos automáticos observam criação/alteração de conta, aprovação de parceiro, proposta, status, pendência e contrato. Não alteram etapa, não consultam Serasa e não enviam texto como sucesso sem confirmação Meta.
+- MERX responde por fluxo determinístico e FAQ pública. Dados de proposta exigem contexto atribuído/autorizado; telefone sozinho nunca autentica. Consentimento de notificação é individual, e `Sair`/`Parar` bloqueia comunicações.
+- Estado e rollout atual: [runbook WhatsApp Cloud API](../operacao/whatsapp-automacoes-atendimento.md).
 
 ---
 

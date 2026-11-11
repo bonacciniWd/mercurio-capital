@@ -330,6 +330,16 @@ O `503` seguido de `200` é evidência de falha transitória nesta execução, r
 
 Estado atualizado: UAT validado para PF Avançado, PF Avançado Top Score (HSPN) e PJ Avançado Analítico. Consulta com Score PJ e outras features permanecem não testadas. A aplicação não foi modificada/deployada; os testes continuam diretos no UAT, sem gravação Supabase ou cobrança na carteira interna.
 
+## 23. PF de produção — habilitação controlada, 27/10/2026
+
+Para a validação autorizada de PF em produção, foram aplicadas no projeto Supabase as migrations `20261026000002_serasa_relatorio_avancado_pf.sql` e `20261027000001_serasa_producao_admin_controlada.sql`. A função `consulta-executar` foi publicada na versão 46. O relatório configurado é `RELATORIO_AVANCADO_PF`; PJ permanece sem segmento configurado e bloqueado. Os nomes dos secrets foram verificados sem ler seus valores.
+
+O normalizador agora permite apenas natureza/código REFIN, data e agregados sanitizados; a UI da aba Consultas apresenta essas ocorrências. Foi adicionada localmente uma ação admin autenticada para habilitar/desabilitar somente PF, com confirmação explícita. Testes do normalizador passaram 5/5, lint sem erros, typecheck, build e `git diff --check` passaram. O lint registrou 33 avisos existentes; o build manteve aviso de chunk grande. Não houve inspeção visual em browser.
+
+A UI administrativa foi publicada na Vercel no deployment `dpl_7zkaRdBWCcUBgvLRGaTQ9RCus3EB`, substituindo o deployment anterior `dpl_Cue9XaogUoxSBboLpQogdbFGxLAE`. O snapshot enviado partiu do `HEAD` mais somente `Integracoes.tsx` e `PropostaConsultas.tsx`; alterações locais alheias ficaram de fora. O domínio principal respondeu HTTP 200 e os bundles publicados contêm o controle PF e a apresentação REFIN sanitizada. Não foi feito smoke visual autenticado.
+
+A produção não foi ativada pela publicação. Não foi verificada a autorização documental da proposta `MERC-2026-000184` nem executada consulta do relatório; portanto, não houve débito de carteira e não há resultado de produção para reportar. O usuário fará a ativação manual com a sessão admin; depois, a autorização deve ser confirmada pela RPC e a consulta, se permitida, executada uma única vez pelo fluxo normal. Se o fluxo rejeitar autorização/saldo, interromper sem bypass. O plano operacional está em [2026-10-27-plano-validacao-serasa-pf-producao.md](../../prompts/2026-10-27-plano-validacao-serasa-pf-producao.md).
+
 ## 19. Entrega 1 implementada localmente — sem publicação
 
 Implementada localmente a conexão server-side dos produtos UAT confirmados: PF `RELATORIO_AVANCADO_TOP_SCORE_PF` e PJ `RELATORIO_AVANCADO_PJ_ANALITICO`. A Edge só aceita URL exata UAT/produção, resolve CPF/CNPJ pela proposta, rejeita divergências antes do débito e não aceita payload de documento enviado pelo navegador. O health check autentica no IAM e deixa explícito que não testou os relatórios.
@@ -357,3 +367,11 @@ O stack `mercurio-serasa-smoke-20261021` foi iniciado com portas próprias, rece
 A fixture sintética exigiu 2FA/AAL2 por causa das regras atuais de carteira. Uma chamada transacional direta à RPC, com claims locais de teste, passou e foi revertida. Depois da chamada inconclusiva, todos os registros sintéticos foram removidos do banco descartável; as contagens de usuários, logs e autorizações ficaram em zero. O projeto descartável foi parado e o diretório temporário removido. A instância local compartilhada continua aplicada somente até `20260918000008`. Nenhuma migration remota, secret, deploy, carteira real ou código de produto foi alterado.
 
 Antes de uma nova chamada, confirmar com a Serasa pelo canal autorizado se a consulta UAT anterior foi processada. Se o estado não puder ser confirmado, tratar a reconciliação como pendência operacional; não repetir a mesma solicitação nem marcar o teste como aprovado. Artefatos do harness: [plano e resultado](../../prompts/2026-10-21-smoke-serasa-supabase-sintetico.md), [script](../../scripts/smoke-serasa-uat-disposable.mjs), [assertions fase 47](../../supabase/smoke-tests/fase-47-serasa-uat-integrado.sql).
+
+## 22. Retomada e configuração de produção — 26/10/2026
+
+O usuário confirmou que a conta possui os produtos Relatório Avançado PF e Relatório Avançado PJ e cadastrou `SERASA_CLIENT_ID`/`SERASA_CLIENT_SECRET` diretamente no Supabase. A listagem do CLI confirmou apenas os nomes; os valores não foram lidos ou copiados. A comparação local do fingerprint do secret `SERASA_API_URL` confirmou o host oficial de produção `https://api.serasaexperian.com.br/`; a barra final é removida pelo runtime.
+
+O código foi alinhado localmente para solicitar `RELATORIO_AVANCADO_PF` e manter `RELATORIO_AVANCADO_PJ_ANALITICO`; não solicita Top Score. A migration aditiva `20261026000002_serasa_relatorio_avancado_pf.sql` atualiza apenas a configuração PF e consta localmente, ainda não aplicada no projeto remoto. O banco remoto permanece na migration `20261026000001`.
+
+Produção não está pronta para executar consultas: `SERASA_PRODUCTION_ENABLED` e `SERASA_RETAILER_DOCUMENT_ID` não constam entre os nomes de secrets vistos, e a configuração de produção deve continuar desativada até CNPJ consultante e operação controlada estarem autorizados. Não houve login IAM, consulta de relatório, leitura de resposta pessoal, alteração de secret, migration remota ou deploy nesta retomada. A checagem da URL validou somente o host configurado, não credenciais, entitlement, endpoint de relatório ou acesso de ponta a ponta.

@@ -92,6 +92,8 @@ Use a URL de produção somente após homologar: `https://api.serasaexperian.com
 
 ## 🟢 WhatsApp — Cloud API oficial (Meta)
 
+> **Estado revalidado em 06/11/2026:** callback, assinatura do app, publicação e meio de pagamento foram confirmados no onboarding Meta. A conta Meta não lista templates aprovados; o banco local tem sete modelos internos, que ainda precisam ser criados/aprovados na Meta para envios iniciados pela empresa. O inbound está publicado: migration aplicada e Edge `whatsapp-webhook` ativa na versão 43, com retenção de 60 dias e leitura inicial restrita a Admin. Falta o teste real de recebimento após o deploy. Veja o [registro inbound/MERX](./2026-10-29-whatsapp-merx-inbound-pendencias.md).
+
 > **Guia de cadastro para o dono da empresa:** [whatsapp-cloud-api-setup.md](./whatsapp-cloud-api-setup.md)
 > (decisão: usar a API **oficial** da Meta, não a Evolution — sem risco de banimento,
 > compatível com LGPD/opt-in/templates, adequada a operação financeira).

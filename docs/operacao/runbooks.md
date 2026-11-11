@@ -27,6 +27,7 @@
 17. [Provisionamento do perfil Admin Jurídico](#17-provisionamento-do-perfil-admin-juridico)
 18. [Dashboard global: distribuição por fundos](#18-dashboard-global-distribuição-por-fundos)
 19. [Ativação e login do cliente](#19-ativação-e-login-do-cliente)
+20. [Alertas diários de propostas paradas no Kanban](#20-alertas-diários-de-propostas-paradas-no-kanban)
 
 ---
 
@@ -794,28 +795,54 @@ Esperado:
 ## 18. Dashboard global: distribuição por fundos
 
 **Regra operacional**: uma proposta pode ser atribuída a vários fundos para
-representação e cobertura. Os valores financeiros da operação entram uma única
-vez, no primeiro fundo que atingir `status_fundo = 'aprovado'`. Aprovações
-posteriores não duplicam o volume.
+representação e cobertura. O vencedor é o vínculo com o menor `aprovado_em`
+(desempate por `fundo_id`), e os valores financeiros entram uma única vez
+nesse fundo. Aprovações posteriores não transferem nem duplicam o volume.
+Alterar o status atual do vínculo não remove a evidência da primeira aprovação.
+As métricas de operação única excluem Standby; a produção solicitada preserva
+canceladas segundo a regra histórica já aprovada. Ganho é status atual em
+Registro de AF (`registro_af` ou alias legado `contrato_registrado`), Recurso
+Liberado, Pagamento de Comissão ou Concluído. O indicador Liberado continua
+medindo a primeira entrada em Pagamento de Comissão no período, e não é o mesmo
+que o total de desembolsos em `liberacoes_recurso`.
 
 **Validação**:
 
 - use o mesmo período e filtros de parceiro, equipe e fundo do Dashboard;
-- confira `Operações representadas` para a cobertura de atribuições;
-- confira `Operações únicas` e os volumes para a atribuição financeira;
-- propostas sem fundo vencedor aparecem no aviso operacional e não entram nos
-  volumes por fundo;
+- confira `Atribuições` para os vínculos e `Operações únicas` para propostas
+  elegíveis com vencedor;
+- concilie vencedoras elegíveis + propostas elegíveis sem vencedor com o total
+  sem Standby; valores vencedores + valores sem vencedor devem fechar o
+  solicitado da mesma coorte;
+- no filtro por fundo, diferencie propostas apenas vinculadas, vencedoras em
+  outro fundo e propostas ainda sem vencedor; não some esses grupos aos valores
+  atribuídos ao fundo;
+- o solicitado inclui canceladas conforme a regra histórica, mas a interface
+  informa sua quantidade e seu volume; canceladas não entram em ganho;
+- o Kanban usa um pipeline comum nos três produtos. `registro_af` é a etapa de
+  ganho canônica; `contrato_registrado` é compatibilidade legada para a mesma
+  classificação. `em_registro` mapeia para Protocolo em Cartório, e
+  `resolucao_pendencias` para Diligência Jurídica;
 - propostas legadas sem evento de aprovação usam `proposta_fundos.updated_at`
   como fallback; novas aprovações preservam `aprovado_em`.
+
+O RPC de detalhes do Dashboard é somente leitura, administrativo e paginado em
+até 50 propostas. A consulta de projeção do vencedor também é administrativa e
+limitada a 500 IDs por chamada. Não conceder essas RPCs a partner ou client.
+O detalhe do Dashboard deve abrir a rota existente da proposta, sem duplicar o
+componente de detalhes.
 
 **Smoke test**:
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f supabase/smoke-tests/fase-35-dashboard-fundos.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  -f supabase/smoke-tests/fase-53-dashboard-fundos-conciliacao.sql
 ```
 
-O resultado esperado é `FASE 35 SMOKE: OK`. A RPC
+Após aplicar a migration da fase 53, o resultado esperado inclui
+`FASE 35 SMOKE: OK` e `FASE 53 SMOKE: OK`. A RPC
 `admin_dashboard_fundos_analytics` é administrativa e não deve ser exposta a
 parceiros ou clientes.
 
@@ -870,3 +897,13 @@ parceiro ou equipe pré-existente.
 **Troubleshooting**:
 - Botão Validar falha com `invertexto_nao_configurado`: `INVERTEXTO_TOKEN` ausente.
 - Criação bloqueada com `conjuge_obrigatorio` / `pj_campos_obrigatorios` / `limite_50_excedido`: regras de negócio funcionando (não é bug).
+
+## 20. Alertas diários de propostas paradas no Kanban
+
+A migration `20261103000001_kanban_stage_age_alerts.sql` calcula a entrada na etapa pelo último registro de `proposta_status_historico` compatível com o status atual; na etapa inicial, sem histórico correspondente, usa `propostas.created_at`. Edições que não alteram status não reiniciam o prazo.
+
+Propostas com mais de 10 dias completos em etapa operacional recebem um lembrete in-app diário por proposta e por usuário Admin ativo com nível `full` ou `limitado`. Rascunhos/simulações, Standby, canceladas e concluídas ficam fora. A rotina do Supabase Cron roda às 09:00 de São Paulo (12:00 UTC); a chave única inclui proposta, etapa, início da etapa e data civil local, impedindo repetição no mesmo dia. Admin jurídico e contas externas não recebem esses alertas.
+
+O RPC read-only `admin_kanban_etapa_alertas_preview(p_referencia)` permite conferir os casos elegíveis sem inserir notificações. `admin_kanban_etapa_inicio(p_proposta_ids)` devolve apenas status e instante de início para os IDs enviados e só executa para Admin full/limitado. O ícone de notificações permite carregar páginas adicionais para que mais de 30 alertas diários não fiquem ocultos.
+
+Para validar o agendamento e os grants, execute `supabase/smoke-tests/fase-54-kanban-stage-age-alerts.sql`. Para reverter, use o roteiro em `supabase/manual/rollback-20261103-kanban-stage-age-alerts/README.md`; ele remove exclusivamente os avisos deste recurso e não apaga o histórico de status.
