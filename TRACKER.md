@@ -36,7 +36,14 @@ em `screenshots/ios/6.9/`; textos e campos completos em `screenshots/app-store-c
 
 | Issue | Item | Status | Notas |
 |---|---|---|---|
-| #8 | Nova frente no projeto `/app` | ⚪ | Começa com plano em `prompts/` + aprovação |
+| #8 | Nova frente no projeto `/app` | 🟢 | Frente A = Push Web (FCM); plano `prompts/2026-11-11-push-web-fcm.md` aprovado (modelo de dados + dep `firebase` incluídos) |
+| #10 | push-web: modelo push_subscriptions/push_outbox + RLS + smoke | ⚪ | Migration `20261111000001` + fase-59 |
+| #11 | push-web: edge push-dispatcher (FCM HTTP v1) | ⚪ | Service account em secrets; backoff; limpeza de tokens |
+| #12 | push-web: trigger de fan-out a partir de notificacoes | ⚪ | Enqueue idempotente com opt-out |
+| #13 | push-web: service worker + SDK Firebase no app web | ⚪ | Dep `firebase` autorizada; guard desktop |
+| #14 | push-web: UX de permissão e preferências | ⚪ | Especificação UX/UI prévia |
+| #15 | push-web: degradê Electron/Safari + docs operacionais | ⚪ | Runbook, security-checklist, §2.2 do 12-finalizacao |
+| #16 | push-web: flag de rollout + evidências | ⚪ | Flag `push_web`; staging com 2 navegadores |
 
 ## Repositório
 
