@@ -39,7 +39,7 @@ em `screenshots/ios/6.9/`; textos e campos completos em `screenshots/app-store-c
 | #8 | Nova frente no projeto `/app` | 🟢 | Frente A = Push Web (FCM); plano `prompts/2026-11-11-push-web-fcm.md` aprovado (modelo de dados + dep `firebase` incluídos) |
 | #10 | push-web: modelo push_devices/push_outbox + RLS + smoke | 🟢 | `ee3d42f`; reutilizou `push_devices` (decisão do dono); smokes fase-59 verdes em Supabase local |
 | #12 | push-web: trigger de fan-out a partir de notificacoes | 🟢 | Entregue junto da #10 (`ee3d42f`), conforme §9 do plano |
-| #11 | push-web: edge push-dispatcher (FCM HTTP v1) | ⚪ | Service account em secrets; backoff; limpeza de tokens |
+| #11 | push-web: edge push-dispatcher (FCM HTTP v1) | 🟢 | `29aadaf`; 31/31 testes, deno check limpo; deploy aguarda GO + secrets FCM |
 | #13 | push-web: service worker + SDK Firebase no app web | ⚪ | Dep `firebase` autorizada; guard desktop |
 | #14 | push-web: UX de permissão e preferências | ⚪ | Especificação UX/UI prévia |
 | #15 | push-web: degradê Electron/Safari + docs operacionais | ⚪ | Runbook, security-checklist, §2.2 do 12-finalizacao |
