@@ -75,10 +75,11 @@ Estas integrações dependem de credenciais/contratos externos. O **schema, bill
 | **SMTP** | `supabase/functions/email-dispatcher` | `SMTP_HOST/PORT/USER/PASS/FROM` (SendGrid/Postmark/SES) + cron pull |
 | **SMTP bounce webhook** | `supabase/functions/email-bounce-webhook` | Configurar callback do provedor SMTP → `?secret=…` |
 
-### 2.2 Web push (Fase 12 — diferido)
+### 2.2 Web push (Fase 12 — implementado em 2026-11-11)
 
-- Push web (FCM) e push mobile (Expo Notifications) ficaram fora — depende do setup mobile (Fase 11).
-- In-app + e-mail cobrem o caso de uso atual.
+- ~~Push web (FCM) ficou fora — depende do setup mobile (Fase 11)~~. **Superado:** push web é independente do app mobile; implementado na Frente A (issues #10–#16, plano `prompts/2026-11-11-push-web-fcm.md`, handoff `docs/handoffs/21-handoff-push-web.md`): modelo (`push_devices` + `push_outbox` + opt-out), edge `push-dispatcher` (FCM HTTP v1), SDK + service worker no web, UX de permissão/preferências, flag `push_web` como kill switch.
+- **Pendente de ativação** (não-código): projeto Firebase, secrets, env `VITE_FIREBASE_*`, deploy da edge, flag e cron — roteiro em `docs/operacao/runbooks.md` §17.
+- Push **mobile** (Expo Notifications) continua pendente — frente futura separada.
 
 ### 2.3 Mobile (Fase 11)
 

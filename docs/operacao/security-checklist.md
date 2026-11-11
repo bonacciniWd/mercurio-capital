@@ -29,6 +29,7 @@ Checklist baseado em OWASP Top 10 (2021). Cada item deve ser executado antes de 
 - [x] 2FA TOTP obrigatório para admin (`two_factor_at` claim).
 - [ ] Storage buckets de documentos: `signed url` com TTL ≤ 5 min.
 - [ ] Service role key apenas em Edge Functions; nunca commitar.
+- [x] Push web (Frente A): service account FCM (`FCM_SERVICE_ACCOUNT_JSON`) e `PUSH_WORKER_SECRET` somente em Edge Secrets; bundle web carrega apenas config pública (`VITE_FIREBASE_*` + VAPID); RPCs do dispatcher restritas a `service_role` (revoke de `public, anon, authenticated`); `push_outbox` sem policy para authenticated/anon (leitura admin-only).
 
 ## A03 — Injection
 
@@ -49,6 +50,7 @@ Checklist baseado em OWASP Top 10 (2021). Cada item deve ser executado antes de 
 - [x] `revoke all from public` + `grant execute to authenticated` explícito.
 - [ ] Headers HTTP — verificar CSP, HSTS, X-Frame-Options no host (Vercel/Cloudflare).
 - [ ] Variáveis sensíveis fora do repo (`app/.env` no `.gitignore`).
+- [x] Service worker de push (`app/public/firebase-messaging-sw.js`) recebe config pública via query string (nada sensível); clique em notificação só navega para link interno da outbox.
 
 ## A06 — Vulnerable & Outdated Components
 

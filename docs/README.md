@@ -52,6 +52,7 @@ Esta pasta consolida o escopo da plataforma **Mercurio Capital** e as atualizaç
 - [Fase 1 — visualização de documentos admin + recuperação de acesso](./handoffs/18-handoff-fase1-admin-documentos-recuperacao.md)
 - [Fase 2 — dashboard e gestão financeira admin](./handoffs/19-handoff-fase2-financeiro-admin.md)
 - [Fase 2.1 — dashboard UI profissional](./handoffs/20-handoff-fase2-1-dashboard-ui.md)
+- [Frente A — Push Web (FCM)](./handoffs/21-handoff-push-web.md)
 
 ## Convenções
 

@@ -198,7 +198,8 @@
 - [x] Catálogo de `templates_mensagem` + UI `/admin/templates`.
 - [x] `campanhas` com agendamento + `admin_campanha_disparar/_cancelar` (públicos por roles/partners).
 - [x] `email_outbox` + edge function `email-dispatcher` (SMTP via denomailer, RPCs `email_outbox_pull/_marcar`).
-- [ ] Push web (FCM) e push mobile (Expo Notifications) _(deferido — depende do setup mobile da Fase 11)_.
+- [x] Push web (FCM) — Frente A, issues #10–#16 (2026-11-11); ativação operacional em `runbooks.md` §17.
+- [ ] Push mobile (Expo Notifications) _(frente futura; app iOS em submissão App Store)_.
 
 **Saída**: comunicação automatizada (in-app + e-mail) e campanhas pelo admin com fila SMTP processada por worker.
 

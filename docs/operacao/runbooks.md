@@ -907,3 +907,78 @@ Propostas com mais de 10 dias completos em etapa operacional recebem um lembrete
 O RPC read-only `admin_kanban_etapa_alertas_preview(p_referencia)` permite conferir os casos elegíveis sem inserir notificações. `admin_kanban_etapa_inicio(p_proposta_ids)` devolve apenas status e instante de início para os IDs enviados e só executa para Admin full/limitado. O ícone de notificações permite carregar páginas adicionais para que mais de 30 alertas diários não fiquem ocultos.
 
 Para validar o agendamento e os grants, execute `supabase/smoke-tests/fase-54-kanban-stage-age-alerts.sql`. Para reverter, use o roteiro em `supabase/manual/rollback-20261103-kanban-stage-age-alerts/README.md`; ele remove exclusivamente os avisos deste recurso e não apaga o histórico de status.
+
+## 17. Push web (FCM) — operação e incidentes
+
+Cobertura da Frente A (issues #10–#16, plano `prompts/2026-11-11-push-web-fcm.md`, handoff `docs/handoffs/21-handoff-push-web.md`).
+
+### Arquitetura em 30 segundos
+
+- `notificacoes` (canal `in_app`/`push`) → trigger enfileira em `push_outbox` (1 push por notificação).
+- Edge `push-dispatcher` (cron recomendado: a cada 5 min) faz `push_outbox_pull` → envia via FCM HTTP v1 → `push_outbox_marcar`.
+- Tokens em `push_devices` (`plataforma='web'`); opt-out global em `usuarios.push_opt_out` (verificado no enqueue E no dispatch).
+- Kill switch: flag `push_web` em `feature_flags` — desligar interrompe o envio sem deploy (o dispatcher responde `paused`).
+
+### Ativação (uma vez)
+
+1. Criar projeto Firebase (console.google.com) → Web app → copiar config pública + gerar chave VAPID (Cloud Messaging → Web Push certificates).
+2. Web (Vercel + local): definir `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_VAPID_KEY` (todas públicas por definição — ver `app/.env.example`).
+3. Service account (IAM → Contas de serviço → chave JSON), entrada silenciosa:
+   ```bash
+   read -s FCM_SA  # cole o JSON da service account
+   echo
+   supabase secrets set FCM_SERVICE_ACCOUNT_JSON="$FCM_SA" --project-ref bhagksfvszeogtjvjtpx
+   ```
+4. `PUSH_WORKER_SECRET` aleatório (32+ chars) como secret; o cron chama a edge com `Authorization: Bearer <segredo>`.
+5. Deploy da edge (após GO): `supabase functions deploy push-dispatcher --project-ref bhagksfvszeogtjvjtpx --no-verify-jwt`.
+6. `admin_feature_flag_upsert('push_web', ..., ativo=true)` quando for liberar — rollout gradual por `regras.roles`/`percent`.
+
+### Diagnóstico: push não está chegando
+
+Ordem de verificação (cada camada é independente):
+
+```sql
+-- 1) flag ligada?
+select chave, ativo, regras from feature_flags where chave = 'push_web';
+
+-- 2) eventos estão enfileirando? (trigger + opt-out)
+select status, count(*), max(created_at) as ultimo
+  from push_outbox group by 1;
+
+-- 3) backlog/erros recentes
+select id, usuario_id, titulo, status, tentativas, erro, created_at
+  from push_outbox order by created_at desc limit 20;
+
+-- 4) tokens ativos do usuário afetado
+select id, plataforma, ativo, ultimo_uso, user_agent
+  from push_devices where usuario_id = '<uuid>';
+
+-- 5) opt-out global?
+select id, push_opt_out from usuarios where id = '<uuid>';
+```
+
+Checar no cliente: permissão do navegador (`Notification.permission`), bloqueio local (`localStorage["mercurio:push_device_off_v1:<userId>"]`), seção em Configurações → Notificações.
+
+### Estados da outbox e recuperação
+
+| Estado | Significado | Ação |
+|---|---|---|
+| `pendente` | na fila (backoff entre tentativas) | normal |
+| `enviando` | locada pelo dispatcher | sweeper reenfileira se >10 min (órfão) |
+| `enviado` | entregue em ≥1 token | terminal |
+| `falha` | terminal (5 tentativas ou rejeição definitiva) | investigar `erro`; reenvio manual se necessário |
+| `incerto` | timeout/rede — pode ter entregue | **sem reenvio automático**; manual se crítico |
+| `cancelado` | opt-out/sem dispositivo na hora do dispatch | terminal, higiênico |
+
+### Rotação da service account
+
+1. Nova chave JSON no IAM (a antiga segue válida até revogada).
+2. `supabase secrets set FCM_SERVICE_ACCOUNT_JSON=...` (entrada silenciosa).
+3. Próximo dispatch já usa o novo segredo (cache de token OAuth expira em ≤1h; não requer redeploy).
+4. Revogar a chave antiga no IAM. Se comprometida: revogar IMEDIATAMENTE no IAM (invalida tokens emitidos) e depois trocar o secret — ver seção 14.
+
+### Métricas mínimas
+
+- `select status, count(*) from push_outbox where created_at > now() - interval '24 hours' group by 1;`
+- Tokens mortos/dia: `erro = 'todos_tokens_invalidos'` e `push_devices.ativo=false` recentes.
+- Taxa de aceite (opt-in) é medida no cliente (não há tabela de eventos de prompt nesta versão).

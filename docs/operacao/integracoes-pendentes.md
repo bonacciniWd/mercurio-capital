@@ -16,6 +16,7 @@ _Atualizado em 18/07/2026_
 | **Escavador** | ✅ Cliente providenciando |
 | **RI Digital / ARISP** | ✅ Cliente providenciando |
 | **Nacional Consultas** | ✅ Cliente providenciando |
+| **Firebase (push web)** | 🟡 Implementado (Frente A, issues #10–#14) — aguardando: projeto Firebase no console (dono), `FCM_SERVICE_ACCOUNT_JSON` + `PUSH_WORKER_SECRET` em secrets, `VITE_FIREBASE_*` no ambiente web, deploy da edge `push-dispatcher`, flag `push_web` e cron. Passo a passo: `docs/operacao/runbooks.md` §17 |
 
 ### Nota operacional v0.0.9
 
