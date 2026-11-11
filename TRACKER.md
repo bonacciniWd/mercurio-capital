@@ -18,7 +18,7 @@ este espelho existe para leitura rápida e deve ser atualizado junto com elas.
 | Issue | Item | Status | Notas |
 |---|---|---|---|
 | #2 | Preencher placeholders de submissão | ⚪ | Só o dono: contato App Review + conta demo |
-| #3 | Screenshots iPad 13" (2064×2752) | 🟡 | 3 telas em `screenshots/ios/ipad-13/`; 2064×2752 é o nativo do 13" M4/M5 (2048×2732 é do 12.9"); falta commit (fase #7) |
+| #3 | Screenshots iPad 13" (2064×2752) | 🟢 | 3 telas em `screenshots/ios/ipad-13/`; commit `10dd7f6` fecha a issue |
 | #4 | Decisões ⚖️ (nome, países, versão) | ⚪ | Dono decide; registrar em `screenshots/app-store-connect.md` |
 | #5 | Submeter build para App Review | 🔴 | Bloqueada por #2, #3, #4. Go/no-go do dono |
 
@@ -29,7 +29,7 @@ em `screenshots/ios/6.9/`; textos e campos completos em `screenshots/app-store-c
 
 | Issue | Item | Status | Notas |
 |---|---|---|---|
-| #6 | Contraste quebrado em "Recuperar acesso" | 🟡 | Fix aplicado em `recuperar-senha.tsx` (2 classes) + screenshot 03 recapturado; falta commit (fase #7) |
+| #6 | Contraste quebrado em "Recuperar acesso" | 🟢 | Fix commitado em `fba022b` (mobile v0.0.2); build 13 ainda tem o bug → decisão de build 14 pendente |
 | #9 | Validar área do parceiro (Configurações) no aparelho | ⚪ | Roles admin e membro |
 
 ## Web
@@ -42,7 +42,7 @@ em `screenshots/ios/6.9/`; textos e campos completos em `screenshots/app-store-c
 
 | Issue | Item | Status | Notas |
 |---|---|---|---|
-| #7 | Organizar ~235 arquivos não commitados | ⚪ | Commits temáticos, sem misturar frentes |
+| #7 | Organizar ~235 arquivos não commitados | 🟢 | 10 commits temáticos (`9dd9c26`…`10dd7f6`) + rebase sobre release v0.3.0; working tree limpo; fecha #3 e #6 via mensagens |
 
 ---
 Atualizado em 2026-11-11.
