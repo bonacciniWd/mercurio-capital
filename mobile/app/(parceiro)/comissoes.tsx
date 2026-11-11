@@ -11,6 +11,8 @@ import {
 } from 'lucide-react-native'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
+import { useAuth } from '@/lib/auth'
+import { canManagePartner } from '@/lib/partnerAccess'
 
 interface ComissaoRow {
   id: string
@@ -18,6 +20,7 @@ interface ComissaoRow {
   percentual: number
   valor: number
   status: 'prevista' | 'aprovada' | 'paga'
+  aprovada_em: string | null
   paga_em: string | null
   created_at: string
   proposta: {
@@ -37,15 +40,17 @@ const STATUS_COLOR: Record<string, string> = {
 }
 
 export default function PartnerComissoes() {
+  const { session } = useAuth()
+  const allowed = canManagePartner(session?.role)
   const [filtro, setFiltro] = useState<Filtro>('todas')
   const [refreshing, setRefreshing] = useState(false)
 
   const comQ = useQuery({
-    queryKey: ['p-comissoes-mobile'],
+    queryKey: ['p-comissoes-mobile', session?.userId], enabled: allowed,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('comissoes')
-        .select('id, proposta_id, percentual, valor, status, paga_em, created_at, proposta:propostas(protocolo, cliente:clientes(nome_completo))')
+        .select('id, proposta_id, percentual, valor, status, aprovada_em, paga_em, created_at, proposta:propostas(protocolo, cliente:clientes(nome_completo))')
         .order('created_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as unknown as ComissaoRow[]
@@ -57,10 +62,7 @@ export default function PartnerComissoes() {
     const prev = lista.filter(c => c.status === 'prevista').reduce((a, c) => a + Number(c.valor), 0)
     const apro = lista.filter(c => c.status === 'aprovada').reduce((a, c) => a + Number(c.valor), 0)
     const paga = lista.filter(c => c.status === 'paga').reduce((a, c) => a + Number(c.valor), 0)
-    const proximo = lista
-      .filter(c => c.status === 'aprovada')
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0]
-    return { prev, apro, paga, proximo }
+    return { prev, apro, paga }
   }, [lista])
 
   const filtradas = filtro === 'todas' ? lista : lista.filter(c => c.status === filtro)
@@ -87,7 +89,9 @@ export default function PartnerComissoes() {
         </View>
       </View>
 
-      {comQ.isLoading ? (
+      {!allowed ? (
+        <View style={s.errBox}><Text style={s.errText}>Comissões disponíveis para o parceiro responsável.</Text></View>
+      ) : comQ.isLoading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color="#DC2626" />
         </View>
@@ -106,9 +110,7 @@ export default function PartnerComissoes() {
             <Kpi Icon={Clock}         accent="#F59E0B" label="Previstas" value={brl(cents(totais.prev))} />
             <Kpi Icon={TrendingUp}    accent="#38BDF8" label="Aprovadas" value={brl(cents(totais.apro))} />
             <Kpi Icon={CheckCircle2}  accent="#16A34A" label="Pagas"     value={brl(cents(totais.paga))} />
-            <Kpi Icon={Coins}         accent="#DC2626" label="Próximo recebimento"
-                 value={totais.proximo ? brl(cents(totais.proximo.valor)) : '—'}
-                 sub={totais.proximo?.proposta?.protocolo ?? ''} />
+            <Kpi Icon={Coins}         accent="#DC2626" label="Total registrado" value={brl(cents(totais.prev + totais.apro + totais.paga))} />
           </View>
 
           {/* Filtros */}
@@ -132,7 +134,7 @@ export default function PartnerComissoes() {
             <View style={s.card}>
               <Text style={s.empty}>
                 {lista.length === 0
-                  ? 'Nenhuma comissão ainda. Quando uma proposta tiver recurso liberado, a comissão aparecerá aqui.'
+                  ? 'Nenhuma comissão registrada nesta operação.'
                   : `Nenhuma comissão ${filtro}.`}
               </Text>
             </View>
@@ -169,9 +171,9 @@ export default function PartnerComissoes() {
                   </View>
                   <View style={s.divider} />
                   <View style={s.statCol}>
-                    <Text style={s.statLabel}>{c.paga_em ? 'Paga em' : 'Criada'}</Text>
+                    <Text style={s.statLabel}>{c.paga_em ? 'Paga em' : c.aprovada_em ? 'Aprovada em' : 'Criada em'}</Text>
                     <Text style={[s.statVal, { fontSize: 12 }]}>
-                      {new Date(c.paga_em ?? c.created_at).toLocaleDateString('pt-BR')}
+                      {new Date(c.paga_em ?? c.aprovada_em ?? c.created_at).toLocaleDateString('pt-BR')}
                     </Text>
                   </View>
                 </View>
@@ -208,7 +210,7 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff', marginTop: 1 },
 
   errBox: { flexDirection: 'row', alignItems: 'center', gap: 8, margin: 16, backgroundColor: '#DC262615', borderWidth: 1, borderColor: '#DC262640', borderRadius: 10, padding: 12 },
-  errText: { color: '#DC2626', fontSize: 12, flex: 1 },
+  errText: { color: '#FCA5A5', fontSize: 12, flex: 1 },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   kpiCard: { flexBasis: '47%', flexGrow: 1, minWidth: 0, minHeight: 112, backgroundColor: '#141414', borderRadius: 14, padding: 12, borderTopWidth: 2, borderWidth: 1, borderColor: '#2a2a2a', justifyContent: 'space-between' },

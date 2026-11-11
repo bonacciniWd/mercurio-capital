@@ -1,3 +1,9 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --mercurio-grafite: #111216;
+  --mercurio-grafite-elevated: #17191f;
+}
+

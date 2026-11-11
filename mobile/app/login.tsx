@@ -1,27 +1,18 @@
-import { useState } from 'react'
-import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, Image, Alert, ActivityIndicator } from 'react-native'
+import { useRef, useState } from 'react'
+import type { ComponentRef } from 'react'
+import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, Image, Alert, ActivityIndicator, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import { Mail, Lock, Fingerprint } from 'lucide-react-native'
-import AntDesign from '@expo/vector-icons/AntDesign'
+import { Mail, Lock } from 'lucide-react-native'
+import { StatusBar } from 'expo-status-bar'
 import { supabase } from '@/lib/supabase'
-
-function MicrosoftIcon() {
-  // 2×2 colored squares
-  return (
-    <View style={{ width: 16, height: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 1.5 }}>
-      <View style={{ width: 7, height: 7, backgroundColor: '#F25022' }} />
-      <View style={{ width: 7, height: 7, backgroundColor: '#7FBA00' }} />
-      <View style={{ width: 7, height: 7, backgroundColor: '#00A4EF' }} />
-      <View style={{ width: 7, height: 7, backgroundColor: '#FFB900' }} />
-    </View>
-  )
-}
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [pwd, setPwd] = useState('')
   const [loading, setLoading] = useState(false)
+  const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null)
+  const passwordRef = useRef<ComponentRef<typeof TextInput>>(null)
 
   async function handleLogin() {
     if (!email || !pwd) return Alert.alert('Atenção', 'Informe e-mail e senha.')
@@ -73,9 +64,10 @@ export default function Login() {
         .maybeSingle()
       const role = prof?.role as string | undefined
 
-      if (role === 'admin') return router.replace('/(admin)' as any)
+      if (role === 'admin') return router.replace('/acesso-indisponivel')
       if (role === 'client') return router.replace('/(cliente)' as any)
 
+      if (role !== 'partner' && role !== 'team_member') return router.replace('/acesso-indisponivel')
       // partner | team_member: checa se está aprovado
       const { data: meData } = await supabase.rpc('me')
       const me = (meData ?? {}) as { partner_status?: string; approved?: boolean }
@@ -88,135 +80,131 @@ export default function Login() {
     } finally {
       setLoading(false)
     }
+
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-[#111216]" edges={['top', 'bottom']}>
+      <StatusBar style="light" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
-        <View className="flex-1 px-6 pt-12">
-          {/* Logo */}
-          <View className="py-10 items-center">
-            <Image
-              source={require('../assets/logos/logowide.png')}
-              style={{ width: 300, height: 90 }}
-              resizeMode="contain"
-            />
-            
-          </View>
-
-          <Text className="text-3xl font-bold text-navy">Bem-vindo</Text>
-          <Text className="mt-1 text-sm text-silver-600">Entre com sua conta</Text>
-
-          <View className="mt-8 gap-4">
-            <View>
-              <Text className="mb-1.5 text-xs font-medium text-silver-700">E-mail</Text>
-              <View className="flex-row items-center rounded-lg border border-silver-300 px-3">
-                <Mail size={18} color="#9CA3AF" />
-                <TextInput
-                  value={email} onChangeText={setEmail}
-                  placeholder="voce@empresa.com"
-                  autoCapitalize="none" keyboardType="email-address"
-                  className="ml-2 flex-1 py-3 text-sm text-silver-900"
-                />
-              </View>
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="flex-1 px-6 pb-8 pt-5">
+            <View className="mb-10 items-start">
+              <Image
+                accessibilityLabel="Mercúrio Capital"
+                // eslint-disable-next-line @typescript-eslint/no-require-imports
+                source={require('../assets/logos/logo-dark.png')}
+                style={{ width: 206, height: 64 }}
+                resizeMode="contain"
+              />
             </View>
 
             <View>
-              <Text className="mb-1.5 text-xs font-medium text-silver-700">Senha</Text>
-              <View className="flex-row items-center rounded-lg border border-silver-300 px-3">
-                <Lock size={18} color="#9CA3AF" />
-                <TextInput
-                  value={pwd} onChangeText={setPwd}
-                  secureTextEntry placeholder="••••••••"
-                  className="ml-2 flex-1 py-3 text-sm text-silver-900"
-                />
-              </View>
+              <Text className="text-3xl font-bold tracking-tight text-white">Acesse sua conta</Text>
+              <Text className="mt-2 text-base leading-6 text-[#A3A3AA]">
+                Entre para acompanhar suas oportunidades na Mercúrio Capital.
+              </Text>
             </View>
 
-            <Pressable onPress={() => router.push('/recuperar-senha' as any)} className="self-end">
-              <Text className="text-sm font-medium text-gold-600">Esqueci minha senha</Text>
-            </Pressable>
-          </View>
+            <View className="mt-9 gap-5">
+              <View>
+                <Text className="mb-2 text-sm font-semibold text-[#D4D4D8]">E-mail</Text>
+                <View className={`min-h-14 flex-row items-center rounded-xl border bg-[#151518] px-4 ${focusedField === 'email' ? 'border-[#DC2626]' : 'border-[#36363B]'}`}>
+                  <Mail size={19} color="#A3A3AA" />
+                  <TextInput
+                    accessibilityLabel="E-mail"
+                    value={email}
+                    onChangeText={setEmail}
+                    onFocus={() => setFocusedField('email')}
+                    onBlur={() => setFocusedField((current) => current === 'email' ? null : current)}
+                    onSubmitEditing={() => passwordRef.current?.focus()}
+                    placeholder="voce@empresa.com.br"
+                    placeholderTextColor="#77777F"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="email"
+                    textContentType="emailAddress"
+                    keyboardType="email-address"
+                    returnKeyType="next"
+                    selectionColor="#EF4444"
+                    className="ml-3 min-h-14 flex-1 py-3 text-base text-white"
+                  />
+                </View>
+              </View>
 
-          {/* Botão Entrar */}
-          <Pressable
-            onPress={handleLogin}
-            disabled={loading}
-            className="mt-6 items-center rounded-lg bg-gold py-3.5 active:opacity-80"
-          >
-            {loading
-              ? <ActivityIndicator color="white" />
-              : <Text className="text-base font-bold text-white">Entrar</Text>}
-          </Pressable>
+              <View>
+                <Text className="mb-2 text-sm font-semibold text-[#D4D4D8]">Senha</Text>
+                <View className={`min-h-14 flex-row items-center rounded-xl border bg-[#151518] px-4 ${focusedField === 'password' ? 'border-[#DC2626]' : 'border-[#36363B]'}`}>
+                  <Lock size={19} color="#A3A3AA" />
+                  <TextInput
+                    ref={passwordRef}
+                    accessibilityLabel="Senha"
+                    value={pwd}
+                    onChangeText={setPwd}
+                    onFocus={() => setFocusedField('password')}
+                    onBlur={() => setFocusedField((current) => current === 'password' ? null : current)}
+                    onSubmitEditing={() => { void handleLogin() }}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoComplete="current-password"
+                    textContentType="password"
+                    returnKeyType="go"
+                    placeholder="Digite sua senha"
+                    placeholderTextColor="#77777F"
+                    selectionColor="#EF4444"
+                    className="ml-3 min-h-14 flex-1 py-3 text-base text-white"
+                  />
+                </View>
+              </View>
 
-          {/* Acesso rápido por perfil (mock / dev) */}
-          <View className="mt-3 flex-row gap-2">
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => router.push('/recuperar-senha' as any)}
+                className="min-h-11 self-end justify-center"
+              >
+                <Text className="text-sm font-semibold text-[#F87171]">Esqueci minha senha</Text>
+              </Pressable>
+            </View>
+
             <Pressable
-              onPress={() => router.replace('/(cliente)' as any)}
-              className="flex-1 items-center rounded-lg border border-silver-300 py-2.5 active:bg-silver-50"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: loading }}
+              onPress={() => { void handleLogin() }}
+              disabled={loading}
+              className="mt-5 min-h-14 items-center justify-center rounded-xl bg-[#DC2626] active:bg-[#B91C1C] disabled:opacity-60"
             >
-              <Text className="text-xs font-semibold text-navy">Cliente</Text>
+              {loading
+                ? <ActivityIndicator color="white" />
+                : <Text className="text-base font-bold text-white">Entrar</Text>}
             </Pressable>
-            <Pressable
-              onPress={() => router.replace('/(admin)' as any)}
-              className="flex-1 items-center rounded-lg border border-silver-300 py-2.5 active:bg-silver-50"
-            >
-              <Text className="text-xs font-semibold text-navy">Admin</Text>
-            </Pressable>
+
+            <View className="mt-auto pt-8">
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => router.push('/protocolo' as any)}
+                className="min-h-12 items-center justify-center rounded-xl border border-[#36363B] bg-[#111113] px-4"
+              >
+                <Text className="text-center text-sm font-semibold text-[#E4E4E7]">
+                  Acompanhar proposta sem cadastro <Text className="text-[#F87171">→</Text>
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => router.push('/onboarding?profile=partner')}
+                className="mt-4 min-h-12 flex-row flex-wrap items-center justify-center px-2"
+              >
+                <Text className="text-sm text-[#A3A3AA]">Ainda não tem conta? </Text>
+                <Text className="text-sm font-semibold text-white underline">Cadastre-se como parceiro</Text>
+              </Pressable>
+            </View>
           </View>
-
-          {/* Biometria */}
-          <Pressable className="mt-3 flex-row items-center justify-center gap-2 rounded-lg border border-silver-300 py-3 active:bg-silver-50">
-            <Fingerprint size={18} color="#0F0F0F" />
-            <Text className="text-sm font-medium text-navy">Entrar com biometria</Text>
-          </Pressable>
-
-          {/* Divisor */}
-          <View className="mt-4 flex-row items-center gap-3">
-            <View className="flex-1 h-px bg-silver-200" />
-            <Text className="text-xs text-silver-400">ou continue com</Text>
-            <View className="flex-1 h-px bg-silver-200" />
-          </View>
-
-          {/* Social login */}
-          <View className="mt-3 flex-row gap-3">
-            <Pressable
-              onPress={() => router.replace('/(parceiro)/dashboard')}
-              className="flex-1 flex-row items-center justify-center gap-2 rounded-lg border border-silver-300 py-3 active:bg-silver-50"
-            >
-              <AntDesign name="apple" size={18} color="#0F0F0F" />
-              <Text className="text-sm font-semibold text-navy">Apple</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => router.replace('/(parceiro)/dashboard')}
-              className="flex-1 flex-row items-center justify-center gap-2 rounded-lg border border-silver-300 py-3 active:bg-silver-50"
-            >
-              <MicrosoftIcon />
-              <Text className="text-sm font-semibold text-navy">Outlook</Text>
-            </Pressable>
-          </View>
-
-          {/* Magic link */}
-          <Pressable onPress={() => router.push('/magic/abc123')} className="mt-4 items-center">
-            <Text className="text-sm text-silver-600">Receber link mágico por e-mail →</Text>
-          </Pressable>
-
-          {/* Protocolo público */}
-          <Pressable onPress={() => router.push('/protocolo' as any)} className="mt-2 items-center">
-            <Text className="text-sm font-medium text-gold-600">Acompanhar proposta sem cadastro →</Text>
-          </Pressable>
-
-          {/* Cadastro de parceiro */}
-          <Pressable onPress={() => router.push('/cadastro' as any)} className="mt-3 items-center">
-            <Text className="text-sm text-silver-600">
-              Não tem conta? <Text className="font-semibold text-navy underline">Cadastre-se como parceiro</Text>
-            </Text>
-          </Pressable>
-
-          <View className="mt-auto items-center pb-4">
-            <Text className="text-xs text-silver-500">v0.0.1 · Ambiente: staging</Text>
-          </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   )

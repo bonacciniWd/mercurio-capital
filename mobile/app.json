@@ -7,17 +7,13 @@
     "icon": "./assets/icon.png",
     "scheme": "mercurio",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0F0F0F"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mercuriocapital.app",
+      "associatedDomains": ["applinks:mercuriocapitalsa.com.br"],
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "A Mercúrio Capital usa o Face ID para desbloquear sua sessão neste aparelho."
       }
     },
     "android": {
@@ -26,6 +22,20 @@
         "backgroundColor": "#0F0F0F"
       },
       "package": "com.mercuriocapital.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "mercuriocapitalsa.com.br",
+              "pathPrefix": "/c/proposta/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
@@ -47,10 +57,31 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "16.0"
+            "deploymentTarget": "16.4"
           }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "imageWidth": 250,
+          "resizeMode": "contain",
+          "backgroundColor": "#0F0F0F"
+        }
+      ],
+      "expo-sharing",
+      "expo-web-browser",
+      "expo-status-bar",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "A Mercúrio Capital usa o Face ID para desbloquear sua sessão neste aparelho."
+        }
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

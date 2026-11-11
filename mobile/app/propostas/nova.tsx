@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import { ScrollView, View, Text, Pressable, TextInput, ActivityIndicator } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { router, useLocalSearchParams } from 'expo-router'
+import { Redirect, router, useLocalSearchParams } from 'expo-router'
 import { X, ChevronRight, ChevronLeft, Check, Search } from 'lucide-react-native'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { brl } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { calcularFinanciamento } from '@/lib/credito'
+import { parseSimulationParams } from '@/lib/partnerSimulation'
 
 const STEPS = ['Produto', 'Cliente', 'Imóvel', 'Crédito', 'Proponentes', 'Revisão']
 const PRAZO_MIN = 12
@@ -151,6 +152,22 @@ const INITIAL_FORM: WizardForm = {
   amortizacao: 'price',
 }
 
+function initialProposalForm(params: Record<string, string | string[] | undefined>): WizardForm {
+  const simulation = parseSimulationParams(params)
+  return {
+    ...INITIAL_FORM,
+    ...(simulation.produto ? { produto: simulation.produto } : {}),
+    ...(simulation.pessoaTipo ? { pessoa_tipo: simulation.pessoaTipo } : {}),
+    ...(simulation.valor !== undefined ? { valor_solicitado: simulation.valor } : {}),
+    ...(simulation.valorGarantia !== undefined ? { imovel_valor: simulation.valorGarantia } : {}),
+    ...(simulation.prazoMeses !== undefined ? { prazo_meses: simulation.prazoMeses } : {}),
+    ...(simulation.carenciaMeses !== undefined ? { carencia_meses: simulation.carenciaMeses } : {}),
+    ...(simulation.taxaMensalPercentual !== undefined ? { taxa_juros_mensal: simulation.taxaMensalPercentual } : {}),
+    ...(simulation.correcao ? { correcao: simulation.correcao } : {}),
+    ...(simulation.amortizacao ? { amortizacao: simulation.amortizacao } : {}),
+  }
+}
+
 export function PropostaWizardScreen({ forcedMode }: { forcedMode?: PropostaWizardMode } = {}) {
   const { session, loading } = useAuth()
   const params = useLocalSearchParams<{ mode?: string }>()
@@ -162,7 +179,7 @@ export function PropostaWizardScreen({ forcedMode }: { forcedMode?: PropostaWiza
   const mode: PropostaWizardMode = isAdminMode ? 'admin' : 'partner'
 
   const [step, setStep] = useState(0)
-  const [form, setForm] = useState<WizardForm>(INITIAL_FORM)
+  const [form, setForm] = useState<WizardForm>(() => initialProposalForm(params))
   const [adminPartnerId, setAdminPartnerId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<SubmitResult | null>(null)
@@ -402,7 +419,7 @@ export function PropostaWizardScreen({ forcedMode }: { forcedMode?: PropostaWiza
       setStep((s) => s - 1)
       return
     }
-    const fallback = mode === 'admin' ? '/(admin)/propostas' : '/(parceiro)/propostas'
+    const fallback = '/(parceiro)/propostas'
     if (router.canGoBack()) router.back()
     else router.replace(fallback as any)
   }
@@ -597,12 +614,9 @@ export function PropostaWizardScreen({ forcedMode }: { forcedMode?: PropostaWiza
     )
   }
 
-  if (requestedMode === 'admin' && session?.role !== 'admin') {
-    return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-white px-6">
-        <Text className="text-base font-semibold text-danger">Acesso restrito ao admin.</Text>
-      </SafeAreaView>
-    )
+  if (!session) return <Redirect href="/login" />
+  if (requestedMode === 'admin' || (session.role !== 'partner' && session.role !== 'team_member')) {
+    return <Redirect href="/acesso-indisponivel" />
   }
 
   if (result) {
@@ -635,7 +649,7 @@ export function PropostaWizardScreen({ forcedMode }: { forcedMode?: PropostaWiza
 
           <View className="mt-6 w-full gap-2">
             <Pressable
-              onPress={() => router.replace((mode === 'admin' ? `/(admin)/proposta/${result.proposta_id}` : `/(parceiro)/propostas/${result.proposta_id}`) as any)}
+              onPress={() => router.replace(`/(parceiro)/propostas/${result.proposta_id}` as any)}
               className="items-center rounded-lg bg-gold py-3"
             >
               <Text className="font-bold text-white">Ver detalhe</Text>

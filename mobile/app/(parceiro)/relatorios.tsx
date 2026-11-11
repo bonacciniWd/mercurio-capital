@@ -1,273 +1,120 @@
-import { useMemo } from 'react'
-import { ScrollView, View, Text, Pressable, ActivityIndicator, Alert } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { router } from 'expo-router'
-import { ArrowLeft, Download, FileText } from 'lucide-react-native'
+import { useMemo, useState } from 'react'
+import { Alert, Pressable, Text, View } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import * as FileSystem from 'expo-file-system/legacy'
-import * as WebBrowser from 'expo-web-browser'
+import * as Sharing from 'expo-sharing'
+import { PartnerAction, PartnerCard, PartnerFeedback, PartnerScreen, PartnerTitle } from '@/components/parceiro/PartnerUI'
 import { brl } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth'
+import { canManagePartner } from '@/lib/partnerAccess'
 
-const PRODUTO_LABEL: Record<string, string> = {
-  home_equity: 'Home Equity',
-  credito_construcao: 'Construção',
-  financiamento_imobiliario: 'Financiamento',
+type Periodo = 'mes' | 'trimestre' | 'ano' | 'ytd' | 'todos'
+type Row = { id: string; produto: string; status: string; valor_solicitado: number | null; created_at: string }
+const PRODUCTS: Record<string, string> = { home_equity: 'Home Equity', credito_construcao: 'Construção', financiamento_imobiliario: 'Financiamento imobiliário' }
+const STATUS: Record<string, string> = {
+  simulacao: 'Simulação', pre_analise: 'Pré-análise', analise_credito: 'Análise de crédito', pre_aprovado: 'Pré-aprovado',
+  analise_imovel: 'Análise do imóvel', analise_juridica: 'Análise jurídica', comite: 'Comitê', proposta_cliente: 'Proposta ao cliente',
+  resolucao_pendencias: 'Resolução de pendências', emissao_contrato: 'Emissão de contrato', aguardando_assinatura: 'Aguardando assinatura',
+  em_registro: 'Em registro', contrato_registrado: 'Contrato registrado', recurso_liberado: 'Recurso liberado',
+  cancelada: 'Cancelada', recusada: 'Recusada', reprovada: 'Reprovada', arquivada: 'Arquivada',
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  pre_analise: 'Pré-análise',
-  analise_credito: 'Análise crédito',
-  pre_aprovado: 'Pré-aprovado',
-  analise_imovel: 'Análise imóvel',
-  analise_juridica: 'Análise jurídica',
-  comite: 'Comitê',
-  emissao_contrato: 'Emissão contrato',
-  aguardando_assinatura: 'Aguard. assinatura',
-  em_registro: 'Em registro',
-  contrato_registrado: 'Registrado',
-  recurso_liberado: 'Liberado',
-}
-
-const FUNIL_STAGES: { key: string; label: string; matches: string[] }[] = [
-  { key: 'simulacoes', label: 'Simulações', matches: ['simulacao', 'pre_analise', 'analise_credito', 'pre_aprovado', 'analise_imovel', 'analise_juridica', 'comite', 'proposta_cliente', 'resolucao_pendencias', 'emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado'] },
-  { key: 'pre_analise', label: 'Pré-análise', matches: ['pre_analise', 'analise_credito', 'pre_aprovado', 'analise_imovel', 'analise_juridica', 'comite', 'proposta_cliente', 'resolucao_pendencias', 'emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado'] },
-  { key: 'analise', label: 'Análise', matches: ['analise_credito', 'pre_aprovado', 'analise_imovel', 'analise_juridica', 'comite', 'proposta_cliente', 'resolucao_pendencias', 'emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado'] },
-  { key: 'comite', label: 'Comitê', matches: ['comite', 'proposta_cliente', 'resolucao_pendencias', 'emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado'] },
-  { key: 'contrato', label: 'Contrato', matches: ['emissao_contrato', 'aguardando_assinatura', 'em_registro', 'contrato_registrado', 'recurso_liberado'] },
+const PERIODS: { id: Periodo; label: string }[] = [
+  { id: 'mes', label: 'Mês atual' }, { id: 'trimestre', label: '90 dias' }, { id: 'ano', label: '12 meses' },
+  { id: 'ytd', label: 'YTD' }, { id: 'todos', label: 'Tudo' },
 ]
-
-const STATUS_TABLE_ORDER = ['pre_analise', 'analise_credito', 'pre_aprovado', 'analise_imovel', 'comite', 'emissao_contrato', 'aguardando_assinatura', 'contrato_registrado', 'recurso_liberado']
-
-interface FunilRow { status: string; quantidade: number; volume: number }
-interface MesRow { mes: string; quantidade: number; volume: number }
-interface PropostaRow { produto: string }
+function startOf(period: Periodo): string | undefined {
+  if (period === 'todos') return undefined
+  const date = new Date()
+  if (period === 'mes') date.setDate(1)
+  if (period === 'trimestre') date.setDate(date.getDate() - 90)
+  if (period === 'ano') date.setFullYear(date.getFullYear() - 1)
+  if (period === 'ytd') { date.setMonth(0); date.setDate(1) }
+  date.setHours(0, 0, 0, 0)
+  return date.toISOString()
+}
 
 export default function Relatorios() {
-  const funilQ = useQuery({
-    queryKey: ['p-rel-funil'],
+  const { session } = useAuth()
+  const allowed = canManagePartner(session?.role)
+  const [periodo, setPeriodo] = useState<Periodo>('mes')
+  const [produto, setProduto] = useState('todos')
+  const [status, setStatus] = useState('todos')
+  const [exporting, setExporting] = useState(false)
+  const de = startOf(periodo)
+  const rowsQ = useQuery({
+    queryKey: ['p-relatorios-mobile', session?.userId, de, produto, status], enabled: allowed,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_partner_funil_status')
-        .select('status, quantidade, volume')
+      let q = supabase.from('propostas').select('id, produto, status, valor_solicitado, created_at')
+        .order('created_at', { ascending: false }).limit(5000)
+      if (de) q = q.gte('created_at', de)
+      if (produto !== 'todos') q = q.eq('produto', produto)
+      if (status !== 'todos') q = q.eq('status', status)
+      const { data, error } = await q
       if (error) throw error
-      return (data ?? []) as FunilRow[]
+      return (data ?? []) as Row[]
     },
   })
-
-  const mesQ = useQuery({
-    queryKey: ['p-rel-mes'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_partner_propostas_por_mes')
-        .select('mes, quantidade, volume')
-        .order('mes')
-      if (error) throw error
-      return (data ?? []) as MesRow[]
-    },
-  })
-
-  const propostasQ = useQuery({
-    queryKey: ['p-rel-produtos'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('propostas')
-        .select('produto')
-        .limit(5000)
-      if (error) throw error
-      return (data ?? []) as PropostaRow[]
-    },
-  })
-
-  const monthly = useMemo(() => (mesQ.data ?? []).slice(-12).map(m => m.quantidade), [mesQ.data])
-  const months = useMemo(() => (mesQ.data ?? []).slice(-12).map(m =>
-    new Date(m.mes).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').charAt(0).toUpperCase(),
-  ), [mesQ.data])
-  const max = Math.max(1, ...monthly)
-
-  const funnel = useMemo(() => {
-    const rows = funilQ.data ?? []
-    const map = new Map(rows.map(r => [r.status, r.quantidade]))
-    return FUNIL_STAGES.map(s => ({
-      stage: s.label,
-      count: s.matches.reduce((acc, st) => acc + (map.get(st) ?? 0), 0),
-    }))
-  }, [funilQ.data])
-  const funnelMax = Math.max(1, ...funnel.map(f => f.count))
-
-  const products = useMemo(() => {
-    const rows = propostasQ.data ?? []
-    const counts = new Map<string, number>()
-    rows.forEach(r => counts.set(r.produto, (counts.get(r.produto) ?? 0) + 1))
-    const total = Array.from(counts.values()).reduce((a, b) => a + b, 0) || 1
-    const colorMap: Record<string, string> = {
-      home_equity: '#0F0F0F',
-      credito_construcao: '#DC2626',
-      financiamento_imobiliario: '#B91C1C',
+  const rows = rowsQ.data ?? []
+  const total = useMemo(() => rows.reduce((sum, row) => sum + Number(row.valor_solicitado ?? 0), 0), [rows])
+  const statuses = useMemo(() => {
+    const counts = new Map<string, { count: number; volume: number }>()
+    for (const row of rows) {
+      const current = counts.get(row.status) ?? { count: 0, volume: 0 }
+      counts.set(row.status, { count: current.count + 1, volume: current.volume + Number(row.valor_solicitado ?? 0) })
     }
-    return Array.from(counts.entries()).map(([k, v]) => ({
-      name: PRODUTO_LABEL[k] ?? k,
-      pct: Math.round((v / total) * 100),
-      color: colorMap[k] ?? '#737373',
-    }))
-  }, [propostasQ.data])
+    return Array.from(counts.entries()).sort((a, b) => b[1].count - a[1].count)
+  }, [rows])
 
-  const statusTable = useMemo(() => {
-    const rows = funilQ.data ?? []
-    const byStatus = new Map(rows.map(r => [r.status, r]))
-    return STATUS_TABLE_ORDER
-      .map(st => {
-        const r = byStatus.get(st)
-        const q = r?.quantidade ?? 0
-        const v = Number(r?.volume ?? 0)
-        return { status: STATUS_LABEL[st] ?? st, q, v, t: q > 0 ? v / q : 0 }
-      })
-      .filter(r => r.q > 0)
-  }, [funilQ.data])
-
-  const loading = funilQ.isLoading || mesQ.isLoading || propostasQ.isLoading
-
-  async function exportar(tipo: 'csv' | 'pdf') {
+  async function exportCsv() {
+    setExporting(true)
+    let uri: string | null = null
     try {
-      const { data: sess } = await supabase.auth.getSession()
-      const token = sess.session?.access_token
-      if (!token) throw new Error('Sessão expirada')
-      const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL
-      const res = await fetch(`${baseUrl}/functions/v1/relatorios-exportar`, {
+      if (!await Sharing.isAvailableAsync()) throw new Error('Compartilhamento indisponível neste aparelho.')
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token
+      if (!token) throw new Error('Sua sessão expirou. Entre novamente.')
+      const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/relatorios-exportar`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-        body: JSON.stringify({ tipo: 'propostas', filtros: {} }),
+        body: JSON.stringify({ tipo: 'propostas', filtros: {
+          ...(de ? { de } : {}), ...(produto !== 'todos' ? { produto: [produto] } : {}), ...(status !== 'todos' ? { status: [status] } : {}),
+        } }),
       })
-      if (!res.ok) throw new Error(await res.text())
-      const text = await res.text()
-      const filename = `propostas_${new Date().toISOString().slice(0, 10)}.csv`
-      const fileUri = `${FileSystem.cacheDirectory}${filename}`
-      await FileSystem.writeAsStringAsync(fileUri, text)
-      await WebBrowser.openBrowserAsync(fileUri)
-    } catch (err) {
-      Alert.alert('Erro', err instanceof Error ? err.message : 'Falha ao exportar')
+      if (!response.ok) throw new Error('Não foi possível gerar o CSV deste recorte.')
+      const csv = await response.text()
+      uri = `${FileSystem.cacheDirectory}propostas_${Date.now()}.csv`
+      await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 })
+      await Sharing.shareAsync(uri, { mimeType: 'text/csv', dialogTitle: 'Compartilhar relatório', UTI: 'public.comma-separated-values-text' })
+    } catch (error) {
+      Alert.alert('Exportação indisponível', error instanceof Error ? error.message : 'Tente novamente.')
+    } finally {
+      // O compartilhamento pode manter o arquivo aberto no iOS; o cache é gerenciado pelo sistema.
+      setExporting(false)
     }
   }
 
-  return (
-    <SafeAreaView className="flex-1 bg-silver-50" edges={['top', 'bottom']}>
-      <View className="bg-navy px-5 py-4">
-        <View className="flex-row items-center gap-3">
-          <Pressable onPress={() => router.back()} className="-ml-2 p-2">
-            <ArrowLeft size={22} color="white" />
-          </Pressable>
-          <View className="flex-1">
-            <Text className="text-xs uppercase tracking-wider text-gold">Parceiro</Text>
-            <Text className="text-lg font-bold text-white">Relatórios</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }}>
-        <View className="flex-row gap-2">
-          <ExportBtn icon={Download} label="CSV" onPress={() => exportar('csv')} />
-          <ExportBtn icon={FileText} label="PDF" onPress={() => Alert.alert('PDF', 'Em breve.')} />
-        </View>
-
-        {loading ? (
-          <View className="py-12">
-            <ActivityIndicator color="#DC2626" />
-          </View>
-        ) : (
-          <>
-            <Card title="Volume mensal (qtd. propostas)">
-              {monthly.length === 0 ? (
-                <Text className="py-6 text-center text-xs text-silver-400">Sem dados.</Text>
-              ) : (
-                <View className="mt-2 h-32 flex-row items-end gap-1.5">
-                  {monthly.map((v, i) => (
-                    <View key={i} className="flex-1 items-center">
-                      <View className="w-full rounded-t bg-gold" style={{ height: `${(v / max) * 100}%`, minHeight: 4 }} />
-                      <Text className="mt-1 text-[10px] text-silver-500">{months[i]}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </Card>
-
-            <Card title="Funil de conversão">
-              {funnel.every(f => f.count === 0) ? (
-                <Text className="py-6 text-center text-xs text-silver-400">Sem propostas.</Text>
-              ) : funnel.map(f => (
-                <View key={f.stage} className="mb-2.5">
-                  <View className="mb-1 flex-row items-center justify-between">
-                    <Text className="text-xs text-silver-700">{f.stage}</Text>
-                    <Text className="text-xs font-semibold text-silver-900">{f.count}</Text>
-                  </View>
-                  <View className="h-2 overflow-hidden rounded-full bg-silver-100">
-                    <View className="h-full rounded-full bg-navy" style={{ width: `${(f.count / funnelMax) * 100}%` }} />
-                  </View>
-                </View>
-              ))}
-            </Card>
-
-            <Card title="Por produto">
-              {products.length === 0 ? (
-                <Text className="py-6 text-center text-xs text-silver-400">Sem dados.</Text>
-              ) : products.map(p => (
-                <View key={p.name} className="mb-2.5">
-                  <View className="mb-1 flex-row items-center justify-between">
-                    <View className="flex-row items-center gap-2">
-                      <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: p.color }} />
-                      <Text className="text-xs text-silver-700">{p.name}</Text>
-                    </View>
-                    <Text className="text-xs font-semibold text-silver-900">{p.pct}%</Text>
-                  </View>
-                  <View className="h-2 overflow-hidden rounded-full bg-silver-100">
-                    <View className="h-full rounded-full" style={{ width: `${p.pct}%`, backgroundColor: p.color }} />
-                  </View>
-                </View>
-              ))}
-            </Card>
-
-            <View className="rounded-xl border border-silver-200 bg-white">
-              <View className="flex-row border-b border-silver-200 bg-silver-50 px-3 py-2">
-                <Text className="flex-[1.4] text-[10px] font-bold uppercase text-silver-500">Status</Text>
-                <Text className="flex-1 text-[10px] font-bold uppercase text-silver-500">Qtd</Text>
-                <Text className="flex-1 text-[10px] font-bold uppercase text-silver-500">Volume</Text>
-                <Text className="flex-1 text-[10px] font-bold uppercase text-silver-500">Ticket</Text>
-              </View>
-              {statusTable.length === 0 ? (
-                <Text className="py-6 text-center text-xs text-silver-400">Sem propostas.</Text>
-              ) : statusTable.map(r => (
-                <View key={r.status} className="flex-row border-t border-silver-100 px-3 py-3">
-                  <Text className="flex-[1.4] text-xs text-silver-800">{r.status}</Text>
-                  <Text className="flex-1 text-xs text-silver-700">{r.q}</Text>
-                  <Text className="flex-1 text-xs font-semibold text-silver-900">{brl(r.v * 100)}</Text>
-                  <Text className="flex-1 text-xs text-silver-700">{brl(r.t * 100)}</Text>
-                </View>
-              ))}
-            </View>
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
-  )
+  return <PartnerScreen title="Relatórios" subtitle="Propostas da sua operação" refreshing={rowsQ.isRefetching} onRefresh={() => { void rowsQ.refetch() }}>
+    {!allowed ? <PartnerFeedback title="Acesso restrito" text="Os relatórios estão disponíveis para o parceiro responsável." /> : <>
+      <PartnerCard><PartnerTitle>Recorte</PartnerTitle>
+        <Text className="text-xs text-[#A1A1AA]">Período de criação</Text><View className="flex-row flex-wrap gap-2">{PERIODS.map(item => <Filter key={item.id} label={item.label} active={periodo === item.id} onPress={() => setPeriodo(item.id)} />)}</View>
+        <Text className="text-xs text-[#A1A1AA]">Produto</Text><View className="flex-row flex-wrap gap-2"><Filter label="Todos" active={produto === 'todos'} onPress={() => setProduto('todos')} />{Object.entries(PRODUCTS).map(([key, label]) => <Filter key={key} label={label} active={produto === key} onPress={() => setProduto(key)} />)}</View>
+        <Text className="text-xs text-[#A1A1AA]">Etapa atual</Text><View className="flex-row flex-wrap gap-2"><Filter label="Todas" active={status === 'todos'} onPress={() => setStatus('todos')} />{Object.entries(STATUS).map(([key, label]) => <Filter key={key} label={label} active={status === key} onPress={() => setStatus(key)} />)}</View>
+      </PartnerCard>
+      {rowsQ.isLoading ? <PartnerFeedback loading title="Carregando relatório" /> : rowsQ.isError ? <PartnerFeedback title="Não foi possível carregar o relatório" retry={() => { void rowsQ.refetch() }} /> : <>
+        <PartnerCard><PartnerTitle>Propostas do período</PartnerTitle>
+          <View className="flex-row flex-wrap gap-5"><Metric label="Operações" value={String(rows.length)} /><Metric label="Volume solicitado" value={brl(Math.round(total * 100))} /></View>
+          {rows.length >= 5000 ? <Text className="text-xs text-[#FCA5A5]">Limite de 5.000 propostas por recorte. Refine os filtros para ver os totais completos.</Text> : null}
+        </PartnerCard>
+        <PartnerCard><PartnerTitle>Etapas atuais</PartnerTitle>{statuses.length ? statuses.map(([key, value]) => <View key={key} className="flex-row items-center justify-between gap-3 border-b border-[#2D2D32] py-2"><Text className="flex-1 text-sm text-[#D4D4D8]">{STATUS[key] ?? key}</Text><Text className="text-sm font-semibold text-white">{value.count} · {brl(Math.round(value.volume * 100))}</Text></View>) : <Text className="text-sm text-[#A1A1AA]">Nenhuma proposta neste recorte.</Text>}</PartnerCard>
+        <PartnerAction label="Compartilhar CSV deste recorte" busy={exporting} onPress={() => { void exportCsv() }} />
+      </>}
+    </>}
+  </PartnerScreen>
 }
-
-function Card({ title, children }: { title: string; children: any }) {
-  return (
-    <View className="rounded-xl border border-silver-200 bg-white p-4">
-      <Text className="font-semibold text-silver-900">{title}</Text>
-      <View className="mt-2">{children}</View>
-    </View>
-  )
+function Filter({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} onPress={onPress} className={`min-h-11 items-center justify-center rounded-xl border px-3 py-2 ${active ? 'border-[#DC2626] bg-[#2A1519]' : 'border-[#414148] bg-[#202024]'}`}><Text className={`text-xs ${active ? 'font-semibold text-white' : 'text-[#B8B8C2]'}`}>{label}</Text></Pressable>
 }
-
-function ExportBtn({ icon: Icon, label, onPress }: { icon: any; label: string; onPress?: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      className="flex-1 flex-row items-center justify-center gap-1.5 rounded-lg border border-silver-300 bg-white py-2.5 active:bg-silver-100"
-    >
-      <Icon size={14} color="#0F0F0F" />
-      <Text className="text-xs font-bold text-navy">{label}</Text>
-    </Pressable>
-  )
+function Metric({ label, value }: { label: string; value: string }) {
+  return <View className="min-w-[120px] flex-1"><Text className="text-xs text-[#A1A1AA]">{label}</Text><Text className="mt-2 text-xl font-semibold text-white">{value}</Text></View>
 }
-

@@ -48,7 +48,7 @@ export default function TwoFactorChallenge() {
       if (!userId) throw new Error('Sessão inválida.')
       const { data: u } = await supabase.from('usuarios').select('role').eq('id', userId).maybeSingle()
       const role = u?.role as string | undefined
-      if (role === 'admin') router.replace('/(admin)' as any)
+      if (role === 'admin') router.replace('/acesso-indisponivel')
       else if (role === 'client') router.replace('/(cliente)' as any)
       else router.replace('/(parceiro)/dashboard')
     } catch (err) {

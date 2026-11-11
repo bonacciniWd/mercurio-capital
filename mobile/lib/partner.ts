@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from './supabase'
+import { useAuth } from './auth'
 
 // ─── Labels compartilhados ──────────────────────────────────────────────────
 export const STATUS_LABEL: Record<string, string> = {
@@ -57,10 +58,13 @@ export type PartnerProfile = {
 }
 
 export const PARTNER_PROFILE_QUERY_KEY = ['partner', 'profile'] as const
+export const partnerProfileQueryKey = (userId?: string) => [...PARTNER_PROFILE_QUERY_KEY, userId] as const
 
 export function usePartnerProfile() {
+  const { session } = useAuth()
   return useQuery({
-    queryKey: PARTNER_PROFILE_QUERY_KEY,
+    queryKey: partnerProfileQueryKey(session?.userId),
+    enabled: !!session?.userId && (session.role === 'partner' || session.role === 'team_member'),
     queryFn: async (): Promise<PartnerProfile> => {
       const { data, error } = await supabase.rpc('partner_get_profile')
       if (error) throw error

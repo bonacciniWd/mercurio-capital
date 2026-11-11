@@ -12,8 +12,8 @@ export default function Protocolo() {
   const current = 2
 
   return (
-    <SafeAreaView className="flex-1 bg-silver-50" edges={['top']}>
-      <View className="bg-navy px-5 py-4">
+    <SafeAreaView className="flex-1 bg-[#09090B]" edges={['top']}>
+      <View className="px-5 py-4">
         <View className="flex-row items-center gap-3">
           <Pressable onPress={() => router.back()} className="-ml-2 p-2">
             <ArrowLeft size={22} color="white" />

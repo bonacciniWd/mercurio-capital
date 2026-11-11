@@ -6,6 +6,9 @@ import { ArrowLeft, Plus, Mail, X, Trash2, Copy } from 'lucide-react-native'
 import * as Clipboard from 'expo-clipboard'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth'
+import { canManagePartner } from '@/lib/partnerAccess'
+import { PartnerFeedback } from '@/components/parceiro/PartnerUI'
 
 interface Equipe {
   id: string
@@ -65,6 +68,8 @@ function getEquipeErrorMessage(err: unknown): string {
 
 export default function Equipe() {
   const qc = useQueryClient()
+  const { session } = useAuth()
+  const allowed = canManagePartner(session?.role)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [selectedEquipe, setSelectedEquipe] = useState<string | null>(null)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -73,7 +78,7 @@ export default function Equipe() {
   const [lastInviteResult, setLastInviteResult] = useState<InviteResult | null>(null)
 
   const equipesQ = useQuery({
-    queryKey: ['p-equipes'],
+    queryKey: ['p-equipes', session?.userId], enabled: allowed,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('equipes')
@@ -85,7 +90,7 @@ export default function Equipe() {
   })
 
   const membrosQ = useQuery({
-    queryKey: ['p-membros'],
+    queryKey: ['p-membros', session?.userId], enabled: allowed,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('v_equipe_membros_detalhe')
@@ -96,7 +101,7 @@ export default function Equipe() {
   })
 
   const convitesQ = useQuery({
-    queryKey: ['p-convites'],
+    queryKey: ['p-convites', session?.userId], enabled: allowed,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('v_equipe_convites_pendentes')
@@ -109,6 +114,7 @@ export default function Equipe() {
 
   const criarEquipe = useMutation({
     mutationFn: async (nome: string) => {
+      if (!allowed) throw new Error('Acesso restrito ao parceiro responsável.')
       const { error } = await supabase.rpc('partner_create_equipe', {
         p_nome: nome,
         p_isolamento_estrito: false,
@@ -124,6 +130,7 @@ export default function Equipe() {
 
   const convidar = useMutation({
     mutationFn: async () => {
+      if (!allowed) throw new Error('Acesso restrito ao parceiro responsável.')
       if (!selectedEquipe) throw new Error('Selecione uma equipe')
       const { data, error } = await supabase.rpc('partner_invite_membro', {
         p_equipe_id: selectedEquipe,
@@ -171,6 +178,7 @@ export default function Equipe() {
 
   const remover = useMutation({
     mutationFn: async (args: { equipe_id: string; usuario_id: string }) => {
+      if (!allowed) throw new Error('Acesso restrito ao parceiro responsável.')
       const { error } = await supabase.rpc('partner_remove_membro', {
         p_equipe_id: args.equipe_id,
         p_usuario_id: args.usuario_id,
@@ -186,14 +194,14 @@ export default function Equipe() {
   const convites = convitesQ.data ?? []
 
   return (
-    <SafeAreaView className="flex-1 bg-silver-50" edges={['top']}>
-      <View className="bg-navy px-5 py-4">
+    <SafeAreaView className="flex-1 bg-[#09090B]" edges={['top']}>
+      <View className="border-b border-[#27272A] bg-[#09090B] px-5 py-4">
         <View className="flex-row items-center gap-3">
           <Pressable onPress={() => router.back()} className="-ml-2 p-2">
             <ArrowLeft size={22} color="white" />
           </Pressable>
           <View className="flex-1">
-            <Text className="text-xs uppercase tracking-wider text-gold">Parceiro</Text>
+            <Text className="text-xs uppercase tracking-wider text-[#F87171]">Parceiro</Text>
             <Text className="text-lg font-bold text-white">Minha equipe</Text>
           </View>
           <Pressable
@@ -201,8 +209,8 @@ export default function Equipe() {
               setSelectedEquipe(equipes[0]?.id ?? null)
               setInviteOpen(true)
             }}
-            disabled={equipes.length === 0}
-            className="flex-row items-center gap-1 rounded-full bg-gold px-3 py-2 active:opacity-80"
+            disabled={!allowed || equipes.length === 0}
+            className="flex-row items-center gap-1 rounded-full bg-[#DC2626] px-3 py-2 active:opacity-80"
             style={{ opacity: equipes.length === 0 ? 0.5 : 1 }}
           >
             <Plus size={16} color="#FFF" />
@@ -211,21 +219,21 @@ export default function Equipe() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }}>
+      {!allowed ? <View className="p-5"><PartnerFeedback title="Acesso restrito" text="A gestão da equipe está disponível para o parceiro responsável." /></View> : <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }}>
         {/* Criar equipe */}
-        <View className="rounded-xl border border-silver-200 bg-white p-4">
-          <Text className="font-semibold text-navy">Criar nova equipe</Text>
+        <View className="rounded-xl border border-[#2D2D32] bg-[#151518] p-4">
+          <Text className="font-semibold text-white">Criar nova equipe</Text>
           <View className="mt-2 flex-row gap-2">
             <TextInput
               value={novaEquipeNome}
               onChangeText={setNovaEquipeNome}
               placeholder="Nome da equipe"
-              className="flex-1 rounded-lg border border-silver-200 bg-silver-50 px-3 py-2 text-sm"
+              className="flex-1 rounded-lg border border-[#414148] bg-[#202024] px-3 py-2 text-sm text-white"
             />
             <Pressable
               onPress={() => criarEquipe.mutate(novaEquipeNome)}
               disabled={novaEquipeNome.trim().length < 2 || criarEquipe.isPending}
-              className="rounded-lg bg-gold px-4 py-2 active:opacity-80"
+              className="rounded-lg bg-[#DC2626] px-4 py-2 active:opacity-80"
               style={{ opacity: novaEquipeNome.trim().length < 2 ? 0.5 : 1 }}
             >
               <Text className="text-sm font-bold text-white">Criar</Text>
@@ -234,32 +242,32 @@ export default function Equipe() {
         </View>
 
         {lastInviteResult && (
-          <View className="rounded-xl border border-silver-200 bg-white p-4">
-            <Text className="font-semibold text-navy">Último convite gerado</Text>
-            <Text className="mt-2 text-xs text-silver-500" numberOfLines={1}>
+          <View className="rounded-xl border border-[#2D2D32] bg-[#151518] p-4">
+            <Text className="font-semibold text-white">Último convite gerado</Text>
+            <Text className="mt-2 text-xs text-[#A1A1AA]" numberOfLines={1}>
               {lastInviteResult.url}
             </Text>
 
             {lastInviteResult.emailStatus === 'enfileirado' && (
-              <Text className="mt-2 rounded-md bg-green-50 px-2 py-1 text-xs text-green-700">
+              <Text className="mt-2 rounded-md bg-[#153024] px-2 py-1 text-xs text-[#86EFAC]">
                 E-mail transacional enfileirado automaticamente.
               </Text>
             )}
 
             {lastInviteResult.emailStatus === 'falha_enqueue' && (
-              <Text className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-700">
+              <Text className="mt-2 rounded-md bg-[#3A2A16] px-2 py-1 text-xs text-[#FCD34D]">
                 Falha no envio automático. Use o link copiado para envio manual.
               </Text>
             )}
 
             {lastInviteResult.emailStatus !== 'enfileirado' && lastInviteResult.emailStatus !== 'falha_enqueue' && (
-              <Text className="mt-2 rounded-md bg-silver-100 px-2 py-1 text-xs text-silver-700">
+              <Text className="mt-2 rounded-md bg-[#202024] px-2 py-1 text-xs text-[#D4D4D8]">
                 Convite gerado com sucesso. Envie manualmente o link quando necessário.
               </Text>
             )}
 
             {lastInviteResult.emailError && (
-              <Text className="mt-2 text-[11px] text-silver-500" numberOfLines={2}>
+              <Text className="mt-2 text-[11px] text-[#A1A1AA]" numberOfLines={2}>
                 Detalhe técnico do envio automático: {lastInviteResult.emailError}
               </Text>
             )}
@@ -269,19 +277,21 @@ export default function Equipe() {
                 await Clipboard.setStringAsync(lastInviteResult.url)
                 Alert.alert('Link copiado', 'Link de convite copiado para compartilhamento manual.')
               }}
-              className="mt-3 flex-row items-center justify-center gap-2 rounded-lg border border-silver-200 bg-silver-50 py-2 active:opacity-80"
+              className="mt-3 flex-row items-center justify-center gap-2 rounded-lg border border-[#414148] bg-[#202024] py-2 active:opacity-80"
             >
-              <Copy size={14} color="#374151" />
-              <Text className="text-xs font-semibold text-silver-700">Copiar link novamente</Text>
+              <Copy size={14} color="#D4D4D8" />
+              <Text className="text-xs font-semibold text-[#D4D4D8]">Copiar link novamente</Text>
             </Pressable>
           </View>
         )}
 
-        {equipesQ.isLoading ? (
+        {equipesQ.isError || membrosQ.isError || convitesQ.isError ? (
+          <PartnerFeedback title="Não foi possível carregar a equipe" retry={() => { void equipesQ.refetch(); void membrosQ.refetch(); void convitesQ.refetch() }} />
+        ) : equipesQ.isLoading || membrosQ.isLoading || convitesQ.isLoading ? (
           <ActivityIndicator color="#DC2626" />
         ) : equipes.length === 0 ? (
-          <View className="rounded-xl border border-silver-200 bg-white p-6">
-            <Text className="text-center text-sm text-silver-500">
+          <View className="rounded-xl border border-[#2D2D32] bg-[#151518] p-6">
+            <Text className="text-center text-sm text-[#A1A1AA]">
               Nenhuma equipe cadastrada ainda.
             </Text>
           </View>
@@ -289,35 +299,35 @@ export default function Equipe() {
           equipes.map(eq => {
             const ms = membros.filter(m => m.equipe_id === eq.id)
             return (
-              <View key={eq.id} className="rounded-xl border border-silver-200 bg-white p-4">
+              <View key={eq.id} className="rounded-xl border border-[#2D2D32] bg-[#151518] p-4">
                 <View className="flex-row items-center justify-between">
                   <View>
-                    <Text className="font-semibold text-navy">{eq.nome}</Text>
-                    <Text className="text-xs text-silver-500">{ms.length} membro(s)</Text>
+                    <Text className="font-semibold text-white">{eq.nome}</Text>
+                    <Text className="text-xs text-[#A1A1AA]">{ms.length} membro(s)</Text>
                   </View>
                   {eq.isolamento_estrito && (
-                    <Text className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold text-gold-600">
+                    <Text className="rounded-full bg-[#DC2626]/15 px-2 py-0.5 text-[10px] font-bold text-[#F87171]">
                       ISOLADA
                     </Text>
                   )}
                 </View>
                 <View className="mt-3 gap-2">
                   {ms.length === 0 ? (
-                    <Text className="text-xs text-silver-400">Sem membros.</Text>
+                    <Text className="text-xs text-[#A1A1AA]">Sem membros.</Text>
                   ) : ms.map(m => (
-                    <View key={m.id} className="flex-row items-center gap-3 rounded-lg bg-silver-50 p-2">
-                      <View className="h-9 w-9 items-center justify-center rounded-full bg-navy">
+                    <View key={m.id} className="flex-row items-center gap-3 rounded-lg bg-[#202024] p-2">
+                      <View className="h-9 w-9 items-center justify-center rounded-full bg-[#28171B]">
                         <Text className="text-sm font-bold text-white">
                           {m.nome_completo.charAt(0).toUpperCase()}
                         </Text>
                       </View>
                       <View className="flex-1">
-                        <Text className="text-sm font-medium text-silver-900" numberOfLines={1}>
+                        <Text className="text-sm font-medium text-white" numberOfLines={1}>
                           {m.nome_completo}
                         </Text>
-                        <Text className="text-xs text-silver-500" numberOfLines={1}>{m.email}</Text>
+                        <Text className="text-xs text-[#A1A1AA]" numberOfLines={1}>{m.email}</Text>
                       </View>
-                      <Text className="rounded-full bg-navy/10 px-2 py-0.5 text-[10px] font-semibold text-navy">
+                      <Text className="rounded-full bg-[#28171B]/10 px-2 py-0.5 text-[10px] font-semibold text-white">
                         {m.papel_equipe === 'admin_equipe' ? 'Admin' : 'Membro'}
                       </Text>
                       <Pressable
@@ -344,19 +354,19 @@ export default function Equipe() {
         )}
 
         {/* Convites pendentes */}
-        <View className="rounded-xl border border-silver-200 bg-white p-4">
-          <Text className="font-semibold text-navy">Convites pendentes</Text>
+        <View className="rounded-xl border border-[#2D2D32] bg-[#151518] p-4">
+          <Text className="font-semibold text-white">Convites pendentes</Text>
           {convites.length === 0 ? (
-            <Text className="mt-2 text-xs text-silver-500">Nenhum convite pendente.</Text>
+            <Text className="mt-2 text-xs text-[#A1A1AA]">Nenhum convite pendente.</Text>
           ) : (
             <View className="mt-3 gap-2">
               {convites.map(c => (
-                <View key={c.id} className="flex-row items-center justify-between rounded-lg bg-silver-50 px-3 py-2.5">
+                <View key={c.id} className="flex-row items-center justify-between rounded-lg bg-[#202024] px-3 py-2.5">
                   <View className="flex-1 flex-row items-center gap-2">
                     <Mail size={14} color="#9CA3AF" />
-                    <Text className="flex-1 text-sm text-silver-800" numberOfLines={1}>{c.email}</Text>
+                    <Text className="flex-1 text-sm text-[#E4E4E7]" numberOfLines={1}>{c.email}</Text>
                   </View>
-                  <Text className="text-xs text-silver-500">
+                  <Text className="text-xs text-[#A1A1AA]">
                     {new Date(c.expires_at).toLocaleDateString('pt-BR')}
                   </Text>
                 </View>
@@ -364,54 +374,54 @@ export default function Equipe() {
             </View>
           )}
         </View>
-      </ScrollView>
+      </ScrollView>}
 
       {/* Convidar modal */}
-      <Modal visible={inviteOpen} transparent animationType="slide" onRequestClose={() => setInviteOpen(false)}>
-        <View className="flex-1 justify-end bg-black/40">
-          <View className="rounded-t-2xl bg-white p-5">
+      <Modal visible={allowed && inviteOpen} transparent animationType="slide" onRequestClose={() => setInviteOpen(false)}>
+        <View className="flex-1 justify-end bg-black/70">
+          <View className="rounded-t-2xl bg-[#151518] p-5">
             <View className="flex-row items-center justify-between">
-              <Text className="text-lg font-bold text-navy">Convidar membro</Text>
+              <Text className="text-lg font-bold text-white">Convidar membro</Text>
               <Pressable onPress={() => setInviteOpen(false)} className="p-1">
-                <X size={20} color="#0F0F0F" />
+                <X size={20} color="#FFFFFF" />
               </Pressable>
             </View>
-            <Text className="mt-3 mb-1 text-xs font-semibold text-silver-500">Equipe</Text>
+            <Text className="mt-3 mb-1 text-xs font-semibold text-[#A1A1AA]">Equipe</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View className="flex-row gap-2">
                 {equipes.map(eq => (
                   <Pressable
                     key={eq.id}
                     onPress={() => setSelectedEquipe(eq.id)}
-                    className={`rounded-full px-3 py-1.5 ${selectedEquipe === eq.id ? 'bg-gold' : 'bg-silver-100'}`}
+                    className={`rounded-full px-3 py-1.5 ${selectedEquipe === eq.id ? 'bg-[#DC2626]' : 'bg-[#202024]'}`}
                   >
-                    <Text className={selectedEquipe === eq.id ? 'text-xs font-bold text-white' : 'text-xs text-silver-700'}>
+                    <Text className={selectedEquipe === eq.id ? 'text-xs font-bold text-white' : 'text-xs text-[#D4D4D8]'}>
                       {eq.nome}
                     </Text>
                   </Pressable>
                 ))}
               </View>
             </ScrollView>
-            <Text className="mt-3 mb-1 text-xs font-semibold text-silver-500">Nome</Text>
+            <Text className="mt-3 mb-1 text-xs font-semibold text-[#A1A1AA]">Nome</Text>
             <TextInput
               value={inviteNome}
               onChangeText={setInviteNome}
               placeholder="Nome do membro"
-              className="rounded-lg border border-silver-200 bg-silver-50 px-3 py-2 text-sm"
+              className="rounded-lg border border-[#414148] bg-[#202024] px-3 py-2 text-sm text-white"
             />
-            <Text className="mt-3 mb-1 text-xs font-semibold text-silver-500">E-mail</Text>
+            <Text className="mt-3 mb-1 text-xs font-semibold text-[#A1A1AA]">E-mail</Text>
             <TextInput
               value={inviteEmail}
               onChangeText={setInviteEmail}
               placeholder="membro@empresa.com"
               autoCapitalize="none"
               keyboardType="email-address"
-              className="rounded-lg border border-silver-200 bg-silver-50 px-3 py-2 text-sm"
+              className="rounded-lg border border-[#414148] bg-[#202024] px-3 py-2 text-sm text-white"
             />
             <Pressable
               onPress={() => convidar.mutate()}
               disabled={convidar.isPending || !selectedEquipe || inviteEmail.length < 5}
-              className="mt-4 items-center rounded-xl bg-gold py-3 active:opacity-80"
+              className="mt-4 items-center rounded-xl bg-[#DC2626] py-3 active:opacity-80"
               style={{ opacity: !selectedEquipe || inviteEmail.length < 5 ? 0.5 : 1 }}
             >
               {convidar.isPending ? (

@@ -48,3 +48,19 @@ export async function getIdleConfig(): Promise<IdleConfig> {
     return IDLE_FALLBACK
   }
 }
+
+/** Tempo em segundo plano antes de exigir desbloqueio local. */
+export async function getDeviceRelockSeconds(): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('configuracoes_sistema')
+      .select('valor')
+      .eq('chave', 'mobile_relock_segundos')
+      .maybeSingle()
+    const seconds = Number(data?.valor)
+    if (error || !Number.isInteger(seconds) || seconds < 0 || seconds > 3600) return 60
+    return seconds
+  } catch {
+    return 60
+  }
+}

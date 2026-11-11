@@ -14,6 +14,7 @@ export default function ClienteLayout() {
   }
 
   if (!session) return <Redirect href="/login" />
+  if (session.role !== 'client') return <Redirect href="/acesso-indisponivel" />
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

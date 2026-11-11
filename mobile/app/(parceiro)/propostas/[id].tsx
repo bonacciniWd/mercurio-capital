@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ScrollView, View, Text, Pressable, ActivityIndicator, Alert, Linking } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
@@ -6,7 +6,7 @@ import {
   ArrowLeft, FileText, Users, Home, Clock, MessageSquare, ChevronRight,
   TrendingUp, Shield, Calendar, MapPin, Building2, User, Phone, Mail, Download,
 } from 'lucide-react-native'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { StatusBadge } from '@/components/Badge'
 import { brl } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
@@ -22,6 +22,7 @@ const TABS = [
   { id: 'proponentes', label: 'Proponentes', icon: Users },
   { id: 'imoveis', label: 'Imóveis', icon: Home },
   { id: 'historico', label: 'Histórico', icon: Clock },
+  { id: 'chat', label: 'Chat', icon: MessageSquare },
 ] as const
 
 interface Proposta {
@@ -85,6 +86,7 @@ interface HistoricoRow {
 export default function PropostaDetalhe() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const [tab, setTab] = useState<typeof TABS[number]['id']>('resumo')
+  const queryClient = useQueryClient()
 
   const propostaQ = useQuery({
     queryKey: ['proposta-mobile', id],
@@ -142,6 +144,49 @@ export default function PropostaDetalhe() {
     enabled: !!id && tab === 'historico',
   })
 
+  const atendimentoQ = useQuery({
+    queryKey: ['proposta-mobile-atendimento', id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('whatsapp_atendimentos').select('id, sender_phone, estado, ultima_mensagem_em').eq('proposta_id', id!).order('updated_at', { ascending: false }).limit(1).maybeSingle()
+      if (error) throw error
+      return data as { id: string; sender_phone: string; estado: string; ultima_mensagem_em: string } | null
+    },
+    enabled: !!id && tab === 'chat',
+  })
+  const mensagensQ = useQuery({
+    queryKey: ['proposta-mobile-mensagens', atendimentoQ.data?.id],
+    queryFn: async () => {
+      if (!atendimentoQ.data?.id) return []
+      const { data, error } = await supabase.from('whatsapp_mensagens_recebidas').select('id, text_body, received_at').eq('atendimento_id', atendimentoQ.data.id).order('received_at', { ascending: true }).limit(100)
+      if (error) throw error
+      return (data ?? []) as { id: string; text_body: string | null; received_at: string }[]
+    },
+    enabled: !!atendimentoQ.data?.id && tab === 'chat',
+  })
+  const nextStages = useMemo(() => {
+    if (!propostaQ.data) return [] as string[]
+    const status = propostaQ.data.status
+    if (status === 'proposta_cliente') return ['diligencia_juridica']
+    if (status === 'resolucao_pendencias') return ['diligencia_juridica']
+    if (status === 'emissao_contrato') return ['aguardando_assinatura']
+    return []
+  }, [propostaQ.data])
+  const advanceMutation = useMutation({
+    mutationFn: async (status: string) => {
+      if (!id) throw new Error('Proposta inválida')
+      const { error } = await supabase.rpc('partner_set_proposta_status', { p_id: id, p_status: status, p_motivo: null })
+      if (error) throw error
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['proposta-mobile', id] }),
+        queryClient.invalidateQueries({ queryKey: ['proposta-mobile-historico', id] }),
+        queryClient.invalidateQueries({ queryKey: ['partner-propostas-list'] }),
+        queryClient.invalidateQueries({ queryKey: ['p-kpis'] }),
+      ])
+    },
+  })
+
   const modelosQ = useQuery({
     queryKey: ['proposta-mobile-modelos', id],
     queryFn: async () => {
@@ -168,15 +213,15 @@ export default function PropostaDetalhe() {
 
   if (propostaQ.isLoading) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-silver-50" edges={['top', 'bottom']}>
-        <ActivityIndicator color="#DC2626" />
+      <SafeAreaView className="flex-1 items-center justify-center bg-[#09090B]" edges={['top', 'bottom']}>
+        <ActivityIndicator />
       </SafeAreaView>
     )
   }
 
   if (propostaQ.error) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-silver-50 px-6" edges={['top', 'bottom']}>
+      <SafeAreaView className="flex-1 items-center justify-center bg-[#09090B] px-6" edges={['top', 'bottom']}>
         <Text className="text-center text-sm text-danger">
           Erro ao carregar: {(propostaQ.error as Error).message}
         </Text>
@@ -190,7 +235,7 @@ export default function PropostaDetalhe() {
   const proposta = propostaQ.data
   if (!proposta) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-silver-50 px-6" edges={['top', 'bottom']}>
+      <SafeAreaView className="flex-1 items-center justify-center bg-[#09090B] px-6" edges={['top', 'bottom']}>
         <Text className="text-sm text-silver-500">Proposta não encontrada.</Text>
         <Pressable onPress={() => router.back()} className="mt-4 rounded-lg border border-silver-300 px-4 py-2">
           <Text className="text-sm text-navy">Voltar</Text>
@@ -211,9 +256,9 @@ export default function PropostaDetalhe() {
   const ltv = calcularLTV(valor, valorImoveis)
 
   return (
-    <SafeAreaView className="flex-1 bg-silver-50" edges={['top', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-[#111216]" edges={['top', 'bottom']}>
       {/* Header */}
-      <View className="bg-navy-700 px-5 pb-4 pt-2">
+      <View className=" px-5 pb-4 pt-2">
         <View className="flex-row items-center gap-3">
           <Pressable onPress={() => router.back()} className="-ml-2 p-2">
             <ArrowLeft size={22} color="white" />
@@ -299,22 +344,28 @@ export default function PropostaDetalhe() {
         {tab === 'historico' && (
           <Historico loading={historicoQ.isLoading} data={historicoQ.data ?? []} />
         )}
+        {tab === 'chat' && <Chat loading={atendimentoQ.isLoading || mensagensQ.isLoading} atendimento={atendimentoQ.data} mensagens={mensagensQ.data ?? []} />}
       </ScrollView>
 
       {/* Bottom action */}
-      <View className="flex-row gap-3 border-t border-silver-200 bg-white px-4 py-3">
+      <View className="flex-row gap-3 border-t border-silver-200 bg-[#09090B] px-4 py-3">
         <Pressable
-          onPress={() => Alert.alert('Em breve', 'Chat com o cliente será liberado em breve.')}
+          onPress={() => setTab('chat')}
           className="flex-row items-center justify-center gap-2 rounded-xl border border-silver-200 bg-silver-50 px-5 py-3"
         >
           <MessageSquare size={17} color="#0F0F0F" />
           <Text className="font-semibold text-navy">Mensagem</Text>
         </Pressable>
         <Pressable
-          onPress={() => Alert.alert('Em breve', 'Avanço de etapa estará disponível em breve. Use o painel web para alterar o status.')}
+          disabled={advanceMutation.isPending || nextStages.length === 0}
+          onPress={() => {
+            if (nextStages.length === 1) advanceMutation.mutate(nextStages[0])
+            else Alert.alert('Avançar etapa', 'Selecione uma etapa disponível.', nextStages.map(status => ({ text: STATUS_LABEL[status] ?? status, onPress: () => advanceMutation.mutate(status) })))
+          }}
           className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-gold py-3 active:opacity-80"
         >
-          <Text className="font-bold text-white">Avançar etapa</Text>
+          {advanceMutation.isPending ? <ActivityIndicator size="small" color="white" /> : null}
+          <Text className="font-bold text-white">{advanceMutation.isPending ? 'Atualizando…' : nextStages.length ? 'Avançar etapa' : 'Sem avanço disponível'}</Text>
           <ChevronRight size={17} color="white" />
         </Pressable>
       </View>
@@ -449,6 +500,17 @@ function Historico({ loading, data }: { loading: boolean; data: HistoricoRow[] }
       ))}
     </View>
   )
+}
+
+function Chat({ loading, atendimento, mensagens }: { loading: boolean; atendimento: { sender_phone: string; estado: string } | null | undefined; mensagens: { id: string; text_body: string | null; received_at: string }[] }) {
+  if (loading) return <ActivityIndicator color="#DC2626" />
+  if (!atendimento) return <EmptyState text="Ainda não há atendimento WhatsApp vinculado a esta proposta." />
+  return <View className="gap-3 rounded-2xl border border-silver-200 bg-white p-4">
+    <View className="flex-row items-center justify-between"><Text className="text-sm font-bold text-navy">Atendimento do cliente</Text><Text className="text-xs text-silver-500">{atendimento.estado}</Text></View>
+    <Text className="text-xs text-silver-500">{atendimento.sender_phone}</Text>
+    {mensagens.length === 0 ? <Text className="py-6 text-center text-sm text-silver-500">Nenhuma mensagem recebida ainda.</Text> : mensagens.map(m => <View key={m.id} className="rounded-xl bg-silver-50 p-3"><Text className="text-sm text-navy">{m.text_body || 'Mensagem sem texto'}</Text><Text className="mt-1 text-[10px] text-silver-400">{new Date(m.received_at).toLocaleString('pt-BR')}</Text></View>)}
+    <Text className="text-xs leading-5 text-silver-500">As respostas são registradas pelo canal oficial do atendimento. O app do parceiro exibe o histórico vinculado à proposta.</Text>
+  </View>
 }
 
 // ─── Shared components ──────────────────────────────────────────────────────

@@ -44,7 +44,7 @@ export default function AulaPlayer() {
   const [activeAulaId, setActiveAulaId] = useState<string | null>(null)
   const [openModulos, setOpenModulos] = useState<Set<string>>(new Set())
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
-  const playerRef = useRef<WebView | null>(null)
+  const playerRef = useRef<WebView<{}> | null>(null)
   const lastSavedRef = useRef<number>(0)
 
   const estruturaQ = useQuery({
@@ -173,7 +173,7 @@ export default function AulaPlayer() {
 
   if (estruturaQ.isLoading) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-silver-50" edges={['top', 'bottom']}>
+      <SafeAreaView className="flex-1 items-center justify-center bg-[#09090B]" edges={['top', 'bottom']}>
         <ActivityIndicator color="#DC2626" />
       </SafeAreaView>
     )
@@ -181,11 +181,11 @@ export default function AulaPlayer() {
 
   if (!activeAula) {
     return (
-      <SafeAreaView className="flex-1 bg-silver-50" edges={['top', 'bottom']}>
+      <SafeAreaView className="flex-1 bg-[#09090B]" edges={['top', 'bottom']}>
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-center text-sm text-silver-500">Curso sem aulas disponíveis.</Text>
-          <Pressable onPress={() => router.back()} className="mt-4 rounded-lg border border-silver-300 px-4 py-2">
-            <Text className="text-sm text-navy">Voltar</Text>
+          <Text className="text-center text-sm text-[#A1A1AA]">{estruturaQ.isError ? 'Não foi possível carregar o curso. Tente novamente.' : 'Curso sem aulas disponíveis.'}</Text>
+          <Pressable onPress={() => router.back()} className="mt-4 rounded-lg border border-[#414148] px-4 py-2">
+            <Text className="text-sm text-white">Voltar</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -193,14 +193,14 @@ export default function AulaPlayer() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-silver-50" edges={['top', 'bottom']}>
-      <View className="bg-navy px-5 py-4">
+    <SafeAreaView className="flex-1 bg-[#09090B]" edges={['top', 'bottom']}>
+      <View className="bg-[#151518] px-5 py-4">
         <View className="flex-row items-center gap-3">
           <Pressable onPress={() => router.back()} className="-ml-2 p-2">
             <ArrowLeft size={22} color="white" />
           </Pressable>
           <View className="flex-1">
-            <Text className="text-xs uppercase tracking-wider text-gold">Universidade</Text>
+            <Text className="text-xs uppercase tracking-wider text-[#F87171]">Universidade</Text>
             <Text className="text-base font-bold text-white" numberOfLines={1}>{activeAula.aula_titulo}</Text>
           </View>
         </View>
@@ -210,7 +210,7 @@ export default function AulaPlayer() {
         {/* Player */}
         <View className="aspect-video items-center justify-center bg-black">
           {activeAula.aula_tipo === 'video' && activeVimeoId ? (
-            <WebView
+            <WebView<{}>
               ref={playerRef}
               key={activeAula.aula_id}
               originWhitelist={['*']}
@@ -236,28 +236,28 @@ export default function AulaPlayer() {
               style={{ flex: 1, backgroundColor: '#000' }}
             />
           ) : (
-            <View className="h-16 w-16 items-center justify-center rounded-full bg-white/10">
+            <View className="h-16 w-16 items-center justify-center rounded-full bg-[#151518]/10">
               <Play size={32} color="white" fill="white" />
             </View>
           )}
         </View>
 
         <View className="px-4 pt-4">
-          <Text className="text-xl font-bold text-navy">{activeAula.aula_titulo}</Text>
-          <Text className="text-xs text-silver-500">
+          <Text className="text-xl font-bold text-white">{activeAula.aula_titulo}</Text>
+          <Text className="text-xs text-[#A1A1AA]">
             {activeAula.modulo_titulo} · Aula {activeAula.aula_ordem + 1}
             {activeAula.duracao_segundos ? ` · ${Math.round(activeAula.duracao_segundos / 60)} min` : ''}
           </Text>
         </View>
 
         {/* Tabs */}
-        <View className="mt-4 flex-row border-b border-silver-200 px-2">
+        <View className="mt-4 flex-row border-b border-[#2D2D32] px-2">
           {(['conteudo', 'recursos', 'notas'] as const).map(t => (
             <Pressable key={t} onPress={() => setTab(t)} className="px-3 py-2.5">
-              <Text className={`text-sm font-semibold ${tab === t ? 'text-navy' : 'text-silver-500'}`}>
+              <Text className={`text-sm font-semibold ${tab === t ? 'text-white' : 'text-[#A1A1AA]'}`}>
                 {t === 'conteudo' ? 'Conteúdo' : t === 'recursos' ? 'Recursos' : 'Notas'}
               </Text>
-              {tab === t && <View className="mt-1.5 h-0.5 rounded-full bg-gold" />}
+              {tab === t && <View className="mt-1.5 h-0.5 rounded-full bg-[#DC2626]" />}
             </Pressable>
           ))}
         </View>
@@ -266,13 +266,13 @@ export default function AulaPlayer() {
           {tab === 'conteudo' && (
             <View>
               {activeAula.aula_descricao && (
-                <Text className="text-sm leading-relaxed text-silver-700">{activeAula.aula_descricao}</Text>
+                <Text className="text-sm leading-relaxed text-[#D4D4D8]">{activeAula.aula_descricao}</Text>
               )}
               {activeAula.conteudo_md && (
-                <Text className="mt-2 text-sm leading-relaxed text-silver-700">{activeAula.conteudo_md}</Text>
+                <Text className="mt-2 text-sm leading-relaxed text-[#D4D4D8]">{activeAula.conteudo_md}</Text>
               )}
               {!activeAula.aula_descricao && !activeAula.conteudo_md && (
-                <Text className="text-sm text-silver-500">Sem descrição para esta aula.</Text>
+                <Text className="text-sm text-[#A1A1AA]">Sem descrição para esta aula.</Text>
               )}
             </View>
           )}
@@ -281,35 +281,35 @@ export default function AulaPlayer() {
               {pdfUrl ? (
                 <Pressable
                   onPress={() => WebBrowser.openBrowserAsync(pdfUrl)}
-                  className="flex-row items-center justify-between rounded-lg border border-silver-200 bg-white p-3 active:opacity-70"
+                  className="flex-row items-center justify-between rounded-lg border border-[#2D2D32] bg-[#151518] p-3 active:opacity-70"
                 >
                   <View className="flex-row items-center gap-2">
                     <FileText size={16} color="#0F0F0F" />
-                    <Text className="text-sm text-silver-800">Material da aula (PDF)</Text>
+                    <Text className="text-sm text-[#E4E4E7]">Material da aula (PDF)</Text>
                   </View>
-                  <Text className="text-xs font-semibold text-gold">Abrir</Text>
+                  <Text className="text-xs font-semibold text-[#F87171]">Abrir</Text>
                 </Pressable>
               ) : (
-                <Text className="text-sm text-silver-500">Nenhum recurso anexado a esta aula.</Text>
+                <Text className="text-sm text-[#A1A1AA]">Nenhum recurso anexado a esta aula.</Text>
               )}
             </View>
           )}
           {tab === 'notas' && (
-            <View className="rounded-lg border border-silver-200 bg-white p-3">
-              <Text className="text-sm text-silver-400">Suas anotações... (não persistidas)</Text>
+            <View className="rounded-lg border border-[#2D2D32] bg-[#151518] p-3">
+              <Text className="text-sm text-[#A1A1AA]">Suas anotações... (não persistidas)</Text>
             </View>
           )}
         </View>
 
         {/* Curso / playlist */}
-        <View className="mx-4 mt-5 overflow-hidden rounded-xl border border-silver-200 bg-white">
-          <View className="border-b border-silver-200 p-4">
-            <Text className="text-[11px] uppercase tracking-wider text-silver-500">Curso</Text>
-            <Text className="font-semibold text-navy">{curso?.curso_titulo}</Text>
-            <View className="mt-2 h-1 overflow-hidden rounded-full bg-silver-200">
-              <View className="h-full bg-gold" style={{ width: `${pct}%` }} />
+        <View className="mx-4 mt-5 overflow-hidden rounded-xl border border-[#2D2D32] bg-[#151518]">
+          <View className="border-b border-[#2D2D32] p-4">
+            <Text className="text-[11px] uppercase tracking-wider text-[#A1A1AA]">Curso</Text>
+            <Text className="font-semibold text-white">{curso?.curso_titulo}</Text>
+            <View className="mt-2 h-1 overflow-hidden rounded-full bg-[#414148]">
+              <View className="h-full bg-[#DC2626]" style={{ width: `${pct}%` }} />
             </View>
-            <Text className="mt-1 text-[11px] text-silver-500">{concluidas} / {totalAulas} aulas · {pct}%</Text>
+            <Text className="mt-1 text-[11px] text-[#A1A1AA]">{concluidas} / {totalAulas} aulas · {pct}%</Text>
           </View>
 
           {modulos.map((m) => {
@@ -318,10 +318,10 @@ export default function AulaPlayer() {
               <View key={m.id}>
                 <Pressable
                   onPress={() => toggleModulo(m.id)}
-                  className="flex-row items-center gap-2 border-y border-silver-100 bg-silver-50 px-4 py-2.5"
+                  className="flex-row items-center gap-2 border-y border-silver-100 bg-[#09090B] px-4 py-2.5"
                 >
                   {open ? <ChevronDown size={16} color="#475569" /> : <ChevronRightIcon size={16} color="#475569" />}
-                  <Text className="flex-1 text-sm font-semibold text-silver-800">{m.titulo}</Text>
+                  <Text className="flex-1 text-sm font-semibold text-[#E4E4E7]">{m.titulo}</Text>
                 </Pressable>
                 {open && m.aulas.map((a) => {
                   const isActive = a.aula_id === activeAula.aula_id
@@ -330,16 +330,16 @@ export default function AulaPlayer() {
                     <Pressable
                       key={a.aula_id}
                       onPress={() => setActiveAulaId(a.aula_id)}
-                      className={`flex-row items-center gap-2 px-4 py-2.5 active:bg-silver-50 ${isActive ? 'bg-gold/10' : ''}`}
+                      className={`flex-row items-center gap-2 px-4 py-2.5 active:bg-[#09090B] ${isActive ? 'bg-[#DC2626]/10' : ''}`}
                       style={isActive ? { borderLeftWidth: 2, borderLeftColor: '#DC2626' } : undefined}
                     >
                       {done
                         ? <CheckCircle2 size={16} color="#16A34A" />
                         : <Play size={16} color={isActive ? '#DC2626' : '#CBD5E1'} fill={isActive ? '#DC2626' : 'none'} />}
-                      <Text className={`flex-1 text-sm ${isActive ? 'font-semibold text-navy' : 'text-silver-700'}`} numberOfLines={1}>
+                      <Text className={`flex-1 text-sm ${isActive ? 'font-semibold text-white' : 'text-[#D4D4D8]'}`} numberOfLines={1}>
                         {a.aula_titulo}
                       </Text>
-                      <Text className="text-[11px] text-silver-400">
+                      <Text className="text-[11px] text-[#A1A1AA]">
                         {a.duracao_segundos ? `${Math.round(a.duracao_segundos / 60)} min` : ''}
                       </Text>
                     </Pressable>
@@ -359,7 +359,7 @@ export default function AulaPlayer() {
             {proxima && (
               <Pressable
                 onPress={() => setActiveAulaId(proxima.aula_id)}
-                className="flex-row items-center gap-1 rounded-lg bg-gold px-3 py-2 active:opacity-80"
+                className="flex-row items-center gap-1 rounded-lg bg-[#DC2626] px-3 py-2 active:opacity-80"
               >
                 <Text className="text-xs font-bold text-white">Continuar</Text>
                 <ArrowRight size={14} color="white" />
@@ -371,17 +371,17 @@ export default function AulaPlayer() {
             <Pressable
               disabled={marcarAula.isPending}
               onPress={() => marcarAula.mutate({ aula_id: activeAula.aula_id, concluida: true })}
-              className="flex-row items-center gap-1 rounded-lg border border-silver-300 bg-white px-3 py-2 active:opacity-70"
+              className="flex-row items-center gap-1 rounded-lg border border-[#414148] bg-[#151518] px-3 py-2 active:opacity-70"
             >
               {marcarAula.isPending
                 ? <ActivityIndicator color="#16A34A" size="small" />
                 : <CheckCircle2 size={14} color="#16A34A" />}
-              <Text className="text-xs font-bold text-navy">Marcar concluída</Text>
+              <Text className="text-xs font-bold text-white">Marcar concluída</Text>
             </Pressable>
             {proxima && (
               <Pressable
                 onPress={() => setActiveAulaId(proxima.aula_id)}
-                className="flex-row items-center gap-1 rounded-lg bg-gold px-3 py-2 active:opacity-80"
+                className="flex-row items-center gap-1 rounded-lg bg-[#DC2626] px-3 py-2 active:opacity-80"
               >
                 <Text className="text-xs font-bold text-white">Próxima</Text>
                 <ArrowRight size={14} color="white" />

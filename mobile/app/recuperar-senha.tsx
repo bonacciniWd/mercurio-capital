@@ -35,17 +35,17 @@ export default function RecuperarSenha() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-[#111216]" edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
         <View className="flex-1 px-6 pt-4">
           <Pressable onPress={() => router.back()} className="-ml-2 self-start p-2">
-            <ArrowLeft size={22} color="#0F0F0F" />
+            <ArrowLeft size={22} color="#F4F4F4" />
           </Pressable>
 
           <View className="items-center py-8">
             <Image
-              source={require('../assets/logos/logowide.png')}
-              style={{ width: 240, height: 70 }}
+              source={require('../assets/logos/logo-dark.png')}
+              style={{ width: 280, height: 90 }}
               resizeMode="contain"
             />
           </View>
@@ -55,7 +55,7 @@ export default function RecuperarSenha() {
               <View className="mb-4 h-14 w-14 items-center justify-center rounded-full bg-success/10">
                 <MailCheck size={26} color="#16A34A" />
               </View>
-              <Text className="text-2xl font-bold text-navy">Verifique seu e-mail</Text>
+              <Text className="text-2xl font-bold text-red-600">Verifique seu e-mail</Text>
               <Text className="mt-2 text-sm text-silver-600">
                 Se houver uma conta vinculada a <Text className="font-semibold">{email}</Text>, enviamos um link
                 para você redefinir a senha. O link expira em 1 hora.
@@ -69,21 +69,21 @@ export default function RecuperarSenha() {
             </View>
           ) : (
             <>
-              <Text className="text-2xl font-bold text-navy">Recuperar acesso</Text>
-              <Text className="mt-1 text-sm text-silver-600">
+              <Text className="text-2xl font-bold text-white">Recuperar acesso</Text>
+              <Text className="mt-1 text-sm text-silver-200">
                 Informe seu e-mail e enviaremos um link para redefinir sua senha.
               </Text>
 
               <View className="mt-6 gap-4">
                 <View>
-                  <Text className="mb-1.5 text-xs font-medium text-silver-700">E-mail</Text>
+                  <Text className="mb-1.5 text-xs font-medium text-silver-300">E-mail</Text>
                   <View className="flex-row items-center rounded-lg border border-silver-300 px-3">
                     <Mail size={18} color="#9CA3AF" />
                     <TextInput
                       value={email} onChangeText={setEmail}
                       placeholder="voce@empresa.com"
                       autoCapitalize="none" keyboardType="email-address"
-                      className="ml-2 flex-1 py-3 text-sm text-silver-900"
+                      className="ml-2 flex-1 py-3 text-sm text-white"
                     />
                   </View>
                 </View>
@@ -106,7 +106,7 @@ export default function RecuperarSenha() {
                 </Pressable>
 
                 <Pressable onPress={() => router.replace('/login')} className="items-center pt-2">
-                  <Text className="text-sm font-medium text-navy underline">Voltar ao login</Text>
+                  <Text className="text-sm font-medium text-silver-200 underline">Voltar ao login</Text>
                 </Pressable>
               </View>
             </>

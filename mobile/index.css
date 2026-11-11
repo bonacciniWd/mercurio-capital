@@ -1,0 +1,60 @@
+.orbital-art {
+  position: absolute;
+  width: 310px;
+  height: 310px;
+  top: 52px;
+  right: -38px;
+  opacity: 0.95;
+}
+.orbit {
+  position: absolute;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 50%;
+  transform: rotate(-28deg);
+}
+.orbit-one {
+  inset: 42px 12px 42px 12px;
+}
+.orbit-two {
+  inset: 74px -12px;
+  border-color: rgba(220, 38, 38, 0.35);
+}
+.orbit-three {
+  inset: 103px 22px;
+}
+.core {
+  position: absolute;
+  width: 92px;
+  height: 92px;
+  left: 112px;
+  top: 107px;
+  border-radius: 48% 52% 62% 38%;
+  background: linear-gradient(145deg, #f24246, #8b1016);
+  transform: rotate(22deg);
+  box-shadow: 0 0 60px rgba(220, 38, 38, 0.22);
+}
+.core span {
+  position: absolute;
+  inset: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 55% 45% 35% 65%;
+}
+.planet {
+  position: absolute;
+  border-radius: 50%;
+  background: #ef3d42;
+  box-shadow: 0 0 18px rgba(220, 38, 38, 0.5);
+}
+.planet-one {
+  width: 9px;
+  height: 9px;
+  left: 31px;
+  top: 111px;
+}
+.planet-two {
+  width: 5px;
+  height: 5px;
+  right: 54px;
+  bottom: 56px;
+  background: #fff;
+}

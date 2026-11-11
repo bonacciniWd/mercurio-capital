@@ -131,7 +131,7 @@ export default function PartnerBootstrap() {
         if (m.partner_status === 'approved') router.replace('/(parceiro)/dashboard')
         else router.replace('/acesso-pendente' as any)
       } else if (m.role === 'admin') {
-        router.replace('/(admin)' as any)
+        router.replace('/acesso-indisponivel')
       } else {
         router.replace('/acesso-pendente' as any)
       }

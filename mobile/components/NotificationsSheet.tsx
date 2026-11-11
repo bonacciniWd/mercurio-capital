@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   ActivityIndicator,
   FlatList,
@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { resolveNotificationLinkToRoute } from '@/lib/notificationLinks'
+import { subscribeToNotifications } from '@/lib/notificationSubscription'
 
 interface Notificacao {
   id: string
@@ -30,6 +31,7 @@ interface NotificationsSheetProps {
   variant?: 'dark' | 'light'
   iconSize?: number
   onOpenLink?: (route: string, originalLink: string) => void
+  renderTrigger?: (props: { onPress: () => void; unreadCount: number }) => ReactNode
 }
 
 const PAGE_SIZE = 40
@@ -54,6 +56,7 @@ export function NotificationsSheet({
   variant = 'dark',
   iconSize = 22,
   onOpenLink,
+  renderTrigger,
 }: NotificationsSheetProps) {
   const insets = useSafeAreaInsets()
   const { session } = useAuth()
@@ -83,7 +86,7 @@ export function NotificationsSheet({
     },
   })
 
-  const notificacoes = notifsQ.data ?? []
+  const notificacoes = useMemo(() => notifsQ.data ?? [], [notifsQ.data])
   const unreadCount = useMemo(
     () => notificacoes.reduce((acc, n) => acc + (n.lida_em == null ? 1 : 0), 0),
     [notificacoes],
@@ -96,25 +99,7 @@ export function NotificationsSheet({
       void qc.invalidateQueries({ queryKey: queryKey(userId) })
     }
 
-    const channel = supabase
-      .channel(`mobile-notif-${userId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notificacoes', filter: `usuario_id=eq.${userId}` },
-        invalidate,
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'notificacoes', filter: `usuario_id=eq.${userId}` },
-        invalidate,
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') invalidate()
-      })
-
-    return () => {
-      void supabase.removeChannel(channel)
-    }
+    return subscribeToNotifications(supabase, userId, invalidate)
   }, [qc, userId])
 
   const markOne = useMutation<
@@ -201,19 +186,19 @@ export function NotificationsSheet({
 
   return (
     <>
-      <Pressable
+      {renderTrigger ? renderTrigger({ onPress: () => setOpen(true), unreadCount }) : <Pressable
         onPress={() => setOpen(true)}
         style={[s.trigger, triggerIsDark ? s.triggerDark : s.triggerLight]}
         accessibilityRole="button"
-        accessibilityLabel="Notificacoes"
+        accessibilityLabel="Notificações"
       >
-        <Bell size={iconSize} color={triggerIsDark ? '#FFFFFF' : '#334155'} />
+        <Bell size={iconSize} color={triggerIsDark ? '#FFFFFF' : '#3F3F46'} />
         {unreadCount > 0 ? (
           <View style={s.badge}>
             <Text style={s.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
           </View>
         ) : null}
-      </Pressable>
+      </Pressable>}
 
       <Modal
         visible={open}
@@ -227,7 +212,7 @@ export function NotificationsSheet({
           <View
             style={[
               s.sheet,
-              triggerIsDark ? s.sheetDark : s.sheetLight,
+              s.sheetDark,
               { paddingBottom: Math.max(insets.bottom + 8, 16) },
             ]}
           >
@@ -235,16 +220,16 @@ export function NotificationsSheet({
 
             <View style={s.header}>
               <View>
-                <Text style={s.title}>Notificacoes</Text>
-                <Text style={s.subtitle}>{unreadCount} nao lida(s)</Text>
+                <Text style={s.title}>Notificações</Text>
+                <Text style={s.subtitle}>{unreadCount} não lida(s)</Text>
               </View>
               <Pressable
                 onPress={() => setOpen(false)}
                 style={s.closeBtn}
                 accessibilityRole="button"
-                accessibilityLabel="Fechar notificacoes"
+                accessibilityLabel="Fechar notificações"
               >
-                <X size={16} color="#94A3B8" />
+                <X size={16} color="#A1A1AA" />
               </Pressable>
             </View>
 
@@ -265,14 +250,18 @@ export function NotificationsSheet({
               </Pressable>
             ) : null}
 
-            {notifsQ.isLoading ? (
+            {markOne.isError || markAll.isError ? <Text accessibilityRole="alert" style={s.errorText}>Não foi possível marcar a leitura. Tente novamente.</Text> : null}
+            {notifsQ.isError ? <View style={s.emptyWrap}>
+              <Text style={s.emptyTitle}>Não foi possível carregar as notificações</Text>
+              <Pressable accessibilityRole="button" onPress={() => { void notifsQ.refetch() }} style={s.markAllBtn}><Text style={s.markAllText}>Tentar novamente</Text></Pressable>
+            </View> : notifsQ.isLoading ? (
               <View style={s.loadingWrap}>
                 <ActivityIndicator color="#DC2626" />
               </View>
             ) : notificacoes.length === 0 ? (
               <View style={s.emptyWrap}>
-                <Text style={s.emptyTitle}>Sem notificacoes</Text>
-                <Text style={s.emptySub}>As novas atualizacoes in-app aparecerao aqui.</Text>
+                <Text style={s.emptyTitle}>Sem notificações</Text>
+                <Text style={s.emptySub}>As novas atualizações aparecerão aqui.</Text>
               </View>
             ) : (
               <FlatList
@@ -311,7 +300,7 @@ export function NotificationsSheet({
                           accessibilityRole="button"
                           accessibilityLabel="Marcar como lida"
                         >
-                          <Check size={14} color="#475569" />
+                          <Check size={14} color="#A1A1AA" />
                         </Pressable>
                       ) : (
                         <View style={s.readPill}>
@@ -332,8 +321,8 @@ export function NotificationsSheet({
 
 const s = StyleSheet.create({
   trigger: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
@@ -346,7 +335,7 @@ const s = StyleSheet.create({
   triggerLight: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#D4D4D8',
   },
   badge: {
     position: 'absolute',
@@ -372,31 +361,31 @@ const s = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(2,6,23,0.58)',
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.65)',
   },
   sheet: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '80%',
+    height: '78%',
     paddingHorizontal: 16,
     paddingTop: 10,
     borderTopWidth: 1,
   },
   sheetDark: {
-    backgroundColor: '#0F172A',
-    borderTopColor: '#334155',
+    backgroundColor: '#09090B',
+    borderTopColor: '#3F3F46',
   },
   sheetLight: {
     backgroundColor: '#FFFFFF',
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#E4E4E7',
   },
   handle: {
     alignSelf: 'center',
     width: 38,
     height: 4,
     borderRadius: 999,
-    backgroundColor: '#64748B',
+    backgroundColor: '#71717A',
     marginBottom: 12,
   },
   header: {
@@ -411,21 +400,22 @@ const s = StyleSheet.create({
     fontWeight: '800',
   },
   subtitle: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 12,
     marginTop: 2,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#3F3F46',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0B1220',
+    backgroundColor: '#18181B',
   },
   markAllBtn: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -454,8 +444,8 @@ const s = StyleSheet.create({
     gap: 10,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#263244',
-    backgroundColor: '#111B2D',
+    borderColor: '#3F3F46',
+    backgroundColor: '#18181B',
     padding: 12,
     marginBottom: 8,
   },
@@ -472,50 +462,52 @@ const s = StyleSheet.create({
     fontWeight: '700',
   },
   itemMessage: {
-    color: '#CBD5E1',
+    color: '#D4D4D8',
     fontSize: 12,
     lineHeight: 17,
     marginTop: 3,
   },
   itemTime: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 11,
     marginTop: 6,
   },
   openLinkBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
     alignSelf: 'flex-start',
     marginTop: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#3F3F46',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   openLinkText: {
-    color: '#E2E8F0',
+    color: '#E4E4E7',
     fontSize: 11,
     fontWeight: '600',
   },
   markOneBtn: {
-    width: 28,
-    height: 28,
+    width: 44,
+    height: 44,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#3F3F46',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0B1220',
+    backgroundColor: '#18181B',
   },
   readPill: {
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#0B1220',
+    borderColor: '#3F3F46',
+    backgroundColor: '#18181B',
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   readPillText: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 10,
     fontWeight: '700',
   },
@@ -531,16 +523,17 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   emptyTitle: {
-    color: '#E2E8F0',
+    color: '#E4E4E7',
     fontSize: 14,
     fontWeight: '700',
   },
   emptySub: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 12,
     marginTop: 4,
     textAlign: 'center',
   },
+  errorText: { color: '#FCA5A5', fontSize: 13, lineHeight: 20, marginBottom: 12 },
   disabled: {
     opacity: 0.55,
   },

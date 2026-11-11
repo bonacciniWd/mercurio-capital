@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react'
 import { View, Pressable, Text, TouchableWithoutFeedback, StyleSheet, ActivityIndicator } from 'react-native'
-import { Tabs, router } from 'expo-router'
+import { Tabs, router, useSegments } from 'expo-router'
+import type { BottomTabBarProps } from 'expo-router/js-tabs'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   LayoutDashboard, FileText, Sparkles, Wallet, User,
   SquareArrowUpLeft, X, Calculator, UserPlus,
 } from 'lucide-react-native'
 import { useAuth } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
+import { canManagePartner, isPartnerPrimaryRoute } from '@/lib/partnerAccess'
+
+export const unstable_settings = { anchor: 'dashboard' }
 
 // ─── Tab definitions ────────────────────────────────────────────────────────
 const TABS = [
@@ -18,9 +23,10 @@ const TABS = [
 ]
 
 // ─── Liquid Glass Tab Bar ────────────────────────────────────────────────────
-function LiquidGlassTabBar({ state, navigation }: { state: any; navigation: any }) {
+function LiquidGlassTabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   const insets = useSafeAreaInsets()
   const bottomOffset = Math.max(insets.bottom, TAB_BAR_BOTTOM_MIN)
+  if (!TABS.some((tab) => tab.name === state.routes[state.index]?.name)) return null
   return (
     <View style={[styles.tabBarWrapper, { bottom: bottomOffset }]}>
       {/* Shadow frame (outside overflow:hidden) */}
@@ -33,19 +39,23 @@ function LiquidGlassTabBar({ state, navigation }: { state: any; navigation: any 
 
         {TABS.map(({ name, title, Icon }) => {
           const routeIndex = state.routes.findIndex((r: any) => r.name === name)
+          if (routeIndex < 0) return null
           const isFocused = state.index === routeIndex
 
           return (
             <Pressable
               key={name}
+              accessibilityRole="tab"
+              accessibilityLabel={title}
+              accessibilityState={{ selected: isFocused }}
               onPress={() => {
-                const event = navigation.emit({
+                const event = emitter.emit({
                   type: 'tabPress',
                   target: state.routes[routeIndex]?.key,
                   canPreventDefault: true,
                 })
                 if (!isFocused && !event.defaultPrevented) {
-                  navigation.navigate(name)
+                  navigateToTab(state.routes[routeIndex].key)
                 }
               }}
               style={styles.tabItem}
@@ -69,10 +79,11 @@ function LiquidGlassTabBar({ state, navigation }: { state: any; navigation: any 
 const DIAL_ACTIONS = [
   { icon: UserPlus,   label: 'Convidar membro',  route: '/(parceiro)/equipe' },
   { icon: Calculator, label: 'Simulação rápida',  route: '/(parceiro)/simulacoes' },
-  { icon: FileText,   label: 'Nova proposta',     route: '/(parceiro)/propostas' },
+  { icon: FileText,   label: 'Nova proposta',     route: '/propostas/nova' },
 ]
 
 function SpeedDial() {
+  const { session } = useAuth()
   const insets = useSafeAreaInsets()
   const [open, setOpen] = useState(false)
   const bottomOffset = Math.max(insets.bottom, TAB_BAR_BOTTOM_MIN)
@@ -87,7 +98,7 @@ function SpeedDial() {
 
       {open && (
         <View style={[styles.chipStack, { bottom: fabBottom + 58 }]}>
-          {DIAL_ACTIONS.map(({ icon: Icon, label, route }) => (
+          {DIAL_ACTIONS.filter((action) => action.icon !== UserPlus || canManagePartner(session?.role)).map(({ icon: Icon, label, route }) => (
             <Pressable
               key={label}
               onPress={() => { setOpen(false); router.push(route as any) }}
@@ -102,7 +113,7 @@ function SpeedDial() {
         </View>
       )}
 
-      <Pressable onPress={() => setOpen(v => !v)} style={[styles.fab, { bottom: fabBottom }]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={open ? 'Fechar ações rápidas' : 'Abrir ações rápidas'} accessibilityState={{ expanded: open }} onPress={() => setOpen(v => !v)} style={[styles.fab, { bottom: fabBottom }]}>
         {open ? <X size={22} color="white" /> : <SquareArrowUpLeft size={22} color="white" />}
       </Pressable>
     </>
@@ -125,7 +136,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   tabBarShadow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: TAB_BAR_HEIGHT / 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
@@ -142,7 +153,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(23,23,23,0.92)',
   },
   tabBarBorder: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: TAB_BAR_HEIGHT / 2,
     borderWidth: 0.75,
     borderColor: 'rgba(255,255,255,0.18)',
@@ -200,6 +211,8 @@ const styles = StyleSheet.create({
 // ─── Layout ──────────────────────────────────────────────────────────────────
 export default function ParceiroLayout() {
   const { session, loading } = useAuth()
+  const segments = useSegments()
+  const [allowed, setAllowed] = useState(false)
 
   // Redireciona se não-parceiro tentar acessar
   useEffect(() => {
@@ -209,9 +222,24 @@ export default function ParceiroLayout() {
       return
     }
     const role = session.role
-    if (role === 'admin') router.replace('/(admin)' as any)
+    if (role === 'admin') router.replace('/acesso-indisponivel')
     else if (role === 'client') router.replace('/(cliente)' as any)
+    else if (role !== 'partner' && role !== 'team_member') router.replace('/acesso-indisponivel')
   }, [loading, session])
+
+  useEffect(() => {
+    let cancelled = false
+    setAllowed(false)
+    if (session?.role !== 'partner' && session?.role !== 'team_member') return
+    void (async () => {
+      const { data, error } = await supabase.rpc('me')
+      if (cancelled) return
+      const me = data as { approved?: boolean } | null
+      if (error || me?.approved !== true) router.replace('/acesso-pendente')
+      else setAllowed(true)
+    })()
+    return () => { cancelled = true }
+  }, [session?.userId, session?.role])
 
   if (loading || !session) {
     return (
@@ -222,7 +250,7 @@ export default function ParceiroLayout() {
   }
 
   // Para roles erradas, mostra spinner enquanto o efeito redireciona
-  if (session.role && session.role !== 'partner' && session.role !== 'team_member') {
+  if ((session.role !== 'partner' && session.role !== 'team_member') || !allowed) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8F9FA' }}>
         <ActivityIndicator color="#DC2626" />
@@ -234,26 +262,29 @@ export default function ParceiroLayout() {
     <View style={{ flex: 1 }}>
       <Tabs
         tabBar={(props) => <LiquidGlassTabBar {...props} />}
+        backBehavior="initialRoute"
         screenOptions={{ headerShown: false }}
       >
         <Tabs.Screen name="dashboard"  />
         <Tabs.Screen name="propostas"  />
-        <Tabs.Screen name="promocoes"  />
+        <Tabs.Protected guard={canManagePartner(session.role)}>
+          <Tabs.Screen name="promocoes" />
+          <Tabs.Screen name="equipe" />
+          <Tabs.Screen name="relatorios" />
+          <Tabs.Screen name="comissoes" />
+          <Tabs.Screen name="contrato" />
+        </Tabs.Protected>
         <Tabs.Screen name="carteira"   />
         <Tabs.Screen name="perfil"     />
 
-        <Tabs.Screen name="universidade"   options={{ href: null }} />
-        <Tabs.Screen name="simulacoes"     options={{ href: null }} />
-        <Tabs.Screen name="equipe"         options={{ href: null }} />
-        <Tabs.Screen name="relatorios"     options={{ href: null }} />
-        <Tabs.Screen name="comissoes"      options={{ href: null }} />
-        <Tabs.Screen name="contrato"       options={{ href: null }} />
-        <Tabs.Screen name="configuracoes"  options={{ href: null }} />
-        <Tabs.Screen name="propostas/[id]" options={{ href: null }} />
-        <Tabs.Screen name="aula/[id]"      options={{ href: null }} />
+        <Tabs.Screen name="universidade" />
+        <Tabs.Screen name="simulacoes" />
+        <Tabs.Screen name="configuracoes" />
+        <Tabs.Screen name="propostas/[id]" />
+        <Tabs.Screen name="aula/[id]" />
       </Tabs>
 
-      <SpeedDial />
+      {isPartnerPrimaryRoute(segments) ? <SpeedDial /> : null}
     </View>
   )
 }

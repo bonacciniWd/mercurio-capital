@@ -9,6 +9,7 @@ import {
 } from 'lucide-react-native'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
+import { finishPendingPartnerOnboarding } from '@/lib/pendingPartnerOnboarding'
 
 type Me = {
   id?: string
@@ -49,6 +50,20 @@ export default function AcessoPendente() {
         return
       }
       let m = (data ?? {}) as Me
+      if (m.role === 'partner' && m.email) {
+        try {
+          const finished = await finishPendingPartnerOnboarding(m.email)
+          if (cancelled) return
+          if (finished) {
+            const { data: refreshed, error: refreshError } = await supabase.rpc('me')
+            if (refreshError) throw refreshError
+            m = (refreshed ?? {}) as Me
+          }
+        } catch {
+          if (cancelled) return
+          setError('O cadastro complementar ainda não foi concluído. Tente novamente mais tarde.')
+        }
+      }
       // Auto-cadastro: se for partner sem partner_id, cria via RPC.
       if (m.role === 'partner' && !m.partner_id) {
         const { error: regErr } = await supabase.rpc('partner_self_register', {

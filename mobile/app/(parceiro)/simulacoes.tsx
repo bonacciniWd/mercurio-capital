@@ -1,149 +1,175 @@
-import { useState } from 'react'
-import { ScrollView, View, Text, Pressable, TextInput, ActivityIndicator } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Share, Text, TextInput, View, Pressable } from 'react-native'
 import { router } from 'expo-router'
-import { ArrowLeft, Plus, Search } from 'lucide-react-native'
+import { Info } from 'lucide-react-native'
 import { useQuery } from '@tanstack/react-query'
-import { brl } from '@/lib/utils'
-import { StatusBadge } from '@/components/Badge'
-import { supabase } from '@/lib/supabase'
-import { STATUS_LABEL, PRODUTO_LABEL } from '@/lib/partner'
+import { PartnerAction, PartnerBody, PartnerCard, PartnerFeedback, PartnerScreen, PartnerTitle } from '@/components/parceiro/PartnerUI'
 import { calcularFinanciamento, calcularLTV } from '@/lib/credito'
+import { supabase } from '@/lib/supabase'
+import {
+  PARTNER_SIMULATION_DEFAULTS,
+  simulationShareText,
+  type CorrecaoSimulacao,
+  type PartnerSimulationValues,
+  type PessoaSimulacao,
+  type ProdutoSimulacao,
+} from '@/lib/partnerSimulation'
 
-interface SimRow {
-  id: string
-  protocolo: string | null
-  produto: string
-  status: string
-  valor_solicitado: number
-  valor_imoveis_total: number
-  prazo_meses: number
-  carencia_meses: number
-  taxa_juros_mensal: number
-  amortizacao: 'price' | 'sac'
-  created_at: string
-  cliente: { nome_completo: string | null; cpf: string | null } | null
-}
-
-function ltvTone(v: number) {
-  if (v <= 60) return { bg: '#16A34A20', tx: '#16A34A' }
-  if (v <= 70) return { bg: '#F59E0B22', tx: '#B45309' }
-  return { bg: '#DC262620', tx: '#DC2626' }
-}
+const PRODUTOS: Array<{ id: ProdutoSimulacao; label: string }> = [
+  { id: 'home_equity', label: 'Home Equity' },
+  { id: 'credito_construcao', label: 'Crédito Construção' },
+  { id: 'financiamento_imobiliario', label: 'Financiamento Imobiliário' },
+]
+const brl = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export default function Simulacoes() {
-  const [busca, setBusca] = useState('')
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['p-simulacoes'],
-    queryFn: async (): Promise<SimRow[]> => {
-      const { data, error } = await supabase
-        .from('propostas')
-        .select('id, protocolo, produto, status, valor_solicitado, valor_imoveis_total, prazo_meses, carencia_meses, taxa_juros_mensal, amortizacao, created_at, cliente:clientes(nome_completo, cpf)')
-        .in('status', ['simulacao', 'pre_analise', 'analise_credito'])
-        .order('created_at', { ascending: false })
-        .limit(100)
+  const [values, setValues] = useState<PartnerSimulationValues>(PARTNER_SIMULATION_DEFAULTS)
+  const paramsQ = useQuery({
+    queryKey: ['partner-simulation-parameters'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('simulador_parametros_publicos')
       if (error) throw error
-      return (data ?? []) as unknown as SimRow[]
+      const result = data as { taxa_juros_mensal_default?: number | string | null } | null
+      const rawRate = result?.taxa_juros_mensal_default
+      const rate = Number(rawRate)
+      return rawRate !== null && rawRate !== undefined && Number.isFinite(rate) && rate >= 0 ? rate : null
     },
+    staleTime: 5 * 60_000,
   })
 
-  const sims = (data ?? []).filter(s => {
-    if (!busca) return true
-    const q = busca.toLowerCase()
-    const nome = s.cliente?.nome_completo?.toLowerCase() ?? ''
-    return nome.includes(q) || (s.cliente?.cpf ?? '').includes(busca)
-  })
+  useEffect(() => {
+    if (paramsQ.data !== null && paramsQ.data !== undefined) {
+      setValues(current => ({ ...current, taxaMensalPercentual: paramsQ.data!, taxaMensal: paramsQ.data! / 100 }))
+    }
+  }, [paramsQ.data])
 
-  return (
-    <SafeAreaView className="flex-1 bg-silver-50" edges={['top', 'bottom']}>
-      <View className="bg-navy px-5 py-4">
-        <View className="flex-row items-center gap-3">
-          <Pressable onPress={() => router.back()} className="-ml-2 p-2">
-            <ArrowLeft size={22} color="white" />
-          </Pressable>
-          <View className="flex-1">
-            <Text className="text-xs uppercase tracking-wider text-gold">Parceiro</Text>
-            <Text className="text-lg font-bold text-white">Simulações</Text>
-          </View>
-          <Pressable
-            onPress={() => router.push('/propostas/nova' as any)}
-            className="flex-row items-center gap-1 rounded-full bg-gold px-3 py-2 active:opacity-80"
-          >
-            <Plus size={16} color="#FFF" />
-            <Text className="text-xs font-bold text-white">Nova</Text>
-          </Pressable>
+  const result = useMemo(() => calcularFinanciamento({
+    valor: values.valor,
+    prazoMeses: values.prazoMeses,
+    taxaMensal: values.taxaMensalPercentual / 100,
+    amortizacao: values.amortizacao,
+    carenciaMeses: values.carenciaMeses,
+  }), [values.valor, values.prazoMeses, values.taxaMensalPercentual, values.amortizacao, values.carenciaMeses])
+  const ltv = calcularLTV(values.valor, values.valorGarantia)
+  const valid = values.valor > 0 && values.valorGarantia > 0 && values.prazoMeses >= 12
+    && values.prazoMeses <= 240 && (values.carenciaMeses ?? 0) >= 0 && (values.carenciaMeses ?? 0) <= 3
+    && values.taxaMensalPercentual >= 0 && values.taxaMensalPercentual <= 100
+
+  function update<K extends keyof PartnerSimulationValues>(key: K, value: PartnerSimulationValues[K]) {
+    setValues(current => ({ ...current, [key]: value }))
+  }
+
+  async function shareSimulation() {
+    try {
+      await Share.share({ message: simulationShareText(values, result, ltv) })
+    } catch {
+      Alert.alert('Não foi possível compartilhar', 'Tente novamente em instantes.')
+    }
+  }
+
+  function convertToProposal() {
+    if (!valid) return
+    router.push({
+      pathname: '/propostas/nova',
+      params: {
+        sim_produto: values.produto,
+        sim_pessoa_tipo: values.pessoaTipo,
+        sim_valor: String(values.valor),
+        sim_garantia: String(values.valorGarantia),
+        sim_prazo: String(values.prazoMeses),
+        sim_carencia: String(values.carenciaMeses),
+        sim_taxa: String(values.taxaMensalPercentual),
+        sim_correcao: values.correcao,
+        sim_amortizacao: values.amortizacao,
+      },
+    } as any)
+  }
+
+  return <PartnerScreen title="Simulação comercial" subtitle="Monte uma prévia antes de iniciar a proposta" tabbed refreshing={paramsQ.isRefetching} onRefresh={() => { void paramsQ.refetch() }}>
+    {paramsQ.isError ? <PartnerFeedback title="Não foi possível confirmar as premissas financeiras" text="A taxa configurada não foi carregada. Você pode corrigir a taxa abaixo ou atualizar para tentar novamente." retry={() => { void paramsQ.refetch() }} /> : null}
+
+    <PartnerCard>
+      <View><Text className="text-[11px] font-bold uppercase tracking-[1.5px] text-[#F87171]">01 · Operação</Text><PartnerTitle>Condições da simulação</PartnerTitle></View>
+      <View className="gap-2">
+        <FieldLabel>Produto</FieldLabel>
+        <View className="gap-2">
+          {PRODUTOS.map(item => <Choice key={item.id} label={item.label} active={values.produto === item.id} onPress={() => update('produto', item.id)} />)}
         </View>
       </View>
-
-      <View className="px-4 pt-4">
-        <View className="flex-row items-center rounded-xl border border-silver-200 bg-white px-3">
-          <Search size={16} color="#9CA3AF" />
-          <TextInput
-            placeholder="Buscar por cliente ou CPF"
-            placeholderTextColor="#9CA3AF"
-            value={busca}
-            onChangeText={setBusca}
-            className="flex-1 px-2 py-2.5 text-sm text-silver-900"
-          />
-        </View>
+      <View className="gap-2">
+        <FieldLabel>Tipo de pessoa</FieldLabel>
+        <View className="flex-row gap-2">{(['PF', 'PJ'] as PessoaSimulacao[]).map(item => <Choice key={item} label={item} active={values.pessoaTipo === item} onPress={() => update('pessoaTipo', item)} />)}</View>
       </View>
+      <MoneyField label="Valor solicitado" value={values.valor} onChange={value => update('valor', value)} />
+      <MoneyField label="Valor do imóvel/garantia" value={values.valorGarantia} onChange={value => update('valorGarantia', value)} />
+      <View className="flex-row gap-3">
+        <NumberField label="Prazo (meses)" value={values.prazoMeses} min={12} max={240} onChange={value => update('prazoMeses', value)} />
+        <NumberField label="Carência (meses)" value={values.carenciaMeses ?? 0} min={0} max={3} onChange={value => update('carenciaMeses', value)} />
+      </View>
+      <NumberField label="Taxa mensal (%)" value={values.taxaMensalPercentual} min={0} max={100} decimals onChange={value => setValues(current => ({ ...current, taxaMensalPercentual: value, taxaMensal: value / 100 }))} />
+      <View className="gap-2">
+        <FieldLabel>Correção</FieldLabel>
+        <View className="flex-row gap-2">{([{ id: 'pos_fixado', label: 'Pós-fixado' }, { id: 'pre_fixado', label: 'Pré-fixado' }] as { id: CorrecaoSimulacao; label: string }[]).map(item => <Choice key={item.id} label={item.label} active={values.correcao === item.id} onPress={() => update('correcao', item.id)} />)}</View>
+      </View>
+      <View className="gap-2">
+        <FieldLabel>Amortização</FieldLabel>
+        <View className="flex-row gap-2">{(['price', 'sac'] as const).map(item => <Choice key={item} label={item.toUpperCase()} active={values.amortizacao === item} onPress={() => update('amortizacao', item)} />)}</View>
+      </View>
+    </PartnerCard>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 32 }}>
-        {isLoading ? (
-          <ActivityIndicator color="#DC2626" />
-        ) : sims.length === 0 ? (
-          <View className="rounded-xl border border-silver-200 bg-white p-8">
-            <Text className="text-center text-sm text-silver-500">Nenhuma simulação encontrada.</Text>
-          </View>
-        ) : sims.map(s => {
-          const valor = Number(s.valor_solicitado)
-          const valorImovel = Number(s.valor_imoveis_total)
-          const ltvFrac = calcularLTV(valor, valorImovel)
-          const ltv = Math.round(ltvFrac * 100)
-          const calc = calcularFinanciamento({
-            valor,
-            prazoMeses: s.prazo_meses,
-            taxaMensal: Number(s.taxa_juros_mensal) / 100,
-            amortizacao: s.amortizacao,
-            carenciaMeses: s.carencia_meses,
-          })
-          const ltvCol = ltvTone(ltv)
-          return (
-            <Pressable
-              key={s.id}
-              onPress={() => router.push(`/(parceiro)/propostas/${s.id}` as any)}
-              className="rounded-xl border border-silver-200 bg-white p-4 active:opacity-70"
-            >
-              <View className="flex-row items-center justify-between">
-                <Text className="text-[11px] text-silver-500">
-                  {new Date(s.created_at).toLocaleDateString('pt-BR')} · {PRODUTO_LABEL[s.produto] ?? s.produto}
-                </Text>
-                <StatusBadge status={STATUS_LABEL[s.status] ?? s.status} />
-              </View>
-              <Text className="mt-1 text-base font-semibold text-silver-900">
-                {s.cliente?.nome_completo ?? '—'}
-              </Text>
+    {valid ? <PartnerCard>
+      <Text className="text-[11px] font-bold uppercase tracking-[1.5px] text-[#F87171]">02 · Resultado estimado</Text>
+      <View><Text className="text-xs text-[#A1A1AA]">Crédito solicitado</Text><Text className="mt-1 text-3xl font-bold text-white">{brl(values.valor)}</Text></View>
+      <View className="flex-row flex-wrap gap-3">
+        <Result label="LTV estimado" value={`${(ltv * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`} />
+        <Result label="1ª parcela" value={brl(result.primeiraParcela)} />
+        <Result label="Última parcela" value={brl(result.ultimaParcela)} />
+        <Result label="Renda mínima estimada" value={`${brl(result.rendaMinima)}/mês`} />
+        <Result label="Total estimado" value={brl(result.totalPago)} />
+      </View>
+      <View className="flex-row items-start gap-2 rounded-2xl border border-[#713035] bg-[#2A1519] p-4">
+        <Info size={18} color="#F87171" />
+        <Text className="flex-1 text-xs leading-5 text-[#FECACA]">Prévia sem IOF, TAC, registro e seguros. A variação futura do IPCA não está projetada. Não representa oferta, aprovação ou condição final de crédito.{paramsQ.isLoading ? ' Verificando as premissas financeiras…' : ''}</Text>
+      </View>
+      <PartnerAction secondary label="Compartilhar simulação" onPress={() => { void shareSimulation() }} />
+      <PartnerAction label="Converter em proposta" onPress={convertToProposal} />
+    </PartnerCard> : <PartnerFeedback title="Revise os valores informados" text="Informe valor e garantia maiores que zero, prazo entre 12 e 240 meses, carência de até 3 meses e uma taxa válida." />}
+  </PartnerScreen>
+}
 
-              <View className="mt-3 flex-row items-end justify-between">
-                <View>
-                  <Text className="text-[11px] text-silver-500">Crédito</Text>
-                  <Text className="text-base font-bold text-navy">{brl(valor * 100)}</Text>
-                </View>
-                <View>
-                  <Text className="text-[11px] text-silver-500">Parcela</Text>
-                  <Text className="text-sm font-semibold text-silver-800">
-                    {brl(calc.primeiraParcela * 100)}
-                  </Text>
-                </View>
-                <View className="items-center rounded-full px-2 py-0.5" style={{ backgroundColor: ltvCol.bg }}>
-                  <Text className="text-[11px] font-bold" style={{ color: ltvCol.tx }}>LTV {ltv}%</Text>
-                </View>
-              </View>
-            </Pressable>
-          )
-        })}
-      </ScrollView>
-    </SafeAreaView>
-  )
+function FieldLabel({ children }: { children: string }) { return <Text className="text-xs font-semibold text-[#D4D4D8]">{children}</Text> }
+
+function Choice({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} onPress={onPress} className={`min-h-11 flex-1 items-center justify-center rounded-xl border px-3 py-2 ${active ? 'border-[#DC2626] bg-[#2A1519]' : 'border-[#414148] bg-[#202024]'}`}>
+    <Text className={`text-center text-xs font-semibold ${active ? 'text-white' : 'text-[#B8B8C2]'}`}>{label}</Text>
+  </Pressable>
+}
+
+function MoneyField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  const [focused, setFocused] = useState(false)
+  const [draft, setDraft] = useState(brl(value))
+  useEffect(() => { if (!focused) setDraft(brl(value)) }, [value, focused])
+  return <View className="gap-2"><FieldLabel>{label}</FieldLabel><TextInput accessibilityLabel={label} keyboardType="decimal-pad" value={draft} onFocus={() => { setFocused(true); setDraft(String(value).replace('.', ',')) }} onChangeText={text => {
+    setDraft(text)
+    const normalized = text.trim().replace(/\s/g, '').replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.')
+    const parsed = Number(normalized.replace(/[^\d.]/g, ''))
+    if (Number.isFinite(parsed)) onChange(parsed)
+  }} onBlur={() => { setFocused(false); if (!draft.trim()) onChange(0) }} className="min-h-12 rounded-xl border border-[#414148] bg-[#202024] px-4 text-sm text-white" placeholder="0,00" placeholderTextColor="#71717A" /></View>
+}
+
+function NumberField({ label, value, min, max, decimals = false, onChange }: { label: string; value: number; min: number; max: number; decimals?: boolean; onChange: (value: number) => void }) {
+  const [focused, setFocused] = useState(false)
+  const [draft, setDraft] = useState(decimals ? value.toLocaleString('pt-BR') : String(value))
+  useEffect(() => { if (!focused) setDraft(decimals ? value.toLocaleString('pt-BR') : String(value)) }, [value, decimals, focused])
+  return <View className="flex-1 gap-2"><FieldLabel>{label}</FieldLabel><TextInput accessibilityLabel={label} keyboardType={decimals ? 'decimal-pad' : 'number-pad'} value={draft} onFocus={() => setFocused(true)} onChangeText={text => {
+    setDraft(text)
+    const parsed = Number(text.replace(',', '.').replace(/[^\d.]/g, ''))
+    if (Number.isFinite(parsed)) onChange(parsed)
+  }} onBlur={() => { const parsed = Number(draft.replace(',', '.').replace(/[^\d.]/g, '')); onChange(Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : min); setFocused(false) }} className="min-h-12 rounded-xl border border-[#414148] bg-[#202024] px-4 text-sm text-white" placeholderTextColor="#71717A" />{decimals && <Text className="text-[10px] text-[#A1A1AA]">{paramsLabel()}</Text>}</View>
+}
+
+function paramsLabel() { return 'Premissa financeira configurada pela Mercúrio, editável para esta prévia.' }
+
+function Result({ label, value }: { label: string; value: string }) {
+  return <View className="min-w-[46%] flex-1 rounded-2xl border border-[#2D2D32] bg-[#101013] p-3"><Text className="text-[10px] uppercase tracking-wide text-[#A1A1AA]">{label}</Text><Text className="mt-1 text-sm font-semibold text-white">{value}</Text></View>
 }

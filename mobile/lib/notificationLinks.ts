@@ -1,7 +1,7 @@
 type MobileRole = 'admin' | 'partner' | 'team_member' | 'client' | null | undefined
 
 function fallbackByRole(role: MobileRole): string {
-  if (role === 'admin') return '/(admin)'
+  if (role === 'admin') return '/acesso-indisponivel'
   if (role === 'partner' || role === 'team_member') return '/(parceiro)/dashboard'
   if (role === 'client') return '/(cliente)'
   return '/login'
@@ -30,37 +30,6 @@ function normalizeLink(link: string | null | undefined): string | null {
 function toSegments(path: string): string[] {
   const noQuery = path.split('?')[0]?.split('#')[0] ?? ''
   return noQuery.split('/').filter(Boolean)
-}
-
-function mapAdmin(segments: string[]): string {
-  if (segments.length <= 1) return '/(admin)'
-
-  const section = segments[1]
-  const id = segments[2]
-
-  if (section === 'dashboard') return '/(admin)/dashboard'
-  if (section === 'kanban') return '/(admin)/kanban'
-  if (section === 'aprovacoes') return '/(admin)/aprovacoes'
-  if (section === 'parceiros') return '/(admin)/parceiros'
-  if (section === 'propostas') return id ? `/(admin)/proposta/${id}` : '/(admin)/propostas'
-  if (section === 'rede') return '/(admin)/rede'
-  if (section === 'campanhas') return '/(admin)/campanhas'
-  if (section === 'fluxos') return '/(admin)/fluxos'
-  if (section === 'templates') return '/(admin)/templates'
-  if (section === 'integracoes') return '/(admin)/integracoes'
-  if (section === 'universidade') return '/(admin)/universidade'
-  if (section === 'auditoria') return '/(admin)/auditoria'
-  if (section === 'relatorios') return '/(admin)/relatorios'
-  if (section === 'feature-flags') return '/(admin)/feature-flags'
-  if (section === 'configuracoes') return '/(admin)/configuracoes'
-
-  if (section === 'financeiro') {
-    if (id === 'carteiras') return '/(admin)/carteiras'
-    if (id === 'precos') return '/(admin)/precos'
-    return '/(admin)/financeiro'
-  }
-
-  return '/(admin)'
 }
 
 function mapPartner(segments: string[]): string {
@@ -108,16 +77,16 @@ export function resolveNotificationLinkToRoute(
 
   if (!normalized) return fallback
 
-  if (normalized.startsWith('/(admin)') || normalized.startsWith('/(parceiro)') || normalized.startsWith('/(cliente)')) {
-    return normalized
-  }
+  if (normalized.startsWith('/(admin)') || normalized.startsWith('/admin')) return '/acesso-indisponivel'
+  if (normalized.startsWith('/(parceiro)')) return role === 'partner' || role === 'team_member' ? normalized : fallback
+  if (normalized.startsWith('/(cliente)')) return role === 'client' ? normalized : fallback
 
   const segments = toSegments(normalized)
   if (segments.length === 0) return fallback
 
-  if (segments[0] === 'admin') return mapAdmin(segments)
-  if (segments[0] === 'p') return mapPartner(segments)
-  if (segments[0] === 'c') return mapClient(segments)
+  if (segments[0] === 'admin') return '/acesso-indisponivel'
+  if (segments[0] === 'p') return role === 'partner' || role === 'team_member' ? mapPartner(segments) : fallback
+  if (segments[0] === 'c') return role === 'client' ? mapClient(segments) : fallback
 
   return fallback
 }

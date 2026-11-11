@@ -8,6 +8,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as WebBrowser from 'expo-web-browser'
 import { brl } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth'
+import { canManagePartner } from '@/lib/partnerAccess'
 
 interface Resumo {
   wallet_id: string
@@ -63,6 +65,8 @@ const PRECO_LABEL: Record<string, string> = {
 const QUICK_VALUES = [2500, 5000, 7500, 10000, 25000, 50000, 100000]
 
 export default function Carteira() {
+  const { session } = useAuth()
+  const owner = canManagePartner(session?.role)
   const qc = useQueryClient()
   const [erro, setErro] = useState<string | null>(null)
 
@@ -166,6 +170,7 @@ export default function Carteira() {
   })
 
   function onRecarregar(centavos: number) {
+    if (!owner) return
     setErro(null)
     if (centavos < 2000) {
       Alert.alert('Valor mínimo', 'Recarga mínima: R$ 20,00')
@@ -181,10 +186,10 @@ export default function Carteira() {
   const precos = precosQuery.data ?? []
 
   return (
-    <SafeAreaView className="flex-1 bg-silver-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-[#09090B]" edges={['top']}>
       <ScrollView contentContainerStyle={{ paddingBottom: 130 }}>
         {/* Saldo card */}
-        <View className="bg-navy-700 px-5 pb-6 pt-4">
+        <View className="border-b border-[#27272A] bg-[#151518] px-5 pb-6 pt-4">
           <Text className="text-xs text-white/70">Saldo disponível</Text>
           <Text className="mt-1 text-4xl font-bold text-[#FFD700]">
             {resumoQuery.isLoading ? '—' : brl(saldo)}
@@ -195,6 +200,7 @@ export default function Carteira() {
               : 'Sem movimentações'}
           </Text>
           <Image
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- React Native static asset.
             source={require('../../assets/cardwallet.png')}
             className="absolute right-10 top-4 h-28 w-28 flex-1 rounded-lg"
             resizeMode="cover"
@@ -220,11 +226,11 @@ export default function Carteira() {
 
         {/* Recarga rápida */}
         <View className="px-5 py-4">
-          <Text className="text-base font-bold text-navy">Recarga rápida</Text>
-          {Platform.OS === 'ios' ? (
-            <View className="mt-2 rounded-xl border border-silver-200 bg-white p-4">
-              <Text className="text-sm font-semibold text-navy">Recarga indisponível no app iOS</Text>
-              <Text className="mt-1 text-xs text-silver-600">
+          <Text className="text-base font-bold text-white">Recarga rápida</Text>
+          {!owner ? <View className="mt-2 rounded-2xl border border-[#2D2D32] bg-[#151518] p-4"><Text className="text-sm text-[#B8B8C2]">Seu acesso à carteira é somente para consulta. A recarga é feita pelo responsável da parceria.</Text></View> : Platform.OS === 'ios' ? (
+            <View className="mt-2 rounded-2xl border border-[#2D2D32] bg-[#151518] p-4">
+              <Text className="text-sm font-semibold text-white">Recarga indisponível no app iOS</Text>
+              <Text className="mt-1 text-xs text-[#B8B8C2]">
                 Por exigência da Apple (compras dentro do app), a recarga de carteira é feita
                 pela versão web. Acesse pelo navegador para adicionar saldo.
               </Text>
@@ -237,17 +243,17 @@ export default function Carteira() {
                     key={v}
                     onPress={() => onRecarregar(v)}
                     disabled={bloqueada || recarregar.isPending}
-                    className="rounded-full border border-silver-300 bg-white px-4 py-2 active:opacity-70"
+                    className="rounded-full border border-[#414148] bg-[#202024] px-4 py-2 active:opacity-70"
                     style={{ opacity: bloqueada ? 0.5 : 1 }}
                   >
-                    <Text className="text-sm font-semibold text-navy">{brl(v)}</Text>
+                    <Text className="text-sm font-semibold text-white">{brl(v)}</Text>
                   </Pressable>
                 ))}
               </View>
               {recarregar.isPending && (
                 <View className="mt-2 flex-row items-center gap-2">
                   <ActivityIndicator size="small" color="#DC2626" />
-                  <Text className="text-xs text-silver-600">Gerando checkout…</Text>
+                  <Text className="text-xs text-[#B8B8C2]">Gerando checkout…</Text>
                 </View>
               )}
               {erro && <Text className="mt-2 text-xs text-danger">{erro}</Text>}
@@ -257,17 +263,17 @@ export default function Carteira() {
 
         {/* Preços */}
         <View className="px-5">
-          <Text className="text-base font-bold text-navy">Preços de consulta</Text>
-          <View className="mt-2 rounded-xl border border-silver-200 bg-white">
+          <Text className="text-base font-bold text-white">Preços de consulta</Text>
+          <View className="mt-2 rounded-2xl border border-[#2D2D32] bg-[#151518]">
             {precosQuery.isLoading ? (
               <ActivityIndicator color="#DC2626" style={{ padding: 16 }} />
             ) : precos.length === 0 ? (
-              <Text className="p-4 text-center text-sm text-silver-500">Sem preços cadastrados.</Text>
+              <Text className="p-4 text-center text-sm text-[#A1A1AA]">Sem preços cadastrados.</Text>
             ) : (
               precos.map(p => (
-                <View key={p.id} className="flex-row justify-between border-b border-silver-100 px-4 py-3 last:border-b-0">
-                  <Text className="text-sm text-silver-700">{PRECO_LABEL[p.tipo] ?? p.tipo}</Text>
-                  <Text className="text-sm font-semibold text-navy">{brl(p.preco_centavos)}</Text>
+                <View key={p.id} className="flex-row justify-between border-b border-[#2D2D32] px-4 py-3 last:border-b-0">
+                  <Text className="text-sm text-[#D4D4D8]">{PRECO_LABEL[p.tipo] ?? p.tipo}</Text>
+                  <Text className="text-sm font-semibold text-white">{brl(p.preco_centavos)}</Text>
                 </View>
               ))
             )}
@@ -276,18 +282,18 @@ export default function Carteira() {
 
         {/* Extrato */}
         <View className="px-5 pt-4">
-          <Text className="text-base font-bold text-navy">Extrato</Text>
+          <Text className="text-base font-bold text-white">Extrato</Text>
           <View className="mt-2 gap-2">
             {extratoQuery.isLoading ? (
               <ActivityIndicator color="#DC2626" />
             ) : extrato.length === 0 ? (
-              <View className="rounded-xl border border-silver-200 bg-white p-6">
-                <Text className="text-center text-sm text-silver-500">Nenhuma movimentação ainda.</Text>
+              <View className="rounded-2xl border border-[#2D2D32] bg-[#151518] p-6">
+                <Text className="text-center text-sm text-[#A1A1AA]">Nenhuma movimentação ainda.</Text>
               </View>
             ) : extrato.map(e => {
               const tone = TIPO_META[e.tipo]?.tone ?? 'out'
               return (
-                <View key={e.id} className="flex-row items-center gap-3 rounded-xl border border-silver-200 bg-white p-3">
+                <View key={e.id} className="flex-row items-center gap-3 rounded-2xl border border-[#2D2D32] bg-[#151518] p-3">
                   <View className={`h-9 w-9 items-center justify-center rounded-full ${
                     tone === 'in' ? 'bg-success/15' : tone === 'refund' ? 'bg-warning/15' : 'bg-silver-100'
                   }`}>
@@ -296,10 +302,10 @@ export default function Carteira() {
                     {tone === 'refund' && <RotateCcw size={18} color="#F59E0B" />}
                   </View>
                   <View className="flex-1">
-                    <Text className="text-sm font-medium text-silver-900" numberOfLines={1}>
+                    <Text className="text-sm font-medium text-white" numberOfLines={1}>
                       {e.descricao ?? e.tipo}
                     </Text>
-                    <Text className="text-xs text-silver-500">
+                    <Text className="text-xs text-[#A1A1AA]">
                       {new Date(e.created_at).toLocaleString('pt-BR')}
                     </Text>
                   </View>

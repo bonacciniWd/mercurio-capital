@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { ScrollView, View, Text, ImageBackground } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { View, Text, Image, StyleSheet } from 'react-native'
 import { Lock, CheckCircle2, Trophy, InfoIcon } from 'lucide-react-native'
 import { SvgUri } from 'react-native-svg'
 import { Asset } from 'expo-asset'
 import { useQuery } from '@tanstack/react-query'
 import { brl } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
+import { PartnerScreen, PartnerCard, PartnerBody, PartnerFeedback } from '@/components/parceiro/PartnerUI'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function MilestoneSvg({ module: mod, height, opacity }: { module: any; height: number; opacity: number }) {
@@ -22,59 +22,58 @@ function MilestoneSvg({ module: mod, height, opacity }: { module: any; height: n
 }
 
 const CURRENT_CGI_FALLBACK = 0
-
-const MILESTONES = [
+type Milestone = { id: string; target_centavos: number; label: string; prize: string; descricao: string | null; color: string; image_url: string | null; svgModule?: number }
+const FALLBACK_MILESTONES: Milestone[] = [
   {
-    target: 500_000_000,
+    id: 'fallback-1', target_centavos: 500_000_000,
     label: 'R$ 5 Milhões',
     prize: 'Rolex Oyster Perpetual',
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     svgModule: require('../../assets/milestones/prem1.svg'),
-    desc: 'Conquiste R$ 5M em liberações CGI e ganhe um Rolex.',
+    descricao: 'Conquiste R$ 5M em liberações CGI e ganhe um Rolex.', image_url: null,
     color: '#DC2626',
   },
   {
-    target: 5_000_000_000,
+    id: 'fallback-2', target_centavos: 5_000_000_000,
     label: 'R$ 50 Milhões',
     prize: 'BMW 330e M Sport',
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     svgModule: require('../../assets/milestones/prem2.svg'),
-    desc: 'Performance híbrida e luxo. Libere R$ 50M e ganhe um BMW 330e.',
+    descricao: 'Performance híbrida e luxo. Libere R$ 50M e ganhe um BMW 330e.', image_url: null,
     color: '#737373',
   },
   {
-    target: 10_000_000_000,
+    id: 'fallback-3', target_centavos: 10_000_000_000,
     label: 'R$ 100 Milhões',
     prize: 'Corvette C8',
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     svgModule: require('../../assets/milestones/prem3.svg'),
-    desc: 'O ápice. Libere R$ 100M e conquiste um Corvette C8.',
+    descricao: 'O ápice. Libere R$ 100M e conquiste um Corvette C8.', image_url: null,
     color: '#F87171',
   },
 ]
 
 export default function Promocoes() {
-  const cgiQ = useQuery({
-    queryKey: ['p-cgi-volume'],
+  const progressQ = useQuery({
+    queryKey: ['p-milestones-progress'],
     queryFn: async () => {
-      // Soma volume das propostas com status de liberação (centavos)
-      const { data, error } = await supabase
-        .from('v_partner_funil_status')
-        .select('status, volume')
-      if (error) throw error
-      const liberados = (data ?? []).filter((r: { status: string; volume: number }) =>
-        r.status === 'recurso_liberado' || r.status === 'contrato_registrado',
-      )
-      const totalReais = liberados.reduce((acc, r) => acc + Number(r.volume), 0)
-      return Math.round(totalReais * 100) // converter para centavos
+      const [{ data: progress, error: progressError }, { data: milestones, error: milestonesError }] = await Promise.all([
+        supabase.rpc('partner_milestones_progress'),
+        supabase.from('partner_milestones').select('id, target_centavos, label, prize, descricao, color, image_url').eq('ativo', true).order('order_index'),
+      ])
+      if (progressError) throw progressError
+      if (milestonesError) throw milestonesError
+      return { volume: Number((progress as { volume_solicitado?: number | string } | null)?.volume_solicitado ?? 0), milestones: (milestones ?? []) as Milestone[] }
     },
   })
 
-  const CURRENT_CGI = cgiQ.data ?? CURRENT_CGI_FALLBACK
-  const overallPct = Math.min(100, (CURRENT_CGI / 10_000_000_000) * 100)
+  const CURRENT_CGI = progressQ.data?.volume ?? CURRENT_CGI_FALLBACK
+  const milestones = progressQ.data?.milestones?.length ? progressQ.data.milestones : FALLBACK_MILESTONES
+  const maxTarget = Math.max(...milestones.map(m => m.target_centavos), 1)
+  const overallPct = Math.min(100, (CURRENT_CGI / maxTarget) * 100)
   return (
-    <SafeAreaView className="flex-1 bg-silver-50" edges={['top']}>
-      <View className="bg-navy px-5 py-5">
+    <PartnerScreen title="Promoções" subtitle="Metas e reconhecimento para parceiros">
+      <View className="rounded-3xl border border-[#2D2D32] bg-[#151518] p-5">
         <View className="flex-row items-center gap-2">
           <Trophy size={20} color="#FFD700" />
           <Text className="text-xs uppercase tracking-wider text-[#FFD700]">Programa de Milestones</Text>
@@ -98,29 +97,34 @@ export default function Promocoes() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 130 }}>
-        <View className="mt-2 rounded-xl border border-silver-200 bg-white p-4">
+      {progressQ.isError ? <PartnerFeedback title="Não foi possível carregar as metas" text={(progressQ.error as Error).message} retry={() => progressQ.refetch()} /> : null}
+      {!progressQ.isError ? <>
+        <PartnerCard>
           <View className="flex-row items-center gap-1.5">
             <Text className="text-xs uppercase tracking-wider text-silver-500">Como funciona</Text>
             <InfoIcon size={14} color="#737373" />
           </View>
-          <Text className="mt-2 text-sm leading-relaxed text-silver-700">
+          <PartnerBody>
             Cada R$ 1 liberado em CGI conta para todas as metas. Os prêmios são entregues em até 90 dias após
             atingir o marco. Consulte regulamento completo com seu gerente.
-          </Text>
-        </View>
-        {MILESTONES.map((m) => {
-          const unlocked = CURRENT_CGI >= m.target
-          const progress = Math.min(100, (CURRENT_CGI / m.target) * 100)
+          </PartnerBody>
+        </PartnerCard>
+            {milestones.map((m, index) => {
+          const unlocked = CURRENT_CGI >= m.target_centavos
+          const progress = Math.min(100, (CURRENT_CGI / m.target_centavos) * 100)
           return (
-            <ImageBackground
-              key={m.label}
-              // eslint-disable-next-line @typescript-eslint/no-require-imports
-              source={require('../../assets/cardbg.jpg')}
-              imageStyle={{ borderRadius: 16 }}
+            <View
+              key={m.id}
               className="overflow-hidden rounded-2xl border p-5"
-              style={{ borderColor: m.color + '55' }}
+              style={{ borderColor: m.color + '55', position: 'relative' }}
             >
+              <Image
+                // eslint-disable-next-line @typescript-eslint/no-require-imports
+                source={require('../../assets/cardbg.jpg')}
+                resizeMode="cover"
+                style={[StyleSheet.absoluteFill, { borderRadius: 16 }]}
+                accessibilityIgnoresInvertColors
+              />
               {/* máscara escura sobre a imagem de fundo */}
               <View
                 style={{
@@ -150,15 +154,15 @@ export default function Promocoes() {
               </View>
 
               <View className="my-4 w-full">
-                <MilestoneSvg module={m.svgModule} height={160} opacity={unlocked ? 1 : 0.6} />
+                <MilestoneSvg module={FALLBACK_MILESTONES[index % FALLBACK_MILESTONES.length].svgModule} height={160} opacity={unlocked ? 1 : 0.6} />
               </View>
 
               <Text className="text-lg font-bold text-white">{m.prize}</Text>
-              <Text className="mt-1 text-xs leading-relaxed text-white/50">{m.desc}</Text>
+              <Text className="mt-1 text-xs leading-relaxed text-white/50">{m.descricao ?? 'Meta configurada pela Mercúrio Capital.'}</Text>
 
               <View className="mt-4">
                 <View className="mb-1 flex-row items-center justify-between">
-                  <Text className="text-[11px] text-white/40">{brl(Math.min(CURRENT_CGI, m.target))} liberados</Text>
+                  <Text className="text-[11px] text-white/40">{brl(Math.min(CURRENT_CGI, m.target_centavos))} liberados</Text>
                   <Text className="text-[11px] font-semibold" style={{ color: m.color }}>
                     {progress >= 100 ? '100%' : `${progress.toFixed(1)}%`}
                   </Text>
@@ -166,14 +170,13 @@ export default function Promocoes() {
                 <View className="h-1.5 overflow-hidden rounded-full bg-white/10">
                   <View className="h-full rounded-full" style={{ width: `${progress}%`, backgroundColor: m.color }} />
                 </View>
-                <Text className="mt-1 text-right text-[10px] text-white/30">Meta: {brl(m.target)}</Text>
+                <Text className="mt-1 text-right text-[10px] text-white/30">Meta: {brl(m.target_centavos)}</Text>
               </View>
-            </ImageBackground>
+            </View>
           )
         })}
 
-        
-      </ScrollView>
-    </SafeAreaView>
+      </> : null}
+    </PartnerScreen>
   )
 }

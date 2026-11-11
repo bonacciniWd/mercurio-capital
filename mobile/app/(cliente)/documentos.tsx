@@ -1,380 +1,100 @@
-import { ScrollView, View, Text, Pressable, ActivityIndicator, Alert, RefreshControl } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { router } from 'expo-router'
-import { ArrowLeft, FileText, CheckCircle2, Upload, Download, X } from 'lucide-react-native'
+import { useState } from 'react'
+import { Alert, Linking, Pressable, Text, View } from 'react-native'
+import { router, useLocalSearchParams } from 'expo-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useMemo, useState } from 'react'
-import * as ImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
+import * as ImagePicker from 'expo-image-picker'
 import { File } from 'expo-file-system'
-import { Linking } from 'react-native'
+import { FileText, ShieldCheck } from 'lucide-react-native'
+import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import { Badge } from '@/components/Badge'
-import {
-  buildChecklist, categoriaForTipo, CATEGORIA_LABEL, DOC_STATUS_LABEL, TIPO_LABEL,
-  type ChecklistItem, type DocCategoria, type DocRowLite, type DocStatus, type DocumentoTipo, type RequisitoRow,
-} from '@/lib/documentos'
+import { TIPO_LABEL, DOC_STATUS_LABEL, type DocCategoria, type DocumentoTipo } from '@/lib/documentos'
+import { useClientArchive, useClientProposals, useClientRequirements, uniqueFiles, type ClientFile } from '@/lib/clienteData'
+import { dataBR, propostaAcionavel, statusLabel } from '@/lib/clientePresentation'
+import { Action, Body, Card, ClientScreen, Feedback, Label, SectionTitle } from '@/components/cliente/ClienteUI'
 
-type Aba = 'Pendentes' | 'Enviados' | 'Aprovados'
-
-interface DocRow extends DocRowLite {
-  id: string
-  created_at: string
-}
-
-const PICKER_TIPOS = Object.keys(TIPO_LABEL) as DocumentoTipo[]
-
-function base64ToBytes(b64: string): Uint8Array {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-  const lookup = new Uint8Array(256)
-  for (let i = 0; i < chars.length; i++) lookup[chars.charCodeAt(i)] = i
-  let bufferLength = b64.length * 0.75
-  if (b64[b64.length - 1] === '=') bufferLength--
-  if (b64[b64.length - 2] === '=') bufferLength--
-  const bytes = new Uint8Array(bufferLength)
-  let p = 0
-  for (let i = 0; i < b64.length; i += 4) {
-    const e1 = lookup[b64.charCodeAt(i)]
-    const e2 = lookup[b64.charCodeAt(i + 1)]
-    const e3 = lookup[b64.charCodeAt(i + 2)]
-    const e4 = lookup[b64.charCodeAt(i + 3)]
-    bytes[p++] = (e1 << 2) | (e2 >> 4)
-    if (b64[i + 2] !== '=') bytes[p++] = ((e2 & 15) << 4) | (e3 >> 2)
-    if (b64[i + 3] !== '=') bytes[p++] = ((e3 & 3) << 6) | e4
-  }
-  return bytes
-}
-
-async function readFileBytes(uri: string): Promise<Uint8Array> {
-  // expo-file-system v19 (SDK 54): API baseada em classes
-  try {
-    const f = new File(uri)
-    if (typeof (f as any).bytes === 'function') {
-      const b = await (f as any).bytes()
-      return b as Uint8Array
-    }
-    if (typeof (f as any).base64 === 'function') {
-      const b64 = await (f as any).base64()
-      return base64ToBytes(b64)
-    }
-  } catch {
-    // fallback fetch+arrayBuffer
-  }
-  const res = await fetch(uri)
-  const buf = await res.arrayBuffer()
-  return new Uint8Array(buf)
-}
-
+type UploadInput = { tipo: DocumentoTipo; categoria: DocCategoria; pedido?: string; proposta: string }
 export default function Documentos() {
+  const params = useLocalSearchParams<{ proposta?: string; pedido?: string }>()
+  const { session } = useAuth()
   const qc = useQueryClient()
+  const propostas = useClientProposals()
+  const acervo = useClientArchive()
+  const requisitos = useClientRequirements()
+  const identity = useQuery({ queryKey: ['client', session?.userId, 'identities'], enabled: !!session?.userId, queryFn: async () => {
+    const { data, error } = await supabase.from('clientes').select('id,pessoa_tipo').eq('usuario_id', session!.userId)
+    if (error) throw error
+    return data ?? []
+  } })
+  const [selected, setSelected] = useState<string | undefined>()
+  const [aba, setAba] = useState<'arquivos' | 'pedidos'>(params.pedido ? 'pedidos' : 'arquivos')
   const [refreshing, setRefreshing] = useState(false)
-  const [uploadingKey, setUploadingKey] = useState<string | null>(null)
-  const [aba, setAba] = useState<Aba>('Pendentes')
-
-  // pega proposta mais recente do cliente
-  const propostaQ = useQuery({
-    queryKey: ['cliente-proposta-atual'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('propostas')
-        .select('id, protocolo')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (error) throw error
-      return data
-    },
-  })
-
-  const propostaId = propostaQ.data?.id
-
-  const reqQ = useQuery({
-    queryKey: ['doc-requisitos'],
-    queryFn: async (): Promise<RequisitoRow[]> => {
-      const { data, error } = await supabase
-        .from('documento_requisitos')
-        .select('categoria, tipo, obrigatorio, ordem')
-      if (error) throw error
-      return (data ?? []) as RequisitoRow[]
-    },
-  })
-
-  const docsQ = useQuery({
-    enabled: !!propostaId,
-    queryKey: ['cliente-docs', propostaId],
-    queryFn: async () => {
-      // garante placeholders pendentes (idempotente)
-      await supabase.rpc('proposta_documentos_seed', { p_proposta_id: propostaId! })
-      const { data, error } = await supabase
-        .from('proposta_documentos')
-        .select('id, proposta_id, tipo, categoria, storage_path, status, validado, created_at')
-        .eq('proposta_id', propostaId!)
-        .order('created_at', { ascending: false })
-      if (error) throw error
-      return (data ?? []) as DocRow[]
-    },
-  })
-
-  const uploadMut = useMutation({
-    mutationFn: async ({ uri, mime, name, tipo, categoria }: { uri: string; mime: string; name: string; tipo: DocumentoTipo; categoria: DocCategoria }) => {
-      if (!propostaId) throw new Error('Proposta não encontrada')
-      const ext = (name.split('.').pop() || 'bin').toLowerCase()
-      const fileId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-      const path = `${propostaId}/${categoria}/${fileId}.${ext}`
-
-      const bytes = await readFileBytes(uri)
-
-      const { error: upErr } = await supabase.storage
-        .from('proposta-docs')
-        .upload(path, bytes, { contentType: mime, upsert: false })
-      if (upErr) throw new Error(upErr.message)
-
-      const { error: insErr } = await supabase.from('proposta_documentos').insert({
-        proposta_id: propostaId,
-        tipo,
-        categoria,
-        storage_path: path,
-        bucket: 'proposta-docs',
-        mime_type: mime,
-        tamanho_bytes: bytes.byteLength,
-        origem: 'cliente',
-        status: 'enviado',
-      })
-      if (insErr) {
-        await supabase.storage.from('proposta-docs').remove([path])
-        throw new Error(insErr.message)
-      }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['cliente-docs', propostaId] })
-      Alert.alert('Sucesso', 'Documento enviado para análise.')
-    },
-    onError: (err: unknown) => Alert.alert('Falha no envio', err instanceof Error ? err.message : String(err)),
-    onSettled: () => setUploadingKey(null),
-  })
-
-  const removeMut = useMutation({
-    mutationFn: async (d: DocRow) => {
-      const { error } = await supabase.from('proposta_documentos').delete().eq('id', d.id)
-      if (error) throw error
-      if (d.storage_path) await supabase.storage.from('proposta-docs').remove([d.storage_path])
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['cliente-docs', propostaId] }),
-    onError: (err: unknown) => Alert.alert('Falha', err instanceof Error ? err.message : String(err)),
-  })
-
-  async function baixarDocumento(path: string) {
-    try {
-      const { data, error } = await supabase.storage.from('proposta-docs').createSignedUrl(path, 60 * 5)
-      if (error || !data?.signedUrl) throw new Error(error?.message ?? 'Falha ao gerar URL')
-      await Linking.openURL(data.signedUrl)
-    } catch (e) {
-      Alert.alert('Erro', e instanceof Error ? e.message : String(e))
+  const chosen = selected ?? params.proposta
+  const proposta = chosen ? propostas.data?.find(p => p.id === chosen) : propostas.data?.find(p => propostaAcionavel(p.status))
+  const titular = identity.data?.find(c => c.id === proposta?.cliente_id) ?? (identity.data?.length === 1 ? identity.data[0] : null)
+  const categoria: DocCategoria = titular?.pessoa_tipo === 'PJ' ? 'pessoa_juridica' : 'pessoa_fisica'
+  const files = uniqueFiles(acervo.data?.arquivos ?? [])
+  const pedidos = (acervo.data?.solicitacoes ?? []).filter(p => !chosen || p.proposta_id === chosen)
+  async function refresh() { setRefreshing(true); try { await Promise.all([propostas.refetch(), acervo.refetch(), requisitos.refetch(), identity.refetch()]) } finally { setRefreshing(false) } }
+  const upload = useMutation({ mutationFn: async ({ input, camera }: { input: UploadInput; camera: boolean }) => {
+    let asset: { uri: string; name: string; mimeType: string }
+    if (camera) {
+      const permission = await ImagePicker.requestCameraPermissionsAsync()
+      if (!permission.granted) throw new Error('Permita o acesso à câmera nos ajustes do aparelho.')
+      const result = await ImagePicker.launchCameraAsync({ quality: 0.85, mediaTypes: ['images'] })
+      if (result.canceled) return
+      const a = result.assets[0]
+      asset = { uri: a.uri, name: a.fileName ?? 'documento.jpg', mimeType: a.mimeType ?? 'image/jpeg' }
+    } else {
+      const result = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/jpeg', 'image/png'], copyToCacheDirectory: true })
+      if (result.canceled) return
+      const a = result.assets[0]
+      asset = { uri: a.uri, name: a.name, mimeType: a.mimeType ?? '' }
     }
-  }
-
-  const escolherEEnviar = async (tipo: DocumentoTipo, categoria: DocCategoria, key: string, source: 'camera' | 'galeria' | 'arquivo') => {
-    try {
-      let asset: { uri: string; mimeType?: string | null; name?: string | null } | null = null
-      if (source === 'camera') {
-        const perm = await ImagePicker.requestCameraPermissionsAsync()
-        if (!perm.granted) return Alert.alert('Permissão negada', 'Habilite o acesso à câmera.')
-        const r = await ImagePicker.launchCameraAsync({ quality: 0.85, mediaTypes: ['images'] })
-        if (r.canceled) return
-        asset = { uri: r.assets[0].uri, mimeType: r.assets[0].mimeType ?? 'image/jpeg', name: r.assets[0].fileName ?? `foto-${Date.now()}.jpg` }
-      } else if (source === 'galeria') {
-        const r = await ImagePicker.launchImageLibraryAsync({ quality: 0.85, mediaTypes: ['images'] })
-        if (r.canceled) return
-        asset = { uri: r.assets[0].uri, mimeType: r.assets[0].mimeType ?? 'image/jpeg', name: r.assets[0].fileName ?? `img-${Date.now()}.jpg` }
-      } else {
-        const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true })
-        if (r.canceled) return
-        const a = r.assets[0]
-        asset = { uri: a.uri, mimeType: a.mimeType ?? 'application/pdf', name: a.name ?? `doc-${Date.now()}` }
-      }
-      if (!asset) return
-      setUploadingKey(key)
-      uploadMut.mutate({ uri: asset.uri, mime: asset.mimeType || 'application/octet-stream', name: asset.name || 'arquivo', tipo, categoria })
-    } catch (e) {
-      Alert.alert('Erro', e instanceof Error ? e.message : String(e))
-      setUploadingKey(null)
+    const bytes = await new File(asset.uri).bytes()
+    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(asset.mimeType) || bytes.length === 0 || bytes.length > 20 * 1024 * 1024) throw new Error('Selecione um PDF, JPG ou PNG de até 20 MB.')
+    const { data: ticket, error: prepareError } = await supabase.rpc('cliente_documento_preparar', {
+      p_proposta_id: input.proposta, p_tipo: input.tipo, p_categoria: input.categoria, p_nome: asset.name, p_mime: asset.mimeType, p_tamanho: bytes.length,
+      p_requisicao: `${Date.now()}-${Math.random().toString(36).slice(2)}`, p_pendencia_id: input.pedido ?? null,
+    })
+    if (prepareError) throw prepareError
+    if (ticket.estado !== 'recebido') {
+      const { error } = await supabase.storage.from(ticket.bucket).upload(ticket.storage_path, bytes, { contentType: asset.mimeType, upsert: false })
+      if (error && String((error as { statusCode?: string }).statusCode) !== '409') throw error
+      const { error: completeError } = await supabase.rpc('cliente_documento_finalizar', { p_versao_id: ticket.id })
+      if (completeError) throw completeError
     }
+    return true
+  }, onSuccess: async (sent) => { if (sent) { await qc.invalidateQueries({ queryKey: ['client', session?.userId] }); Alert.alert('Documento recebido', 'O arquivo foi guardado e está disponível para revisão da equipe.') } },
+  onError: () => Alert.alert('Não foi possível concluir o envio', 'Tente selecionar o mesmo arquivo para retomar. Se já houver um documento guardado, use-o ou confira a solicitação de atualização.') })
+  const reuse = useMutation({ mutationFn: async (file: ClientFile) => {
+    if (!proposta) throw new Error('Selecione uma proposta.')
+    const { error } = await supabase.rpc('cliente_documento_reutilizar', { p_documento_origem: file.id, p_proposta_id: proposta.id })
+    if (error) throw error
+  }, onSuccess: () => qc.invalidateQueries({ queryKey: ['client', session?.userId] }), onError: () => Alert.alert('Documento não vinculado', 'Confira se há uma solicitação de atualização para esta proposta e tente novamente.') })
+  function pick(input: UploadInput) { Alert.alert('Enviar documento', 'Envie todas as páginas do documento em um PDF, ou fotografe o documento completo.', [
+    { text: 'Selecionar arquivo', onPress: () => upload.mutate({ input, camera: false }) }, { text: 'Câmera', onPress: () => upload.mutate({ input, camera: true }) }, { text: 'Cancelar', style: 'cancel' },
+  ]) }
+  async function open(file: ClientFile) {
+    try { const { data, error } = await supabase.storage.from(file.bucket).createSignedUrl(file.storage_path, 300); if (error || !data?.signedUrl) throw error; await Linking.openURL(data.signedUrl) }
+    catch { Alert.alert('Documento indisponível', 'Não foi possível abrir este arquivo. Tente novamente.') }
   }
-
-  const onPick = (tipo: DocumentoTipo, categoria: DocCategoria, key: string) => {
-    Alert.alert('Enviar documento', `Como deseja enviar ${TIPO_LABEL[tipo]}?`, [
-      { text: 'Câmera', onPress: () => escolherEEnviar(tipo, categoria, key, 'camera') },
-      { text: 'Galeria', onPress: () => escolherEEnviar(tipo, categoria, key, 'galeria') },
-      { text: 'Arquivo', onPress: () => escolherEEnviar(tipo, categoria, key, 'arquivo') },
-      { text: 'Cancelar', style: 'cancel' },
-    ])
-  }
-
-  const checklist = useMemo(() => buildChecklist(docsQ.data ?? [], reqQ.data ?? []), [docsQ.data, reqQ.data])
-
-  const docByKey = useMemo(() => {
-    const map = new Map<string, DocRow>()
-    for (const d of docsQ.data ?? []) {
-      if (!d.storage_path) continue
-      const key = `${d.categoria}:${d.tipo}`
-      if (!map.has(key)) map.set(key, d)
-    }
-    return map
-  }, [docsQ.data])
-
-  const contagens = useMemo(() => ({
-    Pendentes: checklist.filter((i) => i.status === 'pendente' || i.status === 'rejeitado').length,
-    Enviados: checklist.filter((i) => i.status === 'enviado').length,
-    Aprovados: checklist.filter((i) => i.status === 'aprovado').length,
-  }), [checklist])
-
-  const visiveis = useMemo(() => checklist.filter((i) => {
-    if (aba === 'Pendentes') return i.status === 'pendente' || i.status === 'rejeitado'
-    if (aba === 'Enviados') return i.status === 'enviado'
-    return i.status === 'aprovado'
-  }), [checklist, aba])
-
-  const porCategoria = useMemo(() => {
-    const order: DocCategoria[] = ['pessoa_fisica', 'pessoa_juridica', 'imovel']
-    const map = new Map<DocCategoria, ChecklistItem[]>()
-    for (const item of visiveis) {
-      const list = map.get(item.categoria) ?? (map.set(item.categoria, []), map.get(item.categoria)!)
-      list.push(item)
-    }
-    return order.filter((c) => map.has(c)).map((c) => [c, map.get(c)!] as const)
-  }, [visiveis])
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true)
-    await Promise.all([docsQ.refetch(), reqQ.refetch()])
-    setRefreshing(false)
-  }, [docsQ, reqQ])
-
-  const abas: Aba[] = ['Pendentes', 'Enviados', 'Aprovados']
-
-  function badgeVariant(status: DocStatus): 'green' | 'amber' | 'gray' | 'red' {
-    if (status === 'aprovado') return 'green'
-    if (status === 'enviado') return 'amber'
-    if (status === 'rejeitado') return 'red'
-    return 'gray'
-  }
-
-  return (
-    <SafeAreaView className="flex-1 bg-silver-50" edges={['top', 'bottom']}>
-      <View className="bg-white px-5 pb-3 pt-2">
-        <View className="flex-row items-center gap-3">
-          <Pressable onPress={() => router.back()} className="-ml-2 p-2">
-            <ArrowLeft size={22} color="#0F0F0F" />
-          </Pressable>
-          <View className="flex-1">
-            <Text className="text-lg font-bold text-navy">Documentos</Text>
-            {propostaQ.data?.protocolo && (
-              <Text className="font-mono text-[11px] text-silver-500">{propostaQ.data.protocolo}</Text>
-            )}
-          </View>
-        </View>
-      </View>
-
-      {propostaQ.isLoading || docsQ.isLoading ? (
-        <View className="flex-1 items-center justify-center"><ActivityIndicator color="#D4AF37" /></View>
-      ) : !propostaId ? (
-        <View className="flex-1 items-center justify-center px-6">
-          <FileText size={40} color="#9CA3AF" />
-          <Text className="mt-3 text-center text-sm text-silver-600">Você ainda não possui uma proposta vinculada.</Text>
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#D4AF37" />}
-        >
-          <View className="flex-row rounded-xl bg-silver-100 p-1">
-            {abas.map((t) => (
-              <Pressable key={t} onPress={() => setAba(t)} className={`flex-1 rounded-lg py-2 ${aba === t ? 'bg-white' : ''}`}>
-                <Text className={`text-center text-xs font-semibold ${aba === t ? 'text-navy' : 'text-silver-500'}`}>{t} ({contagens[t]})</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {porCategoria.length === 0 && (
-            <View className="rounded-xl border border-silver-200 bg-white p-6">
-              <Text className="text-center text-sm text-silver-600">Nenhum documento nesta aba.</Text>
-            </View>
-          )}
-
-          {porCategoria.map(([categoria, items]) => (
-            <View key={categoria} className="gap-2">
-              <Text className="text-xs font-semibold uppercase tracking-wider text-silver-500">{CATEGORIA_LABEL[categoria]}</Text>
-              {items.map((item) => {
-                const key = `${item.categoria}:${item.tipo}`
-                const doc = docByKey.get(key)
-                const enviando = uploadingKey === key && uploadMut.isPending
-                return (
-                  <View key={key} className="flex-row items-center gap-3 rounded-xl border border-silver-200 bg-white p-4">
-                    <View className={`h-10 w-10 items-center justify-center rounded-lg ${
-                      item.status === 'aprovado' ? 'bg-success/15' :
-                      item.status === 'enviado' ? 'bg-warning/15' : 'bg-silver-100'
-                    }`}>
-                      {item.status === 'aprovado'
-                        ? <CheckCircle2 size={20} color="#16A34A" />
-                        : <FileText size={20} color="#9CA3AF" />}
-                    </View>
-                    <View className="flex-1">
-                      <Text className="font-semibold text-silver-900">{TIPO_LABEL[item.tipo] || item.tipo}</Text>
-                      <View className="mt-0.5 flex-row items-center gap-2">
-                        <Badge variant={badgeVariant(item.status)}>{DOC_STATUS_LABEL[item.status]}</Badge>
-                        {item.obrigatorio && <Text className="text-[10px] font-semibold text-danger">Obrigatório</Text>}
-                      </View>
-                    </View>
-                    {(item.status === 'pendente' || item.status === 'rejeitado') && (
-                      <Pressable
-                        onPress={() => onPick(item.tipo, item.categoria, key)}
-                        disabled={enviando}
-                        className="rounded-lg bg-gold px-3 py-2"
-                      >
-                        {enviando ? <ActivityIndicator color="white" /> : <Text className="text-xs font-bold text-white">Enviar</Text>}
-                      </Pressable>
-                    )}
-                    {doc && (
-                      <View className="flex-row items-center gap-1">
-                        <Pressable onPress={() => baixarDocumento(doc.storage_path!)} className="p-2">
-                          <Download size={18} color="#9CA3AF" />
-                        </Pressable>
-                        {item.status === 'enviado' && (
-                          <Pressable
-                            onPress={() => Alert.alert('Remover', 'Deseja remover este envio?', [
-                              { text: 'Cancelar', style: 'cancel' },
-                              { text: 'Remover', style: 'destructive', onPress: () => removeMut.mutate(doc) },
-                            ])}
-                            className="p-2"
-                          >
-                            <X size={18} color="#9CA3AF" />
-                          </Pressable>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                )
-              })}
-            </View>
-          ))}
-
-          {/* Botão genérico para enviar tipo livre */}
-          <Pressable
-            onPress={() => {
-              const buttons: { text: string; style?: 'cancel' | 'destructive' | 'default'; onPress?: () => void }[] = PICKER_TIPOS.map((t) => ({
-                text: TIPO_LABEL[t],
-                onPress: () => onPick(t, categoriaForTipo(t), `${categoriaForTipo(t)}:${t}`),
-              }))
-              buttons.push({ text: 'Cancelar', style: 'cancel' })
-              Alert.alert('Tipo de documento', '', buttons)
-            }}
-            className="mt-2 flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-silver-300 bg-white py-4"
-          >
-            <Upload size={18} color="#0F0F0F" />
-            <Text className="font-semibold text-navy">Enviar outro documento</Text>
-          </Pressable>
-        </ScrollView>
-      )}
-    </SafeAreaView>
-  )
+  const ready = !propostas.isPending && !acervo.isPending && !identity.isPending
+  return <ClientScreen title="Meus documentos" subtitle="Seus arquivos, sempre com você" refreshing={refreshing} onRefresh={refresh}>
+    <Card><View className="gap-3"><ShieldCheck size={25} color="#F87171" /><SectionTitle>Envie uma vez. Acompanhe por aqui.</SectionTitle><Body>Os arquivos recebidos ficam guardados no sistema. Se precisarmos de uma atualização, você verá o pedido da equipe nesta tela.</Body></View></Card>
+    <View className="flex-row gap-3">{(['arquivos', 'pedidos'] as const).map(tab => <Pressable key={tab} accessibilityRole="tab" accessibilityState={{ selected: aba === tab }} onPress={() => setAba(tab)} className={`min-h-12 flex-1 items-center justify-center rounded-2xl border px-3 py-3 ${aba === tab ? 'border-[#DC2626] bg-[#30191D]' : 'border-[#414148] bg-[#18181B]'}`}><Text className="text-sm font-semibold text-white">{tab === 'arquivos' ? 'Arquivos guardados' : 'Solicitações'}</Text></Pressable>)}</View>
+    {!ready && !acervo.isError ? <Feedback loading title="Carregando documentos" /> : acervo.isError || propostas.isError || identity.isError ? <Feedback title="Documentos indisponíveis no momento" text="Não foi possível consultar seu acervo. Os arquivos já enviados continuam guardados. Tente novamente em instantes." retry={() => void refresh()} /> : <>
+      {aba === 'arquivos' ? <View className="gap-3">{files.length ? files.map(file => <Card key={`${file.bucket}:${file.storage_path}`}><View className="gap-3"><FileText size={22} color="#F87171" /><SectionTitle>{TIPO_LABEL[file.tipo] ?? file.tipo}</SectionTitle><Body>{file.nome}</Body><Label>{DOC_STATUS_LABEL[file.status as keyof typeof DOC_STATUS_LABEL] ?? 'Recebido'} · versão {file.versao}</Label><Body>{dataBR(file.created_at)}{file.categoria === 'imovel' ? ' · Documento da operação' : ''}</Body><Action secondary label="Abrir documento" onPress={() => void open(file)} /></View></Card>) : <Feedback title="Seu acervo começa aqui" text="Após o primeiro envio, você poderá consultar seus documentos nesta área." />}</View> : <View className="gap-3">{pedidos.length ? pedidos.map(p => {
+        const req = requisitos.data?.find(r => r.tipo === p.documento_solicitado_tipo && (r.categoria === categoria || r.categoria === 'imovel'))
+        return <Card key={p.id} accent={p.id === params.pedido}><View className="gap-3"><Label>{p.protocolo}</Label><SectionTitle>{p.descricao}</SectionTitle><Body>{p.status === 'em_analise' ? 'Recebido pela equipe. Aguarde a revisão.' : 'Aguardando sua resposta.'}{p.prazo ? ` Prazo: ${dataBR(p.prazo)}.` : ''}</Body>{p.status !== 'em_analise' && p.documento_solicitado_tipo && req ? <Action busy={upload.isPending} label="Enviar atualização" onPress={() => pick({ proposta: p.proposta_id, pedido: p.id, tipo: p.documento_solicitado_tipo!, categoria: req.categoria })} /> : p.documento_solicitado_tipo ? null : <Action secondary label="Ver proposta" onPress={() => router.push(`/(cliente)/propostas/${p.proposta_id}`)} />}</View></Card>
+      }) : <Feedback title="Nenhuma solicitação em aberto" text="Quando a equipe precisar de uma atualização, o pedido aparecerá aqui." />}</View>}
+      <View className="gap-3"><SectionTitle>Documentos da proposta</SectionTitle><Body>Escolha uma operação para consultar os documentos necessários e aproveitar os que já estão guardados.</Body>{propostas.data?.map(p => <Pressable key={p.id} onPress={() => setSelected(p.id)} accessibilityRole="radio" accessibilityState={{ checked: proposta?.id === p.id }} className={`min-h-12 rounded-2xl border p-4 ${proposta?.id === p.id ? 'border-[#DC2626] bg-[#30191D]' : 'border-[#414148] bg-[#18181B]'}`}><Text className="text-sm text-white">{p.protocolo} · {statusLabel(p.status)}</Text></Pressable>)}</View>
+      {chosen && !proposta ? <Feedback title="Proposta indisponível" text="Selecione uma das operações vinculadas à sua conta." /> : proposta && !propostaAcionavel(proposta.status) ? <Feedback title="Nenhum envio necessário nesta operação" text="Você pode continuar consultando os arquivos já guardados." /> : proposta && titular ? requisitos.isError ? <Feedback title="Requisitos indisponíveis" retry={() => void requisitos.refetch()} /> : requisitos.isPending ? <Feedback loading title="Conferindo requisitos" /> : <View className="gap-3">{requisitos.data?.filter(r => r.obrigatorio && (r.categoria === categoria || r.categoria === 'imovel')).map(req => {
+        const saved = files.find(f => f.tipo === req.tipo && f.categoria === req.categoria && (req.categoria === 'imovel' ? f.proposta_id === proposta.id : f.cliente_id === titular.id))
+        const linked = acervo.data!.arquivos.some(f => f.proposta_id === proposta.id && f.tipo === req.tipo && f.categoria === req.categoria && (req.categoria === 'imovel' || f.cliente_id === titular.id))
+        const requested = acervo.data!.solicitacoes.some(p => p.proposta_id === proposta.id && p.documento_solicitado_tipo === req.tipo)
+        return <Card key={`${req.categoria}:${req.tipo}`}><View className="gap-3"><SectionTitle>{TIPO_LABEL[req.tipo]}</SectionTitle><Body>{requested ? 'Há uma solicitação da equipe para este documento.' : linked ? 'Documento já recebido nesta operação.' : saved ? 'Você já possui este documento no acervo.' : 'Primeiro envio necessário para esta operação.'}</Body>{requested ? <Action secondary label="Ver solicitações" onPress={() => setAba('pedidos')} /> : linked ? null : saved ? saved.status === 'rejeitado' ? <Body>Aguarde a solicitação da equipe para enviar a atualização.</Body> : <Action secondary busy={reuse.isPending} label="Usar documento guardado" onPress={() => reuse.mutate(saved)} /> : <Action busy={upload.isPending} label="Enviar documento" onPress={() => pick({ proposta: proposta.id, tipo: req.tipo, categoria: req.categoria })} />}</View></Card>
+      })}</View> : null}
+    </>}
+  </ClientScreen>
 }

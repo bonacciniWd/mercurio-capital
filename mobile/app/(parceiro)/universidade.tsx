@@ -107,7 +107,7 @@ export default function Universidade() {
   const items = catalogoQ.data ?? []
 
   const filtrados = useMemo(() => {
-    if (tab === 'andamento')   return items.filter(c => c.inscricao_id && c.percentual_concluido > 0 && c.percentual_concluido < 100)
+    if (tab === 'andamento')   return items.filter(c => c.inscricao_id && c.percentual_concluido < 100)
     if (tab === 'concluidos')  return items.filter(c => c.percentual_concluido >= 100)
     if (tab === 'certificados') return items.filter(c => c.certificado_id)
     return items
@@ -121,11 +121,11 @@ export default function Universidade() {
     p ? supabase.storage.from('lms-capas').getPublicUrl(p).data.publicUrl : null
 
   return (
-    <SafeAreaView className="flex-1 bg-silver-50" edges={['top', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-[#09090B]" edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         {/* Hero */}
-        <View className="bg-navy-700 px-5 pb-6 pt-4">
-          <Text className="text-xs uppercase tracking-wider text-gold">Universidade Mercurio</Text>
+        <View className="bg-[#151518] px-5 pb-6 pt-4">
+          <Text className="text-xs uppercase tracking-wider text-[#F87171]">Universidade Mercurio</Text>
           <Text className="mt-1 text-2xl font-bold text-white">Aprenda no seu ritmo</Text>
           <Image source={require('../../assets/general/university.png')} className=" absolute right-5 -top-2 h-36 w-36 flex-1 rounded-lg" resizeMode="cover" />
           <Text className="mt-1 text-sm text-white/70">
@@ -135,15 +135,15 @@ export default function Universidade() {
 
         {/* Stats */}
         <View className="-mt-4 flex-row gap-3 px-5">
-          <View className="flex-1 rounded-xl bg-white p-3 shadow-sm">
-            <Text className="text-xs text-silver-500">Em andamento</Text>
-            <Text className="text-2xl font-bold text-navy">{totEmAndamento}</Text>
+          <View className="flex-1 rounded-xl border border-[#2D2D32] bg-[#151518] p-3 shadow-sm">
+            <Text className="text-xs text-[#A1A1AA]">Em andamento</Text>
+            <Text className="text-2xl font-bold text-white">{totEmAndamento}</Text>
           </View>
-          <View className="flex-1 rounded-xl bg-white p-3 shadow-sm">
-            <Text className="text-xs text-silver-500">Concluídos</Text>
+          <View className="flex-1 rounded-xl border border-[#2D2D32] bg-[#151518] p-3 shadow-sm">
+            <Text className="text-xs text-[#A1A1AA]">Concluídos</Text>
             <Text className="text-2xl font-bold text-success">{totConcluidos}</Text>
           </View>
-          <View className="flex-1 rounded-xl bg-gold p-3">
+          <View className="flex-1 rounded-xl bg-[#DC2626] p-3">
             <Text className="text-xs text-white">Certificados</Text>
             <Text className="text-2xl font-bold text-white">{totCertificados}</Text>
           </View>
@@ -161,9 +161,9 @@ export default function Universidade() {
               <Pressable
                 key={t.id}
                 onPress={() => setTab(t.id)}
-                className={`rounded-full px-4 py-1.5 ${tab === t.id ? 'bg-navy' : 'bg-white border border-silver-200'}`}
+                className={`rounded-full px-4 py-1.5 ${tab === t.id ? 'bg-[#202024]' : 'bg-[#202024] border border-[#414148]'}`}
               >
-                <Text className={`text-xs font-semibold ${tab === t.id ? 'text-white' : 'text-silver-700'}`}>{t.label}</Text>
+                <Text className={`text-xs font-semibold ${tab === t.id ? 'text-white' : 'text-[#D4D4D8]'}`}>{t.label}</Text>
               </Pressable>
             ))}
           </ScrollView>
@@ -173,9 +173,12 @@ export default function Universidade() {
         {catalogoQ.isLoading && (
           <View className="px-5 pt-6"><ActivityIndicator color="#DC2626" /></View>
         )}
-        {!catalogoQ.isLoading && filtrados.length === 0 && (
-          <View className="mx-5 mt-4 items-center rounded-xl border border-silver-200 bg-white p-8">
-            <Text className="text-sm text-silver-500">Nenhum curso {tab !== 'todos' ? 'nesta visão' : 'disponível'}.</Text>
+        {catalogoQ.isError && (
+          <View className="mx-5 mt-4 rounded-xl border border-[#713035] bg-[#2A1519] p-5"><Text className="text-sm text-[#FCA5A5]">Não foi possível carregar os cursos. Tente atualizar a tela.</Text></View>
+        )}
+        {!catalogoQ.isLoading && !catalogoQ.isError && filtrados.length === 0 && (
+          <View className="mx-5 mt-4 items-center rounded-xl border border-[#2D2D32] bg-[#151518] p-8">
+            <Text className="text-sm text-[#A1A1AA]">Nenhum curso {tab !== 'todos' ? 'nesta visão' : 'disponível'}.</Text>
           </View>
         )}
 
@@ -200,9 +203,9 @@ export default function Universidade() {
                       router.push(`/(parceiro)/aula/${c.id}` as any)
                     }
                   }}
-                  className="overflow-hidden rounded-xl border border-silver-200 bg-white active:opacity-70"
+                  className="overflow-hidden rounded-xl border border-[#2D2D32] bg-[#151518] active:opacity-70"
                 >
-                  <View className="h-52 overflow-hidden bg-navy">
+                  <View className="h-52 overflow-hidden bg-[#202024]">
                     {capa
                       ? <Image source={{ uri: capa }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                       : null}
@@ -212,7 +215,7 @@ export default function Universidade() {
                     >
                       {locked
                         ? <Lock size={32} color="white" />
-                        : <View className="h-12 w-12 items-center justify-center rounded-full bg-gold/90">
+                        : <View className="h-12 w-12 items-center justify-center rounded-full bg-[#DC2626]/90">
                             <PlayCircle size={28} color="white" />
                           </View>}
                     </View>
@@ -229,16 +232,16 @@ export default function Universidade() {
                         {NIVEL_LABEL[c.nivel] ?? c.nivel}
                       </Badge>
                     </View>
-                    <Text className="mt-2 font-semibold text-navy">{c.titulo}</Text>
-                    <Text className="mt-0.5 text-[11px] text-silver-500">
+                    <Text className="mt-2 font-semibold text-white">{c.titulo}</Text>
+                    <Text className="mt-0.5 text-[11px] text-[#A1A1AA]">
                       {c.qtd_aulas} aulas · {formatDuracao(c.duracao_total_segundos)}
                     </Text>
                     {inscrito && c.percentual_concluido > 0 && (
                       <View className="mt-3">
-                        <View className="h-1.5 overflow-hidden rounded-full bg-silver-200">
-                          <View className="h-full rounded-full bg-gold" style={{ width: `${c.percentual_concluido}%` }} />
+                        <View className="h-1.5 overflow-hidden rounded-full bg-[#414148]">
+                          <View className="h-full rounded-full bg-[#DC2626]" style={{ width: `${c.percentual_concluido}%` }} />
                         </View>
-                        <Text className="mt-1 text-xs text-silver-500">{Math.round(c.percentual_concluido)}% concluído</Text>
+                        <Text className="mt-1 text-xs text-[#A1A1AA]">{Math.round(c.percentual_concluido)}% concluído</Text>
                       </View>
                     )}
                   </View>
@@ -250,16 +253,17 @@ export default function Universidade() {
 
         {/* Certificados */}
         <View className="px-5 pt-5">
-          <Text className="text-base font-bold text-navy">Meus certificados</Text>
+          <Text className="text-base font-bold text-white">Meus certificados</Text>
           {certificadosQ.isLoading && (
-            <View className="mt-2 rounded-xl border border-silver-200 bg-white p-4">
+            <View className="mt-2 rounded-xl border border-[#2D2D32] bg-[#151518] p-4">
               <ActivityIndicator color="#DC2626" />
             </View>
           )}
-          {!certificadosQ.isLoading && (certificadosQ.data ?? []).length === 0 && (
-            <View className="mt-2 flex-row items-center gap-3 rounded-xl border border-gold/30 bg-gold/5 p-4">
+          {certificadosQ.isError && <View className="mt-2 rounded-xl border border-[#713035] bg-[#2A1519] p-4"><Text className="text-xs text-[#FCA5A5]">Não foi possível carregar os certificados.</Text></View>}
+          {!certificadosQ.isLoading && !certificadosQ.isError && (certificadosQ.data ?? []).length === 0 && (
+            <View className="mt-2 flex-row items-center gap-3 rounded-xl border border-gold/30 bg-[#DC2626]/5 p-4">
               <Award size={28} color="#DC2626" />
-              <Text className="flex-1 text-xs text-silver-600">
+              <Text className="flex-1 text-xs text-[#B8B8C2]">
                 Nenhum certificado ainda. Conclua um curso para receber o seu.
               </Text>
             </View>
@@ -269,12 +273,12 @@ export default function Universidade() {
               key={cert.id}
               disabled={baixarCert.isPending}
               onPress={() => baixarCert.mutate(cert)}
-              className="mt-2 flex-row items-center gap-3 rounded-xl border border-gold/30 bg-gold/5 p-4 active:opacity-70"
+              className="mt-2 flex-row items-center gap-3 rounded-xl border border-gold/30 bg-[#DC2626]/5 p-4 active:opacity-70"
             >
               <Award size={28} color="#DC2626" />
               <View className="flex-1">
-                <Text className="font-semibold text-navy">{cert.curso?.titulo ?? 'Curso'}</Text>
-                <Text className="text-[11px] text-silver-600">
+                <Text className="font-semibold text-white">{cert.curso?.titulo ?? 'Curso'}</Text>
+                <Text className="text-[11px] text-[#B8B8C2]">
                   {new Date(cert.emitido_em).toLocaleDateString('pt-BR')} · {cert.codigo}
                 </Text>
               </View>

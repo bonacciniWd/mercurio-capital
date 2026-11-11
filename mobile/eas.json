@@ -4,6 +4,10 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
     "production": {
       "ios": {
         "distribution": "store",
@@ -13,7 +17,9 @@
   },
   "submit": {
     "production": {
-      "ios": {}
+      "ios": {
+        "ascAppId": "6788800078"
+      }
     }
   }
 }

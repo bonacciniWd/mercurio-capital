@@ -14,6 +14,7 @@ import {
   STATUS_LABEL,
   formatRelative,
 } from '@/lib/partner'
+import { PartnerScreen, PartnerFeedback } from '@/components/parceiro/PartnerUI'
 
 interface KpiRow {
   partner_id: string
@@ -87,25 +88,20 @@ export default function Dashboard() {
   const propostas = recentesQuery.data ?? []
 
   return (
-    <SafeAreaView className="flex-1 bg-silver-50" edges={['top']}>
+    <PartnerScreen title="Início" subtitle="Resumo da sua operação" back={false} tabbed refreshing={kpiQuery.isRefetching || recentesQuery.isRefetching || walletQuery.isRefetching} onRefresh={() => { void Promise.all([kpiQuery.refetch(), recentesQuery.refetch(), walletQuery.refetch(), profileQ.refetch()]) }}>
       {/* Header */}
-      <View className="flex-row items-center justify-between bg-navy-700 px-5 py-4">
+      <View className="-mx-5 -mt-5 flex-row items-center justify-between border-b border-[#27272A] bg-[#111216] px-5 py-4">
         <View className="flex-1 pr-3">
           <Text className="text-xs text-white/60">Olá,</Text>
           <Text className="text-lg font-bold text-white" numberOfLines={1}>
             {profileQ.isLoading ? '...' : nome}
           </Text>
         </View>
-        <NotificationsSheet
-          variant="dark"
-          iconSize={24}
-          onOpenLink={(route) => router.push(route as any)}
-        />
       </View>
 
-      <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingTop: 16, paddingBottom: 130, gap: 16 }}>
+      <View className="gap-4">
         {/* Saldo carteira */}
-        <View className="rounded-xl bg-slate-950 p-4">
+          <View className="rounded-3xl border border-[#2D2D32] bg-[#151518] p-5">
           <View className="flex-row items-center justify-between">
             <Text className="text-xs text-white/70">Saldo na carteira</Text>
             <Pressable onPress={() => router.push('/(parceiro)/carteira')}>
@@ -122,7 +118,7 @@ export default function Dashboard() {
           </Text>
           <Pressable
             onPress={() => router.push('/(parceiro)/carteira')}
-            className="mt-3 self-start rounded-lg bg-gold px-4 py-2"
+              className="mt-3 self-start rounded-xl bg-[#DC2626] px-4 py-3"
           >
             <Text className="text-sm font-bold text-white">Recarregar</Text>
           </Pressable>
@@ -131,15 +127,15 @@ export default function Dashboard() {
         {/* KPIs */}
         {kpiQuery.isLoading ? (
           <ActivityIndicator color="#DC2626" />
-        ) : (
+        ) : kpiQuery.isError ? <PartnerFeedback title="Indicadores indisponíveis" text="Não foi possível carregar os indicadores da operação." retry={() => { void kpiQuery.refetch() }} /> : (
           <>
             <View className="flex-row gap-3">
-              <KPICard label="Propostas ativas" value={String(kpi?.ativas ?? 0)} bg="bg-slate-950" />
-              <KPICard label="Volume ganho" value={brl(Number(kpi?.volume_ganho ?? 0) * 100)} bg="bg-slate-950" />
+              <KPICard label="Propostas ativas" value={String(kpi?.ativas ?? 0)} bg="bg-[#151518]" />
+              <KPICard label="Volume ganho" value={brl(Number(kpi?.volume_ganho ?? 0) * 100)} bg="bg-[#151518]" />
             </View>
             <View className="flex-row gap-3">
-              <KPICard label="Ganhas (acum.)" value={String(kpi?.ganhas ?? 0)} bg="bg-slate-950" />
-              <KPICard label="Conversão" value={`${kpi?.taxa_conversao ?? 0}%`} bg="bg-slate-950" />
+              <KPICard label="Ganhas (acum.)" value={String(kpi?.ganhas ?? 0)} bg="bg-[#151518]" />
+              <KPICard label="Conversão" value={`${kpi?.taxa_conversao ?? 0}%`} bg="bg-[#151518]" />
             </View>
           </>
         )}
@@ -147,7 +143,7 @@ export default function Dashboard() {
         {/* CTA nova proposta */}
         <Pressable
           onPress={() => router.push('/propostas/nova')}
-          className="flex-row items-center justify-center gap-2 rounded-xl bg-gold py-4"
+          className="flex-row items-center justify-center gap-2 rounded-2xl bg-[#DC2626] py-4"
         >
           <Plus size={20} color="#FFF" />
           <Text className="text-base font-bold text-white">Nova proposta</Text>
@@ -155,10 +151,10 @@ export default function Dashboard() {
 
         {/* Em andamento */}
         {(kpi?.ativas ?? 0) > 0 && (
-          <View className="rounded-xl border border-warning/30 bg-warning/5 p-4">
+          <View className="rounded-2xl border border-[#713035] bg-[#2A1519] p-4">
             <View className="flex-row items-center gap-2">
               <AlertCircle size={18} color="#F59E0B" />
-              <Text className="font-semibold text-warning">{kpi?.ativas} proposta(s) em andamento</Text>
+              <Text className="font-semibold text-[#FCD34D]">{kpi?.ativas} proposta(s) em andamento</Text>
             </View>
             <Text className="mt-1 text-xs text-silver-700">Acompanhe o status e mantenha o pipeline ativo.</Text>
           </View>
@@ -202,7 +198,7 @@ export default function Dashboard() {
         </View>
 
         {/* Volume total */}
-        <View className="rounded-xl bg-gold/10 p-4">
+        <View className="rounded-xl bg-white p-4">
           <View className="flex-row items-center gap-2">
             <TrendingUp size={18} color="#991B1B" />
             <Text className="font-semibold text-gold-600">Volume total</Text>
@@ -211,7 +207,7 @@ export default function Dashboard() {
             Você já movimentou <Text className="font-bold">{brl(Number(kpi?.volume_total ?? 0) * 100)}</Text> em propostas.
           </Text>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      </View>
+    </PartnerScreen>
   )
 }
