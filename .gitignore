@@ -23,3 +23,8 @@ supabase/.branches/
 # Certificados/credenciais locais (nunca versionar)
 certificates_LOCAL/
 .local-secrets/
+
+# artefatos locais
+output/
+app/tmp/
+AGENTS.md_GUIDE.pdf

@@ -1,7 +1,7 @@
 ---
 description: "Use when the user asks for UX/UI design, interface refactor, usability improvements, design system consistency, accessibility checks, mobile-first layouts, component redesign, interaction patterns, visual hierarchy, or user flow optimization in Mercurio Capital. Keywords: UX, UI, usabilidade, design system, acessibilidade, layout, fluxo, prototipo, tela, frontend visual."
 name: "UX/UI Mercurio Capital"
-tools: [read, search, edit, execute]
+tools: [execute, read, edit, search]
 argument-hint: "User goal, target screens, constraints, platform (web/mobile), and expected UX outcome"
 user-invocable: true
 ---
