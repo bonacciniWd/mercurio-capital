@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Building2,
   CheckCircle2,
+  Check,
   Copy,
   CircleDollarSign,
   ShieldCheck,
@@ -16,6 +17,7 @@ import {
   History,
   Eye,
   Loader2,
+  Link2,
   Pencil,
   Plus,
   Save,
@@ -349,6 +351,12 @@ export function AdminPropostaDetalhe() {
   const { session } = useAuth()
   const isAdminJuridico = session?.role === 'admin' && session.adminNivel === 'juridico'
   const [tab, setTab] = useState<typeof TABS[number]>('Resumo')
+  const [reissuing, setReissuing] = useState(false)
+  const [reissueUrl, setReissueUrl] = useState<string | null>(null)
+  const [reissueError, setReissueError] = useState<string | null>(null)
+  const [reissueEmailStatus, setReissueEmailStatus] = useState<'enfileirado' | 'nao_enfileirado' | 'falha_enqueue' | null>(null)
+  const [reissueEmailError, setReissueEmailError] = useState<string | null>(null)
+  const [reissueCopied, setReissueCopied] = useState(false)
   const statusDetailsRef = useRef<HTMLDetailsElement>(null)
   const [novoStatus, setNovoStatus] = useState<string>('')
   const [motivo, setMotivo] = useState('')
@@ -366,6 +374,36 @@ export function AdminPropostaDetalhe() {
   const [imoveisError, setImoveisError] = useState<string | null>(null)
   const [documentoAbrindoId, setDocumentoAbrindoId] = useState<string | null>(null)
   const [documentoVisualizacaoError, setDocumentoVisualizacaoError] = useState<string | null>(null)
+
+  async function handleReissue() {
+    if (!id) return
+    if (!window.confirm('Emitir um novo convite para esta proposta? Convites anteriores ainda não utilizados serão invalidados.')) return
+    setReissuing(true)
+    setReissueError(null)
+    setReissueUrl(null)
+    setReissueEmailStatus(null)
+    setReissueEmailError(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('magic-link-issue', {
+        body: { proposta_id: id, send_email: true },
+      })
+      if (error) throw new Error(error.message)
+      const payload = data as {
+        url?: string
+        email_status?: 'enfileirado' | 'nao_enfileirado' | 'falha_enqueue'
+        email_motivo?: string
+        email_erro?: string
+      }
+      if (!payload?.url) throw new Error('Resposta inválida da função.')
+      setReissueUrl(payload.url)
+      setReissueEmailStatus(payload.email_status ?? null)
+      setReissueEmailError(payload.email_erro ?? payload.email_motivo ?? null)
+    } catch (err) {
+      setReissueError(err instanceof Error ? err.message : 'Falha ao reemitir o convite.')
+    } finally {
+      setReissuing(false)
+    }
+  }
 
   async function handleVisualizarDocumento(documento: DocRow) {
     if (!documento.storage_path) return
@@ -747,9 +785,35 @@ export function AdminPropostaDetalhe() {
 
         {canEdit && <div className="proposal-header-actions">
           <details className="proposal-more-actions"><summary>··· Mais ações</summary><div className="proposal-more-actions__panel"><PropostaFundos propostaId={id!} /></div></details>
+          <button type="button" onClick={handleReissue} disabled={reissuing} className="btn-outline btn-no-liquid flex items-center gap-2 text-sm disabled:opacity-60">
+            {reissuing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+            Reemitir convite
+          </button>
           <button type="button" className="btn-gold" onClick={() => { setTab('Resumo'); setProdutoForm(toProdutoForm(proposta)); setClienteForm(toClienteForm(proposta.cliente)); setEditResumo(true) }}><Pencil className="h-3.5 w-3.5" /> Editar proposta</button>
         </div>}
       </header>
+
+      {(reissueUrl || reissueError) && <div className="proposal-reissue-notice" role="status">
+        {reissueUrl && <>
+          <div className="proposal-reissue-link">
+            <code className="max-w-[220px] truncate font-mono text-silver-700">{reissueUrl}</code>
+            <button type="button" onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(reissueUrl)
+                setReissueCopied(true)
+                window.setTimeout(() => setReissueCopied(false), 2000)
+              } catch {
+                setReissueError('Não foi possível copiar automaticamente. Selecione e copie o link exibido.')
+              }
+            }} className="btn-no-liquid" title="Copiar link" aria-label="Copiar link do convite">
+              {reissueCopied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+          {reissueEmailStatus === 'enfileirado' && <p className="text-xs text-success">Novo convite enviado para a fila de e-mail.</p>}
+          {(reissueEmailStatus === 'nao_enfileirado' || reissueEmailStatus === 'falha_enqueue') && <p className="max-w-[320px] text-xs text-warning">{reissueEmailError || 'O e-mail não foi enfileirado. Copie o link e envie manualmente.'}</p>}
+        </>}
+        {reissueError && <p role="alert" className="text-xs text-danger">{reissueError}</p>}
+      </div>}
 
       <div className="proposal-status-strip">
         <div className="proposal-status-field"><span>Status da proposta</span>{isAdminJuridico ? <strong>{STATUS_LABEL[proposta.status] || proposta.status}</strong> : <details ref={statusDetailsRef} className="proposal-status-control" onKeyDown={event => { if (event.key === 'Escape' && !statusMut.isPending) { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus() } }}><summary aria-label="Alterar status">{STATUS_LABEL[proposta.status] || proposta.status}<span aria-hidden="true">⌄</span></summary>

@@ -853,6 +853,7 @@ function SegurancaTab() {
   const [senhaMin, setSenhaMin] = useState('')
   const [idleAdmin, setIdleAdmin] = useState('')
   const [idleGeral, setIdleGeral] = useState('')
+  const [mobileRelock, setMobileRelock] = useState('')
   const [rlMax, setRlMax] = useState('')
   const [rlJanela, setRlJanela] = useState('')
   const [loading, setLoading] = useState(true)
@@ -863,7 +864,7 @@ function SegurancaTab() {
     supabase
       .from('configuracoes_sistema')
       .select('chave, valor')
-      .in('chave', ['senha_min_length', 'sessao_idle_admin_min', 'sessao_idle_geral_min', 'rate_limit_login'])
+      .in('chave', ['senha_min_length', 'sessao_idle_admin_min', 'sessao_idle_geral_min', 'mobile_relock_segundos', 'rate_limit_login'])
       .then(({ data }) => {
         const map: Record<string, unknown> = {}
         for (const r of (data ?? []) as { chave: string; valor: unknown }[]) {
@@ -873,6 +874,7 @@ function SegurancaTab() {
         setSenhaMin(num(map['senha_min_length']) || '8')
         setIdleAdmin(num(map['sessao_idle_admin_min']) || '30')
         setIdleGeral(num(map['sessao_idle_geral_min']) || '480')
+        setMobileRelock(num(map['mobile_relock_segundos']) || '60')
         const rl = (map['rate_limit_login'] ?? {}) as { max?: number; janela_min?: number }
         setRlMax(String(rl.max ?? 5))
         setRlJanela(String(rl.janela_min ?? 15))
@@ -881,9 +883,9 @@ function SegurancaTab() {
   }, [])
 
   async function handleSave() {
-    const sm = Number(senhaMin), ia = Number(idleAdmin), ig = Number(idleGeral)
+    const sm = Number(senhaMin), ia = Number(idleAdmin), ig = Number(idleGeral), mr = Number(mobileRelock)
     const rm = Number(rlMax), rj = Number(rlJanela)
-    if ([sm, ia, ig, rm, rj].some(n => isNaN(n) || n <= 0)) {
+    if ([sm, ia, ig, rm, rj].some(n => isNaN(n) || n <= 0) || !Number.isInteger(mr) || mr < 0 || mr > 3600) {
       setMsg({ ok: false, text: 'Preencha valores numéricos positivos.' })
       return
     }
@@ -898,6 +900,7 @@ function SegurancaTab() {
         { chave: 'senha_min_length', valor: sm },
         { chave: 'sessao_idle_admin_min', valor: ia },
         { chave: 'sessao_idle_geral_min', valor: ig },
+        { chave: 'mobile_relock_segundos', valor: mr },
         { chave: 'rate_limit_login', valor: { max: rm, janela_min: rj } },
       ], { onConflict: 'chave' })
     setSaving(false)
@@ -943,6 +946,12 @@ function SegurancaTab() {
             </div>
           </div>
           <p className="mt-1 text-xs text-silver-400">Encerra a sessão após o período sem atividade.</p>
+          <div className="mt-4 max-w-xs">
+            <label htmlFor="mobile-relock-seconds" className="label">Bloqueio do app mobile após segundo plano (segundos)</label>
+            <input id="mobile-relock-seconds" className="input" type="number" min={0} max={3600} value={mobileRelock}
+              onChange={e => { setMobileRelock(e.target.value); setMsg(null) }} />
+            <p className="mt-1 text-xs text-silver-400">Abertura com sessão armazenada sempre exige desbloqueio. Zero exige desbloqueio a cada retorno.</p>
+          </div>
         </div>
 
         {/* Rate limit de login */}

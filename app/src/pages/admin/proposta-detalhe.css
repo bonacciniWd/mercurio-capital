@@ -213,6 +213,11 @@
 .admin-proposal .proposal-heading h1 { font-size: 25px; }
 .admin-proposal .proposal-header-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: flex-start; }
 .admin-proposal .proposal-header-actions button { white-space: nowrap; }
+.admin-proposal .proposal-reissue-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 26px 12px; padding: 10px 14px; border: 1px solid #dedee2; border-radius: 10px; background: #fff; font-size: 11px; }
+.admin-proposal .proposal-reissue-notice p { margin: 0; }
+.admin-proposal .proposal-reissue-link { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 4px 8px; border: 1px solid #dedee2; border-radius: 7px; background: #f6f6f7; }
+.admin-proposal .proposal-reissue-link code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-proposal .proposal-reissue-link button { display: inline-grid; place-items: center; min-width: 28px; min-height: 28px; padding: 4px; }
 .admin-proposal .proposal-more-actions { position: relative; }
 .admin-proposal .proposal-more-actions > summary { list-style: none; cursor: pointer; display: flex; align-items: center; min-height: 34px; padding: 0 14px; border: 1px solid #d5d5d8; border-radius: 8px; background: #fff; color: #333338; font-size: 11px; font-weight: 700; }
 .admin-proposal summary::-webkit-details-marker { display: none; }

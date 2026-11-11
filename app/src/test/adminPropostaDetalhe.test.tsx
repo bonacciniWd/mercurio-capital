@@ -13,6 +13,7 @@ vi.mock('@/components/PropostaContrato', () => ({ PropostaContrato: () => <div>C
 vi.mock('@/components/PropostaPendencias', () => ({ PropostaPendencias: () => <div>Pendências da operação</div> }))
 vi.mock('@/components/PropostaCondicaoComercial', () => ({ PropostaCondicaoComercial: () => <div>Condição comercial</div> }))
 vi.mock('@/lib/supabase', () => ({ supabase: {
+  functions: { invoke: vi.fn().mockResolvedValue({ data: { url: 'https://example.invalid/c/proposta/token-teste', email_status: 'enfileirado' }, error: null }) },
   rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
   from: (table: string) => {
     const data = table === 'propostas' ? {
@@ -82,5 +83,14 @@ describe('detalhe administrativo da proposta', () => {
     expect(screen.queryByText('Alterar status')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Editar dados' })).not.toBeInTheDocument()
     expect(screen.getAllByText('Não atribuído').length).toBeGreaterThan(0)
+  })
+  it('permite reemitir convite para o cliente e informa o envio por e-mail', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    mount()
+    await screen.findByText('Proposta MC-TESTE')
+    fireEvent.click(screen.getByRole('button', { name: 'Reemitir convite' }))
+    expect(window.confirm).toHaveBeenCalledWith('Emitir um novo convite para esta proposta? Convites anteriores ainda não utilizados serão invalidados.')
+    expect(await screen.findByText('https://example.invalid/c/proposta/token-teste')).toBeInTheDocument()
+    expect(await screen.findByText('Novo convite enviado para a fila de e-mail.')).toBeInTheDocument()
   })
 })

@@ -557,7 +557,8 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
               </div>
             ) : tipoAutorizando === 'serasa_pf' || tipoAutorizando === 'serasa_pj' ? (
               <>
-                <p className="mt-2 text-sm text-silver-600">A consulta será feita no documento cadastrado para este proponente. O aceite registrado é do cliente principal e cobre o escopo desta proposta; ele não é um aceite individual do proponente.</p>
+                <p className="mt-2 text-sm text-silver-600">A busca usa o CPF/CNPJ cadastrado para este proponente. Este arquivo é somente uma evidência de autorização, não um documento exigido para localizar o relatório Serasa.</p>
+                <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">O cliente principal ainda não registrou a instrução digital para consultas desta proposta. Você pode reemitir o convite para que ele faça essa escolha no acesso web ou seguir com um documento de autorização aprovado.</p>
                 <label className="mt-4 block text-xs font-semibold text-silver-600" htmlFor="consulta-evidencia">Documento aprovado</label>
                 <select id="consulta-evidencia" className="input mt-1 w-full" value={evidenciaId} onChange={event => setEvidenciaId(event.target.value)}>
                   <option value="">Selecione um documento</option>
@@ -567,7 +568,7 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
                 </select>
                 {evidenciasQuery.isLoading && <p className="mt-2 text-xs text-silver-500">Carregando documentos...</p>}
                 {!evidenciasQuery.isLoading && (evidenciasQuery.data ?? []).length === 0 && (
-                  <p className="mt-2 text-xs text-danger">Não há documento aprovado para comprovar a autorização. Anexe e aprove o documento antes de consultar.</p>
+                  <p className="mt-2 text-xs text-danger">Não há documento aprovado para comprovar a autorização. Reemita o convite e oriente o cliente a registrar a instrução opcional, ou anexe e aprove o documento antes de consultar.</p>
                 )}
               </>
             ) : tipoAutorizando === 'bacen_cpf' || tipoAutorizando === 'bacen_cnpj' ? (

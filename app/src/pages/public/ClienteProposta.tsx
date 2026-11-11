@@ -191,18 +191,19 @@ export function ClienteProposta() {
                 <br /><b className="text-navy">{peek.cliente_email || 'fornecido pelo parceiro'}</b>
               </p>
 
-                  <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-lg border border-silver-200 bg-silver-50 p-4 text-xs leading-relaxed text-silver-700">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 h-4 w-4 shrink-0 accent-red-700"
-                      checked={aceiteConsultas}
-                      onChange={event => setAceiteConsultas(event.target.checked)}
-                    />
-                    <span>
-                      <b className="block text-sm text-navy">Instrução para consultas desta proposta (opcional)</b>
-                      Confirmo que solicitei a análise desta proposta e instruo a Mercúrio Capital a encaminhar, para essa finalidade, os dados informados dos proponentes e dos imóveis vinculados a ela aos serviços de crédito, cadastro e registros imobiliários integrados e habilitados. A consulta efetiva depende da disponibilidade do serviço e das validações aplicáveis. O registro será feito em meu nome como cliente principal e não representa aceite individual dos demais proponentes. Novos provedores ou finalidades fora dessas categorias exigirão atualização das informações e do escopo.
-                    </span>
-                  </label>
+              <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-red-200 bg-red-50/70 p-4 text-sm leading-relaxed text-silver-700">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-5 w-5 shrink-0 accent-red-700"
+                  checked={aceiteConsultas}
+                  onChange={event => setAceiteConsultas(event.target.checked)}
+                />
+                <span>
+                  <b className="block text-base text-navy">Instrução para consultas desta proposta <span className="text-xs font-medium text-silver-500">(opcional)</span></b>
+                  Confirmo que solicitei a análise desta proposta e instruo a Mercúrio Capital a encaminhar, para essa finalidade, os dados informados dos proponentes e dos imóveis vinculados a ela aos serviços de crédito, cadastro e registros imobiliários integrados e habilitados. A consulta efetiva depende da disponibilidade do serviço e das validações aplicáveis. O registro será feito em meu nome como cliente principal e não representa aceite individual dos demais proponentes. Novos provedores ou finalidades fora dessas categorias exigirão atualização das informações e do escopo.
+                  <span className="mt-2 block text-xs font-medium text-silver-600">Se deixar desmarcada, você poderá continuar. Para consultas externas da proposta, a equipe precisará de um documento de autorização aprovado.</span>
+                </span>
+              </label>
 
               <button
                 type="button"
