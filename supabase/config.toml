@@ -127,6 +127,10 @@ verify_jwt = false
 [functions.whatsapp-dispatcher]
 verify_jwt = false
 
+# Worker de fila (cron): sem JWT de usuário; auth própria via PUSH_WORKER_SECRET (digest)
+[functions.push-dispatcher]
+verify_jwt = false
+
 [functions.auth-login]
 verify_jwt = false
 
