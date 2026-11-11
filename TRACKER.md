@@ -40,7 +40,7 @@ em `screenshots/ios/6.9/`; textos e campos completos em `screenshots/app-store-c
 | #10 | push-web: modelo push_devices/push_outbox + RLS + smoke | 🟢 | `ee3d42f`; reutilizou `push_devices` (decisão do dono); smokes fase-59 verdes em Supabase local |
 | #12 | push-web: trigger de fan-out a partir de notificacoes | 🟢 | Entregue junto da #10 (`ee3d42f`), conforme §9 do plano |
 | #11 | push-web: edge push-dispatcher (FCM HTTP v1) | 🟢 | `29aadaf`; 31/31 testes, deno check limpo; deploy aguarda GO + secrets FCM |
-| #13 | push-web: service worker + SDK Firebase no app web | ⚪ | Dep `firebase` autorizada; guard desktop |
+| #13 | push-web: service worker + SDK Firebase no app web | 🟢 | `b684535`; payload data-only após revisão; 7/7 testes; falhas da suite são pré-existentes (#17 e adminLeads) |
 | #14 | push-web: UX de permissão e preferências | ⚪ | Especificação UX/UI prévia |
 | #15 | push-web: degradê Electron/Safari + docs operacionais | ⚪ | Runbook, security-checklist, §2.2 do 12-finalizacao |
 | #16 | push-web: flag de rollout + evidências | ⚪ | Flag `push_web`; staging com 2 navegadores |
