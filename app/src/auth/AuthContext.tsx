@@ -15,7 +15,7 @@ import {
 import type { AppRole, AuthRedirect, AuthSession } from '@/auth/types'
 import { supabase } from '@/lib/supabase'
 import { getIdleConfig } from '@/lib/securityConfig'
-import { initPushWeb, revokePushWeb } from '@/lib/pushWeb'
+import { initPushWeb, isPushDeviceOff, revokePushWeb } from '@/lib/pushWeb'
 
 type LoginPayload = {
   email: string
@@ -108,8 +108,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Push web (issue #13): registro silencioso do token a cada sessão ativa.
   // Só age se a permissão já foi concedida antes — o prompt contextual é a #14.
+  // Guard P-4 (#14): respeita o "desativar neste navegador" durável do usuário.
   useEffect(() => {
-    if (session) void initPushWeb()
+    if (session && !isPushDeviceOff(session.userId)) void initPushWeb()
   }, [session])
 
   // Auto-logout por inatividade (lê timeouts de configuracoes_sistema).

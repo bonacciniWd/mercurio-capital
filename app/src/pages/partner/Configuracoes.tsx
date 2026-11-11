@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { TwoFactorManager } from '@/components/TwoFactorManager'
+import { PushBrowserSection } from '@/components/PushBrowserSection'
+import { usePushOptOut } from '@/hooks/usePushOptOut'
+import { useAuth } from '@/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import {
   PARTNER_PROFILE_QUERY_KEY,
@@ -441,6 +444,8 @@ function Notif() {
   const qc = useQueryClient()
   const [prefs, setPrefs] = useState<PrefState>({})
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null)
+  const { session } = useAuth()
+  const pushMestreOff = usePushOptOut(session?.userId).data === true
 
   const listQ = useQuery({
     queryKey: ['partner', 'notif-prefs'],
@@ -512,7 +517,10 @@ function Notif() {
   return (
     <>
       <h2 className="text-lg font-semibold text-navy">Preferências de notificação</h2>
-      <div className="mt-4 overflow-hidden rounded-lg border border-silver-200">
+      <div className="mt-4">
+        <PushBrowserSection />
+      </div>
+      <div className="overflow-hidden rounded-lg border border-silver-200">
         <table className="w-full text-sm">
           <thead className="bg-silver-50 text-left text-xs uppercase text-silver-500">
             <tr>
@@ -551,7 +559,8 @@ function Notif() {
                       type="checkbox"
                       className="h-4 w-4 accent-gold"
                       checked={row.push}
-                      disabled={loading}
+                      disabled={loading || pushMestreOff}
+                      title={pushMestreOff ? 'Ative o push geral acima para usar esta coluna' : undefined}
                       onChange={() => toggle(ev.key, 'push')}
                     />
                   </td>

@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom'
 import { Building2, Bell, Shield, Globe, Users, Save, TrendingUp, CheckCircle2, XCircle, Upload, Trash2, MailCheck, Loader2, Copy, Check, AlertTriangle, Workflow, Megaphone, FileText, Flag, Plug, ScrollText, Settings, Tags, Plus, Calculator, MessageCircle } from 'lucide-react'
 import { Badge } from '@/components/Badge'
 import { TwoFactorManager } from '@/components/TwoFactorManager'
+import { PushBrowserSection } from '@/components/PushBrowserSection'
+import { usePushOptOut } from '@/hooks/usePushOptOut'
+import { useAuth } from '@/auth/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { publicAppUrl } from '@/lib/publicUrl'
 import { DEFAULT_SIMULATION_MESSAGE, type ConfigMensagensSimulador, type RegraMensagemSimulador } from '@/lib/mensagensSimulador'
@@ -1032,6 +1035,8 @@ function NotificacoesTab() {
   const [prefs, setPrefs] = useState<NotifPrefs | null>(null)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const { session } = useAuth()
+  const pushMestreOff = usePushOptOut(session?.userId).data === true
 
   useEffect(() => {
     supabase
@@ -1076,6 +1081,7 @@ function NotificacoesTab() {
     <>
       <h2 className="mb-1 font-semibold text-navy">Preferências de notificação</h2>
       <p className="mb-5 text-sm text-silver-500">Aplicadas às notificações administrativas da plataforma.</p>
+      <PushBrowserSection />
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-left text-xs uppercase text-silver-500">
@@ -1096,6 +1102,8 @@ function NotificacoesTab() {
                       type="checkbox"
                       className="h-4 w-4 accent-gold"
                       checked={prefs[ev.key][c]}
+                      disabled={c === 'push' && pushMestreOff}
+                      title={c === 'push' && pushMestreOff ? 'Ative o push geral acima para usar esta coluna' : undefined}
                       onChange={() => toggle(ev.key, c)}
                     />
                   </td>

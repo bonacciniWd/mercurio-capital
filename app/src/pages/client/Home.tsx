@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, FileText, Clock, Loader2, FileWarning } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/auth/AuthContext'
+import { PushClientCard } from '@/components/PushClientCard'
 import { brl } from '@/lib/utils'
 import { buildChecklist, countObrigatoriosPendentes, type DocRowLite, type RequisitoRow } from '@/lib/documentos'
 import loginBackground from '@/assets/fundo-login.jpg'
@@ -120,6 +121,8 @@ export function ClientHome() {
           </span>
         </Link>
       )}
+
+      <PushClientCard />
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-silver-500">Suas propostas</h2>
 

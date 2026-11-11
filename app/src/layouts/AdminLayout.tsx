@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { NotificationBell } from '@/components/NotificationBell'
+import { PushOptIn } from '@/components/PushOptIn'
 import { isRestrictedAdmin, isRestrictedAdminNavPath } from '@/lib/adminScope'
 
 const ITEMS = [
@@ -106,6 +107,7 @@ export function AdminLayout() {
           </div>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
+          <PushOptIn />
           <Suspense fallback={
             <div className="flex h-64 items-center justify-center text-silver-500">
               <Loader2 className="h-6 w-6 animate-spin" />

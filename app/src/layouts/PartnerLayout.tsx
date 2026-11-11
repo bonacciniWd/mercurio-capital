@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { NotificationBell } from '@/components/NotificationBell'
+import { PushOptIn } from '@/components/PushOptIn'
 import {
   usePartnerProfile,
   partnerAvatarInitial,
@@ -143,6 +144,7 @@ export function PartnerLayout() {
           </div>
         </header>
         <div className="flex-1 overflow-y-auto p-6">
+          <PushOptIn />
           <Outlet />
         </div>
       </main>

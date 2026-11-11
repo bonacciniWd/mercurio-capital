@@ -43,6 +43,10 @@ interface FirebaseWebConfig {
 }
 
 // Leitura tardia (não no import) para testes poderem stubar env.
+export function pushWebConfigurado(): boolean {
+  return firebaseConfig() !== null
+}
+
 function firebaseConfig(): FirebaseWebConfig | null {
   const cfg = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
@@ -91,6 +95,35 @@ export async function initPushWeb(): Promise<void> {
   } catch {
     // push é complementar — falha aqui nunca quebra a sessão
   }
+}
+
+// Bloqueio local durável por usuário+navegador (issue #14, regra P-4): sem ele,
+// o registro silencioso deste módulo desfaria o "desativar" a cada login.
+const DEVICE_OFF_PREFIX = 'mercurio:push_device_off_v1:'
+
+export function isPushDeviceOff(userId: string): boolean {
+  try {
+    return window.localStorage.getItem(DEVICE_OFF_PREFIX + userId) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function setPushDeviceOff(userId: string, off: boolean): void {
+  try {
+    if (off) window.localStorage.setItem(DEVICE_OFF_PREFIX + userId, '1')
+    else window.localStorage.removeItem(DEVICE_OFF_PREFIX + userId)
+  } catch {
+    // localStorage indisponível — bloqueio não persiste (degradê aceitável)
+  }
+}
+
+// ÚNICO ponto que pede permissão ao navegador — sempre a partir de gesto do usuário.
+export async function requestPushPermission(): Promise<NotificationPermission> {
+  if (!pushWebSuportado()) return 'denied'
+  const permission = await Notification.requestPermission()
+  if (permission === 'granted') await initPushWeb()
+  return permission
 }
 
 // Revoga no servidor + descarta o token local. Chamar ANTES do signOut.
