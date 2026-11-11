@@ -113,6 +113,15 @@ test('dispatchToTokens: sucesso total → enviado', async () => {
   assert.deepEqual(r, { status: 'enviado', erro: null, tokensMortos: [] })
 })
 
+test('payload é data-only (sem chave notification — evita push duplicado SDK+SW)', async () => {
+  const { sa } = await fakeServiceAccount()
+  let sent
+  const capture = async (_url, init) => { sent = JSON.parse(init.body); return okFetch() }
+  await dispatchToTokens(sa, 'token', row, ['t1'], capture)
+  assert.equal(sent.message.notification, undefined)
+  assert.deepEqual(sent.message.data, { titulo: row.titulo, mensagem: row.mensagem, link: row.link })
+})
+
 test('dispatchToTokens: entrega em um token e limpa o morto', async () => {
   const { sa } = await fakeServiceAccount()
   const fetch = async (_url, init) => {

@@ -15,6 +15,7 @@ import {
 import type { AppRole, AuthRedirect, AuthSession } from '@/auth/types'
 import { supabase } from '@/lib/supabase'
 import { getIdleConfig } from '@/lib/securityConfig'
+import { initPushWeb, revokePushWeb } from '@/lib/pushWeb'
 
 type LoginPayload = {
   email: string
@@ -105,6 +106,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  // Push web (issue #13): registro silencioso do token a cada sessão ativa.
+  // Só age se a permissão já foi concedida antes — o prompt contextual é a #14.
+  useEffect(() => {
+    if (session) void initPushWeb()
+  }, [session])
+
   // Auto-logout por inatividade (lê timeouts de configuracoes_sistema).
   // admin → sessao_idle_admin_min · demais → sessao_idle_geral_min.
   useEffect(() => {
@@ -121,6 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const reset = () => {
         if (timer) clearTimeout(timer)
         timer = setTimeout(async () => {
+          await revokePushWeb()
           await signOut()
           setSession(null)
           setMfaChallengeRef(null)
@@ -187,6 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(current)
       },
       logout: async () => {
+        await revokePushWeb() // antes do signOut — a RPC precisa da sessão ativa
         await signOut()
         setSession(null)
         setMfaChallengeRef(null)

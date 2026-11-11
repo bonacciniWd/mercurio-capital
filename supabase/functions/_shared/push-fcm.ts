@@ -136,9 +136,13 @@ export async function sendPush(
       body: JSON.stringify({
         message: {
           token: msg.token,
-          notification: { title: msg.titulo, body: msg.mensagem },
-          data: msg.link ? { link: msg.link } : {},
-          webpush: msg.link ? { fcm_options: { link: msg.link } } : undefined,
+          // data-only: com chave `notification` o SDK web auto-exibe E o SW exibiria
+          // de novo (duplicidade). O SW lê titulo/mensagem de data (issue #13, H1).
+          data: {
+            titulo: msg.titulo,
+            mensagem: msg.mensagem,
+            ...(msg.link ? { link: msg.link } : {}),
+          },
         },
       }),
       signal: AbortSignal.timeout(10_000),
