@@ -43,7 +43,7 @@ em `screenshots/ios/6.9/`; textos e campos completos em `screenshots/app-store-c
 | #13 | push-web: service worker + SDK Firebase no app web | 🟢 | `b684535`; payload data-only após revisão; 7/7 testes; falhas da suite são pré-existentes (#17 e adminLeads) |
 | #14 | push-web: UX de permissão e preferências | 🟢 | `deab1ab`; spec UX/UI aprovada pelo dono; 20/20 testes; M-1 do Revisor corrigido |
 | #15 | push-web: degradê Electron/Safari + docs operacionais | 🟢 | `fa28d48`+`c4c7297`; runbook §17, handoff 21, .env.example versionado |
-| #16 | push-web: flag de rollout + evidências | ⚪ | Flag `push_web`; staging com 2 navegadores |
+| #16 | push-web: flag de rollout + evidências | 🟡 | `a0bf2de`: flag nasce off + rollout 4 etapas + checklist de staging; evidências bloqueadas no projeto Firebase (dono) + GO de deploy |
 
 ## Repositório
 
