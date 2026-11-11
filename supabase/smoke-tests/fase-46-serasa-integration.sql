@@ -24,7 +24,7 @@ begin
   select * into v_uat from public.serasa_relatorios_config where ambiente='uat';
   select * into v_prod from public.serasa_relatorios_config where ambiente='producao';
   if not coalesce(v_uat.ativo, false)
-    or v_uat.report_pf <> 'RELATORIO_AVANCADO_TOP_SCORE_PF'
+    or v_uat.report_pf <> 'RELATORIO_AVANCADO_PF'
     or v_uat.report_pj <> 'RELATORIO_AVANCADO_PJ_ANALITICO' then
     raise exception 'serasa_uat_products_or_flag_invalid';
   end if;

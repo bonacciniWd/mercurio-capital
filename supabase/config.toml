@@ -136,5 +136,15 @@ verify_jwt = false
 [functions.public-cpc-lead]
 verify_jwt = false
 
+[functions.public-merx-lead]
+verify_jwt = false
+
 [functions.public-consulta-protocolo]
+verify_jwt = false
+
+# Handler verifies user JWT + role, or a dedicated worker secret.
+[functions.whatsapp-admin]
+verify_jwt = false
+
+[functions.whatsapp-worker]
 verify_jwt = false
