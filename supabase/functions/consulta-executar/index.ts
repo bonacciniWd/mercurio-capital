@@ -19,10 +19,14 @@ import {
   normalizeSerasaReport,
   requestSerasaReport,
   serasaEnvironment,
+  summarizeSerasaReport,
 } from '../_shared/serasa-reports.ts'
+
+type SupabaseClientType = ReturnType<typeof createClient<any>>
 
 interface Body {
   proposta_id: string
+  proponente_id?: string
   tipo: string
   chave_idempotencia?: string
   autorizacao_id?: string
@@ -217,7 +221,7 @@ async function chamarProvedor(tipo: string, payload: Record<string, unknown>): P
 // documento, sem expor nada ao client. Prioriza o cliente da proposta e cai para o
 // proponente principal quando necessário.
 async function resolverDocumento(
-  service: ReturnType<typeof createClient>,
+  service: SupabaseClientType,
   propostaId: string,
   tipo: string,
 ): Promise<string | null> {
@@ -278,11 +282,34 @@ function parametrosPjValidos(value: unknown): value is Record<string, unknown> {
   return parameter.name === 'segmentCode' && typeof parameter.value === 'string' && /^\d{3}$/.test(parameter.value)
 }
 
+function parsePfFeatures(value: unknown, parameters: unknown): { features: string[]; parameters?: Record<string, unknown> } | null {
+  const allowedFeatures = new Set(['SCORE', 'RENDA_MAIS'])
+  if (value !== undefined && value !== null && (!Array.isArray(value) || value.some(item => typeof item !== 'string' || !allowedFeatures.has(item)))) return null
+  const features = Array.isArray(value) ? [...new Set(value as string[])] : []
+  if (parameters == null) return features.length ? null : { features }
+  if (typeof parameters !== 'object' || Array.isArray(parameters)) return null
+  const rows = (parameters as Record<string, unknown>).reportParameters
+  if (!Array.isArray(rows)) return null
+  const clean: Array<{ name: string; value: string }> = []
+  for (const item of rows) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+    const row = item as Record<string, unknown>
+    if (typeof row.name !== 'string' || typeof row.value !== 'string') return null
+    const allowed = row.name === 'SCORE'
+      ? ['HSPN', 'HSV4', 'HRLD', 'HRLN', 'HRLB']
+      : row.name === 'RENDA_MAIS' ? ['HRM5'] : []
+    if (!features.includes(row.name) || !allowed.includes(row.value) || clean.some(existing => existing.name === row.name)) return null
+    clean.push({ name: row.name, value: row.value })
+  }
+  if (clean.length !== features.length) return null
+  return { features, ...(clean.length ? { parameters: { reportParameters: clean } } : {}) }
+}
+
 async function executarSerasaAutorizado(args: {
   req: Request
   body: Body
-  supabase: ReturnType<typeof createClient>
-  service: ReturnType<typeof createClient>
+  supabase: SupabaseClientType
+  service: SupabaseClientType
 }): Promise<Response> {
   const { body, supabase, service } = args
   if (body.tipo !== 'serasa_pf' && body.tipo !== 'serasa_pj') return jsonResponse({ error: 'tipo_invalido' }, 400)
@@ -290,6 +317,9 @@ async function executarSerasaAutorizado(args: {
     return jsonResponse({ error: 'chave_idempotencia_obrigatoria' }, 400)
   }
   if (!body.autorizacao_id) return jsonResponse({ error: 'autorizacao_documentada_obrigatoria' }, 403)
+  if (!body.proponente_id || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(body.proponente_id)) {
+    return jsonResponse({ error: 'proponente_obrigatorio' }, 400)
+  }
 
   const ambiente = serasaEnvironment(SERASA_API_URL)
   if (!ambiente) return jsonResponse({ error: 'serasa_ambiente_ou_url_invalida' }, 503)
@@ -305,7 +335,7 @@ async function executarSerasaAutorizado(args: {
 
   const [{ data: integration, error: integrationError }, { data: config, error: configError }] = await Promise.all([
     service.from('integracoes_config').select('ativo').eq('chave', 'serasa').maybeSingle(),
-    service.from('serasa_relatorios_config').select('ativo, report_pf, report_pj, parametros_pj, versao_normalizador')
+    service.from('serasa_relatorios_config').select('ativo, report_pf, report_pj, parametros_pj, features_pf, parametros_pf, versao_normalizador')
       .eq('ambiente', ambiente).maybeSingle(),
   ])
   if (integrationError || configError) return jsonResponse({ error: 'serasa_config_indisponivel' }, 503)
@@ -313,39 +343,45 @@ async function executarSerasaAutorizado(args: {
   if (body.tipo === 'serasa_pj' && !parametrosPjValidos(config.parametros_pj)) {
     return jsonResponse({ error: 'serasa_parametros_pj_pendentes' }, 503)
   }
+  const pfConfig = body.tipo === 'serasa_pf' ? parsePfFeatures(config.features_pf, config.parametros_pf) : null
+  if (body.tipo === 'serasa_pf' && !pfConfig) return jsonResponse({ error: 'serasa_parametros_pf_invalidos' }, 503)
 
   const product = body.tipo === 'serasa_pf' ? config.report_pf : config.report_pj
   const expectedProduct = body.tipo === 'serasa_pf'
-    ? 'RELATORIO_AVANCADO_TOP_SCORE_PF'
+    ? 'RELATORIO_AVANCADO_PF'
     : 'RELATORIO_AVANCADO_PJ_ANALITICO'
   if (product !== expectedProduct) return jsonResponse({ error: 'serasa_produto_nao_permitido' }, 503)
+  const serasaProduct = expectedProduct
 
-  const { data: proposal, error: proposalError } = await service
-    .from('propostas')
-    .select('cliente:clientes(pessoa_tipo, cpf, cnpj)')
-    .eq('id', body.proposta_id)
+  const { data: proponente, error: proponenteError } = await service
+    .from('proponentes')
+    .select('id, proposta_id, pessoa_tipo, cpf_cnpj')
+    .eq('id', body.proponente_id)
+    .eq('proposta_id', body.proposta_id)
     .maybeSingle()
-  if (proposalError) return jsonResponse({ error: 'cadastro_proposta_indisponivel' }, 503)
-  const cliente = (proposal as { cliente?: { pessoa_tipo?: string; cpf?: string | null; cnpj?: string | null } | null } | null)?.cliente
-  const document = body.tipo === 'serasa_pf' ? cliente?.cpf : cliente?.cnpj
+  if (proponenteError) return jsonResponse({ error: 'cadastro_proponente_indisponivel' }, 503)
+  const document = (proponente as { cpf_cnpj?: string | null } | null)?.cpf_cnpj
   const expectedPersonType = body.tipo === 'serasa_pf' ? 'PF' : 'PJ'
-  if (cliente?.pessoa_tipo !== expectedPersonType || !document || !documentoValido(document, body.tipo)) {
-    return jsonResponse({ error: 'documento_titular_invalido' }, 422)
+  if (proponente?.pessoa_tipo !== expectedPersonType || !document || !documentoValido(document, body.tipo)) {
+    return jsonResponse({ error: 'documento_proponente_invalido' }, 422)
   }
 
-  const { data: startData, error: startError } = await supabase.rpc('consulta_iniciar_serasa', {
+  const { data: startData, error: startError } = await supabase.rpc('consulta_iniciar_serasa_proponente', {
     p_proposta_id: body.proposta_id,
     p_tipo: body.tipo,
     p_chave_idempotencia: body.chave_idempotencia,
     p_autorizacao_id: body.autorizacao_id,
     p_ambiente: ambiente,
+    p_proponente_id: body.proponente_id,
   })
   if (startError) {
     const message = startError.message ?? ''
+    if (message.includes('serasa_admin_cota_diaria_excedida')) return jsonResponse({ error: 'serasa_admin_cota_diaria_excedida' }, 429)
+    if (message.includes('serasa_admin_limite_nao_configurado')) return jsonResponse({ error: 'serasa_admin_limite_nao_configurado' }, 503)
     if (message.includes('saldo_insuficiente')) return jsonResponse({ error: 'saldo_insuficiente' }, 402)
     if (message.includes('wallet_bloqueada')) return jsonResponse({ error: 'wallet_bloqueada' }, 403)
     if (message.includes('preco_nao_configurado')) return jsonResponse({ error: 'preco_nao_configurado' }, 422)
-    if (message.includes('autorizacao') || message.includes('documento_')) return jsonResponse({ error: 'autorizacao_documento_ou_titular_invalido' }, 403)
+    if (message.includes('autorizacao') || message.includes('documento_') || message.includes('aceite_digital')) return jsonResponse({ error: 'autorizacao_documento_ou_titular_invalido' }, 403)
     if (message.includes('proposta_nao_encontrada')) return jsonResponse({ error: 'proposta_nao_encontrada_ou_sem_acesso' }, 404)
     if (message.includes('serasa_')) return jsonResponse({ error: 'serasa_relatorio_desativado' }, 503)
     if (message.includes('chave_idempotencia_reutilizada')) return jsonResponse({ error: 'chave_idempotencia_reutilizada' }, 409)
@@ -372,13 +408,15 @@ async function executarSerasaAutorizado(args: {
       clientSecret: SERASA_CLIENT_SECRET,
       document,
       retailerDocumentId: retailerDocumentId || undefined,
-      product: product as 'RELATORIO_AVANCADO_TOP_SCORE_PF' | 'RELATORIO_AVANCADO_PJ_ANALITICO',
+      product: serasaProduct,
       reportParameters: body.tipo === 'serasa_pj' ? config.parametros_pj as Record<string, unknown> : undefined,
+      ...(pfConfig ? { optionalFeatures: pfConfig.features, reportParameters: pfConfig.parameters } : {}),
     })
-    const resumo = normalizeSerasaReport(raw, product, config.versao_normalizador)
+    const report = normalizeSerasaReport(raw, serasaProduct, config.versao_normalizador, pfConfig?.features ?? [])
+    const resumo = summarizeSerasaReport(report)
     const { error: finishError } = await service.rpc('consulta_concluir', {
       p_log_id: started.log_id,
-      p_response: resumo,
+      p_response: report,
       p_resumo: resumo,
       p_provedor: 'serasa_experian',
     })
@@ -415,12 +453,15 @@ async function executarSerasaAutorizado(args: {
       if (reconcileError) return jsonResponse({ error: 'consulta_em_reconciliacao', log_id: started.log_id }, 503)
       return jsonResponse({ error: 'consulta_em_reconciliacao', log_id: started.log_id, status: 'reconciliacao_pendente' }, 202)
     }
-    const { error: refundError } = await service.rpc('consulta_estornar', {
+    const { data: failedLog, error: refundError } = await service.rpc('consulta_estornar', {
       p_log_id: started.log_id,
       p_motivo: code.slice(0, 160),
     })
     if (refundError) return jsonResponse({ error: 'estorno_pendente_reconciliacao', log_id: started.log_id }, 503)
-    return jsonResponse({ error: 'falha_provedor', status_serasa: statusCode, estornado: true, log_id: started.log_id }, 502)
+    return jsonResponse({
+      error: 'falha_provedor', status_serasa: statusCode,
+      estornado: (failedLog as { status?: string } | null)?.status === 'estornada', log_id: started.log_id,
+    }, 502)
   }
 }
 
@@ -452,12 +493,22 @@ Deno.serve(async (req: Request) => {
     return executarSerasaAutorizado({ req, body, supabase, service })
   }
 
+  // Reject unimplemented/mock providers before consulta_iniciar can debit the
+  // partner wallet. BACEN_ALLOW_MOCK is intentionally ignored for paid queries.
+  if (body.tipo === 'bacen_cpf' || body.tipo === 'bacen_cnpj') {
+    if (!bacenConfigurado()) {
+      return jsonResponse({ error: 'bacen_nao_configurado' }, 503)
+    }
+  } else {
+    return jsonResponse({ error: 'provedor_mock_indisponivel' }, 503)
+  }
+
   // 1. consulta_iniciar (debita carteira)
   const { data: ini, error: errIni } = await supabase.rpc('consulta_iniciar', {
     p_proposta_id: body.proposta_id,
     p_tipo: body.tipo,
     p_provedor: null,
-    p_request: body.payload ?? {},
+    p_request: {},
   })
   if (errIni) {
     const msg = errIni.message ?? ''
@@ -465,6 +516,7 @@ Deno.serve(async (req: Request) => {
     if (msg.includes('wallet_bloqueada')) return jsonResponse({ error: 'wallet_bloqueada', detail: errIni.hint ?? null }, 403)
     if (msg.includes('proposta_nao_encontrada')) return jsonResponse({ error: 'proposta_nao_encontrada_ou_sem_acesso' }, 404)
     if (msg.includes('preco_nao_configurado')) return jsonResponse({ error: 'preco_nao_configurado', detail: errIni.details ?? null }, 422)
+    if (msg.includes('aceite_digital')) return jsonResponse({ error: 'aceite_digital_ausente_ou_escopo_invalido' }, 403)
     return jsonResponse({ error: 'erro_iniciar', detail: msg }, 500)
   }
 
@@ -476,7 +528,7 @@ Deno.serve(async (req: Request) => {
   // 2. chama provedor
   try {
     // Para consultas Bacen, resolve o documento server-side (não é enviado pelo client).
-    const payload: Record<string, unknown> = { ...(body.payload ?? {}) }
+    const payload: Record<string, unknown> = {}
     if (body.tipo === 'bacen_cpf' || body.tipo === 'bacen_cnpj') {
       const documento = await resolverDocumento(service, body.proposta_id, body.tipo)
       if (!documento) throw new Error('documento_nao_encontrado_na_proposta')

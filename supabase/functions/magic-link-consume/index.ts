@@ -1,6 +1,6 @@
 // supabase/functions/magic-link-consume/index.ts
 // Endpoint anônimo para consumir um magic-link de proposta.
-// Body: { token: string }
+// Body: { token: string, aceite_consultas?: boolean }
 // Retorna: { proposta_id, protocolo, cliente_id, session?: { access_token, refresh_token, email } }
 //
 // Quando o cliente já possui usuário (clientes.usuario_id), gera uma sessão Supabase
@@ -14,11 +14,16 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const SITE_URL = (Deno.env.get('SITE_URL') ?? Deno.env.get('APP_URL') ?? 'https://mercuriocapitalsa.com.br').replace(/\/+$/, '')
 
+async function hashMagicToken(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
   if (req.method !== 'POST') return jsonResponse({ error: 'method_not_allowed' }, { status: 405 })
 
-  let body: { token?: string }
+  let body: { token?: string; aceite_consultas?: boolean }
   try {
     body = await req.json()
   } catch {
@@ -182,6 +187,29 @@ Deno.serve(async (req) => {
       entidade_id: result.cliente_id,
       payload_depois: { usuario_id: authUser.id, origem: 'magic_link_consume' },
     })
+  }
+
+  if (body.aceite_consultas === true) {
+    const tokenHash = await hashMagicToken(token)
+    const { data: consumedLink, error: consumedLinkError } = await admin
+      .from('magic_links')
+      .select('id')
+      .eq('token_hash', tokenHash)
+      .eq('finalidade', 'cliente_ativacao')
+      .not('used_at', 'is', null)
+      .maybeSingle()
+    if (consumedLinkError || !consumedLink?.id) {
+      return jsonResponse({ ...result, session: null, reason: 'aceite_consultas_nao_registrado' }, 500)
+    }
+    const { error: acceptanceError } = await admin.rpc('cliente_consulta_aceite_registrar', {
+      p_proposta_id: result.proposta_id,
+      p_cliente_id: result.cliente_id,
+      p_usuario_id: authUser.id,
+      p_magic_link_id: consumedLink.id,
+    })
+    if (acceptanceError) {
+      return jsonResponse({ ...result, session: null, reason: 'aceite_consultas_nao_registrado' }, 500)
+    }
   }
 
   return jsonResponse({
