@@ -222,6 +222,37 @@ describe('PropostaObservacoesModal', () => {
     await waitFor(() => expect(screen.queryByText('doc.pdf')).toBeNull())
   })
 
+  it('retry → 2ª falha: chip volta a erro com a mensagem (Q3 da revisão #23)', async () => {
+    mocks.uploadAnexo
+      .mockRejectedValueOnce(new Error('Falha ao enviar o print. Tente novamente.'))
+      .mockRejectedValueOnce(new Error('storage fora'))
+    renderComClient(<PropostaObservacoesModal proposta={proposta} onClose={vi.fn()} />)
+    fireEvent.focus(screen.getByPlaceholderText(/Escreva uma observação interna/))
+    fireEvent.change(document.querySelector('input[type="file"]')!, {
+      target: { files: [new File(['x'], 'print.png', { type: 'image/png' })] },
+    })
+    fireEvent.click(await screen.findByText('Tentar de novo'))
+    // volta ao estado de erro, ainda com retry disponível
+    expect(await screen.findByText('Tentar de novo')).toBeInTheDocument()
+    expect(screen.getByText('Remover')).toBeInTheDocument()
+    expect(mocks.uploadAnexo).toHaveBeenCalledTimes(2)
+  })
+
+  it('resolução tardia após unmount não ressuscita anexo nem quebra (Q3 da revisão #23)', async () => {
+    let resolver!: (v: string) => void
+    mocks.uploadAnexo.mockImplementation(() => new Promise<string>((r) => { resolver = r }))
+    const { unmount } = renderComClient(<PropostaObservacoesModal proposta={proposta} onClose={vi.fn()} />)
+    fireEvent.focus(screen.getByPlaceholderText(/Escreva uma observação interna/))
+    fireEvent.change(document.querySelector('input[type="file"]')!, {
+      target: { files: [new File(['x'], 'print.png', { type: 'image/png' })] },
+    })
+    expect(await screen.findByText('Enviando…')).toBeInTheDocument()
+    unmount() // modal fechou com upload em voo
+    resolver('anexo-tardio')
+    await waitFor(() => expect(screen.queryByText('Anexado')).toBeNull())
+    expect(mocks.criar).not.toHaveBeenCalled()
+  })
+
   it('publicar vincula os IDs dos anexos prontos', async () => {
     mocks.uploadAnexo.mockResolvedValue('anexo-42')
     renderComClient(<PropostaObservacoesModal proposta={proposta} onClose={vi.fn()} />)
