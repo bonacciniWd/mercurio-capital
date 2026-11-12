@@ -91,6 +91,18 @@ describe('PropostaObservacoesButton', () => {
     expect(onOpen).toHaveBeenCalledWith('c1')
   })
 
+  it('variant chip exibe rótulo "Observações" + badge; default kanban não muda', () => {
+    render(
+      <ObservacoesKanbanContext.Provider value={{ contagem: { c1: 3 }, onOpen: vi.fn() }}>
+        <PropostaObservacoesButton cardId="c1" variant="chip" />
+      </ObservacoesKanbanContext.Provider>,
+    )
+    const chip = screen.getByRole('button', { name: 'Observações da proposta (3)' })
+    expect(chip).toHaveTextContent('Observações')
+    expect(chip).toHaveTextContent('3')
+    expect(chip.className).toContain('rounded-full')
+  })
+
   it('não renderiza no DragOverlay (dragging) nem sem contexto', () => {
     const { container } = render(<PropostaObservacoesButton cardId="c1" />)
     expect(container).toBeEmptyDOMElement()
@@ -109,8 +121,10 @@ describe('PropostaObservacoesModal', () => {
   it('estado vazio com a cópia exata e composer presente', () => {
     renderComClient(<PropostaObservacoesModal proposta={proposta} onClose={vi.fn()} />)
     expect(screen.getByText('Nenhuma observação ainda.')).toBeInTheDocument()
-    expect(screen.getByText(/Cada entrada fica marcada com a etapa atual/)).toBeInTheDocument()
-    expect(screen.getByPlaceholderText(/Escreva uma observação interna/)).toBeInTheDocument()
+    const composer = screen.getByPlaceholderText(/Escreva uma observação interna/)
+    expect(composer).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Publicar' })).toBeNull() // colapsado em repouso
+    fireEvent.focus(composer) // expande ao foco (spec delta)
     expect(screen.getByRole('button', { name: 'Publicar' })).toBeDisabled() // corpo vazio
   })
 
@@ -119,10 +133,13 @@ describe('PropostaObservacoesModal', () => {
     renderComClient(<PropostaObservacoesModal proposta={proposta} onClose={vi.fn()} />)
     expect(screen.getByText('Maria Silva')).toBeInTheDocument()
     expect(screen.getByText('Parceiro')).toBeInTheDocument()
-    expect(screen.getByText('Análise Crédito')).toBeInTheDocument() // chip = label pt-BR (lib propostaStatus)
-    expect(screen.getByText(/há 5 min/)).toBeInTheDocument()
+    expect(screen.getByText('Análise Crédito')).toBeInTheDocument() // chip de etapa dentro do card do corpo
+    const tempo = screen.getByText(/de \d{4},/) // ano corrente, sem hardcode
+    expect(tempo).toBeInTheDocument() // timestamp absoluto visível (referência do dono)
+    expect(tempo).toHaveAttribute('title', expect.stringContaining('há')) // relativo preservado no tooltip
     expect(screen.getByText(/Editável por mais \d+ min/)).toBeInTheDocument()
     expect(screen.getByText('Editar')).toBeInTheDocument()
+    expect(screen.getByText('Excluir')).toBeInTheDocument() // cópia da referência (era "Apagar")
   })
 
   it('ações somem fora da janela de 15 min', () => {

@@ -1,8 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, BarChart3, ChevronLeft, ChevronRight, Info, Loader2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { ObservacoesKanbanContext } from '@/components/observacoesKanbanContext'
+import { PropostaObservacoesButton } from '@/components/PropostaObservacoesButton'
+import { PropostaObservacoesModal, type PropostaObservacoesModalProposta } from '@/components/PropostaObservacoesModal'
+import { usePropostaObservacaoContagem } from '@/hooks/usePropostaObservacoes'
 import { brl } from '@/lib/utils'
 import { sumFundWinnerTotals, type FundWinnerTotalsRow } from '@/lib/fundosDashboard'
 import { FUND_PROPOSAL_FILTERS, getFundProposalFilterRule, sumFundRequestedVolume, type FundProposalFilter } from '@/lib/fundProposalFilter'
@@ -252,7 +256,21 @@ export function FundoDistribuicaoCard({ inicio, fim, fundo, partner }: Props) {
     },
   })
 
-  const proposalRows = proposalsQuery.data?.items ?? []
+  const proposalRows = useMemo(() => proposalsQuery.data?.items ?? [], [proposalsQuery.data])
+
+  // Observações (issue #27): mesma função do Kanban — contagem em lote por página
+  // visível + modal compartilhado com snapshot da linha (paginar não derruba rascunho).
+  const obsIds = useMemo(() => proposalRows.map(p => p.id), [proposalRows])
+  const { data: obsContagem = {} } = usePropostaObservacaoContagem(obsIds)
+  const [obsProposta, setObsProposta] = useState<PropostaObservacoesModalProposta | null>(null)
+  const obsCtx = useMemo(() => ({
+    contagem: obsContagem,
+    onOpen: (id: string) => {
+      const row = proposalRows.find(p => p.id === id)
+      if (row) setObsProposta({ id: row.id, protocolo: row.protocolo, cliente_nome: row.cliente_nome })
+    },
+  }), [obsContagem, proposalRows])
+
   const totals = sumFundWinnerTotals(rows)
   const maxAssignments = Math.max(...rows.map(row => Number(row.operacoes_representadas)), 0)
   const totalProposals = proposalSummaryQuery.data?.total ?? proposalsQuery.data?.total ?? 0
@@ -350,6 +368,7 @@ export function FundoDistribuicaoCard({ inicio, fim, fundo, partner }: Props) {
                   {FUND_PROPOSAL_FILTERS.map(filter => <button key={filter.value} type="button" aria-pressed={proposalFilter === filter.value} onClick={() => { setProposalFilter(filter.value); setPage(0) }} className={`btn-no-liquid min-h-9 rounded-full border px-3 text-xs font-semibold transition-colors ${proposalFilter === filter.value ? 'border-[#ef3f3a] bg-[#ef3f3a] text-white' : 'border-black/10 bg-white text-black/60 hover:border-[#ef3f3a]/40 hover:text-[#c92f2a]'}`}>{filter.label}</button>)}
                 </div>
                 {proposalsQuery.isError || proposalSummaryQuery.isError ? <div className="p-5 text-sm text-danger"><p>Não foi possível carregar as operações deste fundo.</p><p className="mt-1 text-xs text-silver-500">Confirme sua sessão de Admin e tente novamente.</p></div> : proposalsQuery.isLoading || proposalSummaryQuery.isLoading ? <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-silver-400" /></div> : proposalRows.length ? (
+                  <ObservacoesKanbanContext.Provider value={obsCtx}>
                   <ul className="max-h-[635px] divide-y divide-black/[0.07] overflow-y-auto">
                     {proposalRows.map(proposal => <li key={proposal.id} className="px-5 py-4 sm:px-6">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -364,9 +383,11 @@ export function FundoDistribuicaoCard({ inicio, fim, fundo, partner }: Props) {
                         <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${proposal.status === 'standby' ? 'bg-silver-100 text-silver-600' : proposal.status === 'cancelado' ? 'bg-red-50 text-red-700' : 'bg-black/[0.045] text-black/60'}`}>Proposta: {statusLabel[proposal.status] ?? proposal.status}</span>
                         <span className="rounded-full bg-black/[0.045] px-2.5 py-1 text-[10px] font-medium text-black/60">Fundo: {fundStatusLabel[proposal.status_vinculo] ?? proposal.status_vinculo}</span>
                         {proposal.fundo_vencedor && <span className="rounded-full bg-green-50 px-2.5 py-1 text-[10px] font-semibold text-green-700">Primeiro fundo aprovado{proposal.primeira_aprovacao_em ? ` · ${formatDate(proposal.primeira_aprovacao_em)}` : ''}</span>}
+                        <PropostaObservacoesButton cardId={proposal.id} variant="chip" />
                       </div>
                     </li>)}
                   </ul>
+                  </ObservacoesKanbanContext.Provider>
                 ) : <p className="p-8 text-center text-sm text-silver-500">Nenhuma operação encontrada para este filtro neste período.</p>}
                 {totalProposals > PAGE_SIZE && <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-silver-100 px-5 py-3 text-xs text-silver-500"><span>Exibindo {firstItem}–{lastItem} de {totalProposals}</span><div className="flex items-center gap-2"><button className="btn-no-liquid min-h-9 min-w-9 rounded-md border border-silver-200 p-2 disabled:opacity-40" type="button" aria-label="Página anterior" disabled={page === 0} onClick={() => setPage(value => Math.max(0, value - 1))}><ChevronLeft className="h-4 w-4" /></button><span>Página {page + 1} de {pages}</span><button className="btn-no-liquid min-h-9 min-w-9 rounded-md border border-silver-200 p-2 disabled:opacity-40" type="button" aria-label="Próxima página" disabled={page + 1 >= pages} onClick={() => setPage(value => Math.min(pages - 1, value + 1))}><ChevronRight className="h-4 w-4" /></button></div></footer>}
               </section>
@@ -378,6 +399,14 @@ export function FundoDistribuicaoCard({ inicio, fim, fundo, partner }: Props) {
         </div>
       )}
       <footer className="border-t border-black/10 px-5 py-4 text-[11px] leading-5 text-black/40 sm:px-8">Uma proposta pode aparecer em mais de um fundo nas atribuições. O total financeiro conta cada operação uma vez, no primeiro fundo aprovado.</footer>
+
+      {obsProposta && (
+        <PropostaObservacoesModal
+          key={obsProposta.id}
+          proposta={obsProposta}
+          onClose={() => setObsProposta(null)}
+        />
+      )}
     </section>
   )
 }

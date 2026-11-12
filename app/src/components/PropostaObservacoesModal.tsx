@@ -35,6 +35,13 @@ const PAPEL_LABEL: Record<string, string> = {
   team_member: 'Assistente',
 }
 
+// tinta do avatar por papel (tokens existentes; o laranja da referência NÃO se aplica)
+const PAPEL_AVATAR: Record<string, string> = {
+  admin: 'bg-navy text-white',
+  partner: 'bg-gold text-navy',
+  team_member: 'bg-silver-100 text-silver-600',
+}
+
 function tempoRelativo(iso: string, agora = Date.now()): string {
   const diff = agora - Date.parse(iso)
   if (diff < 60_000) return 'agora mesmo'
@@ -48,9 +55,9 @@ function tempoRelativo(iso: string, agora = Date.now()): string {
   return new Date(iso).toLocaleDateString('pt-BR')
 }
 
-function tempoAbsoluto(iso: string): string {
+function tempoAbsolutoLongo(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 }
 
@@ -104,6 +111,9 @@ export function PropostaObservacoesModal({
   const sujo = corpo.trim().length > 0 || anexos.length > 0
   const enviandoAnexo = anexos.some((a) => a.estado === 'enviando')
   const pendente = criarMut.isPending || editarMut.isPending || removerMut.isPending
+  // composer colapsável (spec delta): 1 linha em repouso, expande ao foco/conteúdo
+  const [composerFocado, setComposerFocado] = useState(false)
+  const composerExpandido = composerFocado || sujo
 
   // countdown da janela (30s) — relógio do cliente é só UX; servidor é autoridade
   useEffect(() => {
@@ -120,8 +130,10 @@ export function PropostaObservacoesModal({
     return () => {
       window.clearTimeout(t)
       document.body.style.overflow = prevOverflow
-      const alvo = openerRef.current instanceof HTMLElement
-        ? openerRef.current
+      // retorno de foco: opener capturado (nunca <body>); senão, o gatilho pelo id
+      const abridor = openerRef.current
+      const alvo = abridor instanceof HTMLElement && abridor !== document.body && document.contains(abridor)
+        ? abridor
         : document.querySelector(`[data-obs-trigger="${proposta.id}"]`)
       if (alvo instanceof HTMLElement) alvo.focus()
     }
@@ -199,6 +211,9 @@ export function PropostaObservacoesModal({
           setCorpo('')
           setAnexos([])
           setConfirmarDescarte(false)
+          // composer permanece expandido e focado (registro em sequência)
+          setComposerFocado(true)
+          document.getElementById(`${tituloId}-composer`)?.focus()
         },
         onError: (err) => setErroComposer(err.message),
       },
@@ -245,89 +260,22 @@ export function PropostaObservacoesModal({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
-          {listaQ.isLoading && (
-            <p className="flex items-center justify-center gap-2 py-10 text-sm text-silver-500">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Carregando observações…
-            </p>
-          )}
-          {listaQ.isError && (
-            <div className="rounded-lg border border-danger/30 bg-danger/5 p-4 text-sm text-danger" role="alert">
-              <p className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-                Não foi possível carregar as observações.
-              </p>
-              <button
-                type="button"
-                className="btn-no-liquid btn-outline mt-3"
-                onClick={() => listaQ.refetch()}
-              >
-                Tentar novamente
-              </button>
-            </div>
-          )}
-          {listaQ.isSuccess && observacoes.length === 0 && (
-            <div className="py-10 text-center">
-              <p className="font-semibold text-navy">Nenhuma observação ainda.</p>
-              <p className="mx-auto mt-1 max-w-sm text-sm text-silver-600">
-                Registre a primeira: texto, print de erro ou comprovação. Cada entrada fica marcada com a etapa atual da proposta.
-              </p>
-            </div>
-          )}
-          {observacoes.length > 0 && (
-            <ol className="divide-y divide-transparent">
-              {observacoes.map((obs) => (
-                <ObservacaoItem
-                  key={obs.id}
-                  obs={obs}
-                  agora={agora}
-                  sessionUserId={session?.userId}
-                  isAdmin={session?.role === 'admin'}
-                  onEditar={(id, texto, callbacks) =>
-                    editarMut.mutate({ id, corpo: texto }, callbacks)}
-                  editandoPendente={editarMut.isPending}
-                  onApagarAutor={(id) => setConfirmarAutorId(id)}
-                  confirmandoAutor={confirmarAutorId === obs.id}
-                  onConfirmarApagarAutor={(id) =>
-                    removerMut.mutate({ id }, {
-                      onSuccess: () => setConfirmarAutorId(null),
-                      onError: (err) => { setConfirmarAutorId(null); setErroComposer(err.message) },
-                    })}
-                  onCancelarApagarAutor={() => setConfirmarAutorId(null)}
-                  onApagarAdmin={(o) => setRemoverAlvo(o)}
-                />
-              ))}
-            </ol>
-          )}
-        </div>
-
-        {confirmarDescarte && (
-          <div className="shrink-0 border-t border-warning/40 bg-warning/10 px-4 py-2 sm:px-6" role="alert">
-            <div className="flex flex-col gap-2 text-xs text-silver-800 sm:flex-row sm:items-center sm:justify-between">
-              <span>Descartar o rascunho? Você tem texto ou anexos não publicados.</span>
-              <span className="flex gap-2">
-                <button type="button" className="btn-no-liquid font-semibold text-silver-700" onClick={() => setConfirmarDescarte(false)}>
-                  Continuar editando
-                </button>
-                <button type="button" className="btn-no-liquid font-semibold text-danger" onClick={onClose}>
-                  Descartar rascunho
-                </button>
-              </span>
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handlePublicar} className="shrink-0 border-t border-silver-100 bg-silver-50 px-4 py-3 sm:px-6">
+        <form onSubmit={handlePublicar} className="shrink-0 border-b border-silver-100 bg-white px-4 py-3 sm:px-6">
           <label className="sr-only" htmlFor={`${tituloId}-composer`}>Nova observação</label>
           <textarea
             id={`${tituloId}-composer`}
-            className="input min-h-20 resize-y bg-white"
+            className={`input bg-white ${composerExpandido ? 'min-h-20 resize-y' : 'min-h-11 resize-none overflow-hidden'}`}
+            rows={composerExpandido ? undefined : 1}
             maxLength={4000}
             value={corpo}
             onChange={(event) => setCorpo(event.target.value)}
-            placeholder="Escreva uma observação interna… (ex.: descreva o erro e anexe o print)"
+            onFocus={() => setComposerFocado(true)}
+            onBlur={() => setComposerFocado(false)}
+            placeholder="Escreva uma observação interna…"
             disabled={pendente}
           />
+          {composerExpandido && (
+          <>
           <div className="mt-1 flex items-start justify-between gap-3 text-xs">
             <p className={erroComposer ? 'flex items-center gap-1.5 text-danger' : 'text-silver-500'} role={erroComposer ? 'alert' : undefined}>
               {erroComposer && <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
@@ -403,7 +351,83 @@ export function PropostaObservacoesModal({
               {criarMut.isPending ? 'Publicando…' : 'Publicar'}
             </Button>
           </div>
+          </>
+          )}
         </form>
+
+        {confirmarDescarte && (
+          <div className="shrink-0 border-b border-warning/40 bg-warning/10 px-4 py-2 sm:px-6" role="alert">
+            <div className="flex flex-col gap-2 text-xs text-silver-800 sm:flex-row sm:items-center sm:justify-between">
+              <span>Descartar o rascunho? Você tem texto ou anexos não publicados.</span>
+              <span className="flex gap-2">
+                <button type="button" className="btn-no-liquid font-semibold text-silver-700" onClick={() => setConfirmarDescarte(false)}>
+                  Continuar editando
+                </button>
+                <button type="button" className="btn-no-liquid font-semibold text-danger" onClick={onClose}>
+                  Descartar rascunho
+                </button>
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-silver-50 px-4 py-4 sm:px-6">
+          {listaQ.isLoading && (
+            <p className="flex items-center justify-center gap-2 py-10 text-sm text-silver-500">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Carregando observações…
+            </p>
+          )}
+          {listaQ.isError && (
+            <div className="rounded-lg border border-danger/30 bg-danger/5 p-4 text-sm text-danger" role="alert">
+              <p className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                Não foi possível carregar as observações.
+              </p>
+              <button
+                type="button"
+                className="btn-no-liquid btn-outline mt-3"
+                onClick={() => listaQ.refetch()}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          )}
+          {listaQ.isSuccess && observacoes.length === 0 && (
+            <div className="py-10 text-center">
+              <p className="font-semibold text-navy">Nenhuma observação ainda.</p>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-silver-600">
+                Registre a primeira: texto, print de erro ou comprovação. Cada entrada fica marcada com a etapa atual da proposta.
+              </p>
+            </div>
+          )}
+          {observacoes.length > 0 && (
+            <ol className="space-y-4">
+              {observacoes.map((obs) => (
+                <ObservacaoItem
+                  key={obs.id}
+                  obs={obs}
+                  agora={agora}
+                  sessionUserId={session?.userId}
+                  isAdmin={session?.role === 'admin'}
+                  onEditar={(id, texto, callbacks) =>
+                    editarMut.mutate({ id, corpo: texto }, callbacks)}
+                  editandoPendente={editarMut.isPending}
+                  onApagarAutor={(id) => setConfirmarAutorId(id)}
+                  confirmandoAutor={confirmarAutorId === obs.id}
+                  onConfirmarApagarAutor={(id, callbacks) =>
+                    removerMut.mutate({ id }, {
+                      ...callbacks,
+                      onSuccess: () => { setConfirmarAutorId(null); callbacks.onSuccess() },
+                    })}
+                  onCancelarApagarAutor={() => setConfirmarAutorId(null)}
+                  onApagarAdmin={(o) => setRemoverAlvo(o)}
+                />
+              ))}
+            </ol>
+          )}
+        </div>
+
+
       </section>
 
       {/* sucesso anunciado para leitores de tela */}
@@ -457,13 +481,14 @@ function ObservacaoItem({
   editandoPendente: boolean
   onApagarAutor: (id: string) => void
   confirmandoAutor: boolean
-  onConfirmarApagarAutor: (id: string) => void
+  onConfirmarApagarAutor: (id: string, callbacks: { onSuccess: () => void; onError: (err: Error) => void }) => void
   onCancelarApagarAutor: () => void
   onApagarAdmin: (obs: PropostaObservacao) => void
 }) {
   const [editando, setEditando] = useState(false)
   const [draft, setDraft] = useState(obs.corpo)
   const [erroEdicao, setErroEdicao] = useState<string | null>(null)
+  const [erroRemocao, setErroRemocao] = useState<string | null>(null)
 
   const criadoEm = Date.parse(obs.created_at)
   const restanteMs = criadoEm + JANELA_EDICAO_MS - agora
@@ -473,107 +498,151 @@ function ObservacaoItem({
 
   return (
     <li className="flex gap-3">
-      <div className="flex w-8 shrink-0 flex-col items-center">
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-silver-100 text-xs font-bold text-silver-600" aria-hidden="true">
-          {iniciais(obs.autor_nome)}
-        </span>
-        <span className="mt-1 w-px flex-1 bg-silver-100" aria-hidden="true" />
-      </div>
-      <div className="min-w-0 flex-1 pb-4">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-sm font-semibold text-silver-900">{obs.autor_nome}</span>
+      <span
+        className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold ${PAPEL_AVATAR[obs.autor_papel] ?? PAPEL_AVATAR.team_member}`}
+        aria-hidden="true"
+      >
+        {iniciais(obs.autor_nome)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="text-sm font-bold text-slate-950">{obs.autor_nome}</span>
           <span className="rounded-md bg-silver-100 px-1.5 py-0.5 text-[10px] font-semibold text-silver-600">
             {PAPEL_LABEL[obs.autor_papel] ?? obs.autor_papel}
           </span>
-          <span className="rounded-full border border-silver-200 bg-white px-2 py-0.5 text-[10px] font-medium text-silver-700">
+          <time dateTime={obs.created_at} title={tempoRelativo(obs.created_at, agora)} className="text-xs text-silver-500">
+            {tempoAbsolutoLongo(obs.created_at)}
+          </time>
+          {obs.editado_em && (
+            <span className="text-xs text-silver-400" title={`Editado em ${tempoAbsolutoLongo(obs.editado_em)}`}>(editado)</span>
+          )}
+        </div>
+
+        <div className="mt-1.5 rounded-lg border border-silver-200 bg-white px-3 py-2.5">
+          <span className="rounded-full border border-silver-200 bg-silver-50 px-2 py-0.5 text-[10px] font-medium text-silver-700">
+            <span className="sr-only">Etapa da proposta no registro: </span>
             {PROPOSTA_STATUS_LABEL[obs.etapa_snapshot] ?? obs.etapa_snapshot}
           </span>
-        </div>
-        <p className="mt-0.5 text-xs text-silver-400">
-          <time dateTime={obs.created_at} title={tempoAbsoluto(obs.created_at)}>{tempoRelativo(obs.created_at, agora)}</time>
-          {obs.editado_em && <span title={`Editado em ${tempoAbsoluto(obs.editado_em)}`}> · (editado)</span>}
-        </p>
 
-        {editando ? (
-          <div className="mt-1.5">
-            <textarea
-              className="input min-h-20 resize-y"
-              maxLength={4000}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              disabled={editandoPendente}
-              aria-label={`Editar observação de ${obs.autor_nome}`}
-            />
-            {erroEdicao && (
-              <p role="alert" className="mt-1 flex items-center gap-1.5 text-xs text-danger">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                {erroEdicao}
-              </p>
-            )}
-            <div className="mt-1 flex items-center gap-3 text-xs">
-              <button
-                type="button"
-                className="btn-no-liquid font-semibold text-navy"
-                disabled={!draft.trim() || editandoPendente}
-                onClick={() => {
-                  setErroEdicao(null)
-                  // a caixa de edição só fecha com sucesso confirmado; erro fica no item
-                  onEditar(obs.id, draft.trim(), {
-                    onSuccess: () => setEditando(false),
-                    onError: (err) => setErroEdicao(err.message),
-                  })
-                }}
-              >
-                {editandoPendente ? 'Salvando…' : 'Salvar'}
-              </button>
-              <button
-                type="button"
-                className="btn-no-liquid text-silver-500"
+          {editando ? (
+            <div className="mt-2">
+              <textarea
+                className="input min-h-20 resize-y"
+                maxLength={4000}
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
                 disabled={editandoPendente}
-                onClick={() => { setEditando(false); setDraft(obs.corpo) }}
-              >
-                Cancelar
-              </button>
+                aria-label={`Editar observação de ${obs.autor_nome}`}
+              />
+              {erroEdicao && (
+                <p role="alert" className="mt-1 flex items-center gap-1.5 text-xs text-danger">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  {erroEdicao}
+                </p>
+              )}
+              <div className="mt-1 flex items-center gap-3 text-xs">
+                <button
+                  type="button"
+                  className="btn-no-liquid font-semibold text-navy"
+                  disabled={!draft.trim() || editandoPendente}
+                  onClick={() => {
+                    setErroEdicao(null)
+                    // a caixa de edição só fecha com sucesso confirmado; erro fica no item
+                    onEditar(obs.id, draft.trim(), {
+                      onSuccess: () => setEditando(false),
+                      onError: (err) => setErroEdicao(err.message),
+                    })
+                  }}
+                >
+                  {editandoPendente ? 'Salvando…' : 'Salvar'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-no-liquid text-silver-500"
+                  disabled={editandoPendente}
+                  onClick={() => { setEditando(false); setDraft(obs.corpo); setErroEdicao(null) }}
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
-          </div>
-        ) : (
-          <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-silver-800">{obs.corpo}</p>
-        )}
+          ) : (
+            <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-silver-800">{obs.corpo}</p>
+          )}
 
-        {obs.anexos.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {obs.anexos.map((anexo) => (
-              <AnexoThumb key={anexo.id} anexo={anexo} />
-            ))}
-          </div>
-        )}
+          {obs.anexos.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {obs.anexos.map((anexo) => (
+                <AnexoThumb key={anexo.id} anexo={anexo} />
+              ))}
+            </div>
+          )}
+        </div>
 
         {!editando && (isAutor && naJanela) && (
-          <div className="mt-2 flex items-center gap-3 text-xs">
-            <button type="button" className="btn-no-liquid font-semibold text-silver-600 hover:text-navy" onClick={() => setEditando(true)}>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <button
+              type="button"
+              className="btn-no-liquid font-medium text-silver-600 underline decoration-silver-300 underline-offset-2 hover:text-navy hover:decoration-navy"
+              onClick={() => setEditando(true)}
+            >
               Editar
             </button>
             {confirmandoAutor ? (
               <>
-                <span className="text-silver-600">Apagar esta observação?</span>
-                <button type="button" className="btn-no-liquid font-semibold text-silver-600" onClick={onCancelarApagarAutor}>
+                <span className="text-silver-600">Excluir esta observação?</span>
+                <button
+                  type="button"
+                  className="btn-no-liquid font-medium text-silver-600 underline decoration-silver-300 underline-offset-2 hover:text-navy"
+                  onClick={onCancelarApagarAutor}
+                >
                   Manter
                 </button>
-                <button type="button" className="btn-no-liquid font-semibold text-danger" onClick={() => onConfirmarApagarAutor(obs.id)}>
-                  Apagar
+                <button
+                  type="button"
+                  className="btn-no-liquid font-medium text-danger underline decoration-danger/40 underline-offset-2 hover:decoration-danger"
+                  onClick={() => {
+                    setErroRemocao(null)
+                    // erro fica inline no item (composer pode estar colapsado — H1)
+                    onConfirmarApagarAutor(obs.id, {
+                      onSuccess: () => setErroRemocao(null),
+                      onError: (err) => setErroRemocao(err.message),
+                    })
+                  }}
+                >
+                  Excluir
                 </button>
               </>
             ) : (
-              <button type="button" className="btn-no-liquid font-semibold text-danger" onClick={() => onApagarAutor(obs.id)}>
-                Apagar
+              <button
+                type="button"
+                className="btn-no-liquid font-medium text-danger underline decoration-danger/40 underline-offset-2 hover:decoration-danger"
+                onClick={() => onApagarAutor(obs.id)}
+              >
+                Excluir
               </button>
             )}
-            <span className="text-silver-400">Editável por mais {minutosRestantes} min</span>
+            <span
+              className="text-[11px] text-silver-500"
+              title={`Editável até ${tempoAbsolutoLongo(new Date(criadoEm + JANELA_EDICAO_MS).toISOString())}`}
+            >
+              Editável por mais {minutosRestantes} min
+            </span>
           </div>
         )}
+        {erroRemocao && (
+          <p role="alert" className="mt-1.5 flex items-center gap-1.5 text-xs text-danger">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            {erroRemocao}
+          </p>
+        )}
         {!editando && isAdmin && !(isAutor && naJanela) && (
-          <div className="mt-2 text-xs">
-            <button type="button" className="btn-no-liquid font-semibold text-danger" onClick={() => onApagarAdmin(obs)}>
+          <div className="mt-1.5 text-xs">
+            <button
+              type="button"
+              className="btn-no-liquid font-medium text-danger underline decoration-danger/40 underline-offset-2 hover:decoration-danger"
+              onClick={() => onApagarAdmin(obs)}
+            >
               Remover (admin)
             </button>
           </div>
