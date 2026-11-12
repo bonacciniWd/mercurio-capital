@@ -65,6 +65,6 @@ Atualizado em 2026-11-12.
 | #22 | obs-kanban: botão no card + modal timeline | 🟢 | `1f3f00b`; spec UX/UI aprovada; 9 testes; M1+L1-L5 do Revisor corrigidos |
 | #27 | obs-kanban: dashboard fundos + timeline reconciliada | 🟢 | `c923f08`; delta aprovado; 12 testes; H1/M1/L1 do Revisor corrigidos |
 | #23 | obs-kanban: upload de prints (2 fases) | 🟢 | `2922d29`; maioria entregue em #22/#27 (composer); delta: retry + L1-L3 do Revisor |
-| #24 | obs-kanban: testes web + evidências | ⚪ | |
+| #24 | obs-kanban: testes web + evidências | 🟢 | `7f3a427`; 23/23 novos; suite 285/299 (14 pré-existentes); validate:release OK; fase-60 verde |
 | #25 | obs-kanban: docs + handoff 22 | ⚪ | |
 | #26 | obs-kanban: limpeza de anexos órfãos | ⚪ | Dívida P2, não bloqueia v1 |
