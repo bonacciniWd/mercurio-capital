@@ -62,7 +62,7 @@ Atualizado em 2026-11-11.
 | #19 | obs-kanban: RPCs CRUD | 🟢 | `25dc41a`; janela 15 min server-side; motivo admin obrigatório; contagem ≤2000 |
 | #20 | obs-kanban: notificação in_app + fan-out push | 🟢 | `25dc41a`; link por papel real; sem trecho do comentário |
 | #21 | obs-kanban: hook + signed URL | 🟢 | `c7587c6`; 9 testes; refetch 45s real (M1 do Revisor) |
-| #22 | obs-kanban: botão no card + modal timeline | ⚪ | **Aguarda spec UX/UI** |
+| #22 | obs-kanban: botão no card + modal timeline | 🟢 | `1f3f00b`; spec UX/UI aprovada; 9 testes; M1+L1-L5 do Revisor corrigidos |
 | #23 | obs-kanban: upload de prints (2 fases) | ⚪ | WS-Web; máx. 3 anexos (S2 do dono) |
 | #24 | obs-kanban: testes web + evidências | ⚪ | |
 | #25 | obs-kanban: docs + handoff 22 | ⚪ | |
