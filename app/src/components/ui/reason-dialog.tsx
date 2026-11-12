@@ -11,6 +11,10 @@ interface ReasonDialogProps {
   pending?: boolean
   serverError?: string | null
   minLength?: number
+  /** Aditivo (issue #22): labels customizáveis; defaults = comportamento atual. */
+  reasonLabel?: string
+  reasonPlaceholder?: string
+  pendingLabel?: string
   onClose: () => void
   onConfirm: (reason: string) => void
 }
@@ -24,12 +28,17 @@ export function ReasonDialog({
   pending = false,
   serverError,
   minLength = 5,
+  reasonLabel = 'Motivo da reabertura',
+  reasonPlaceholder = 'Descreva por que esta competência precisa ser reaberta.',
+  pendingLabel = 'Reabrindo...',
   onClose,
   onConfirm,
 }: ReasonDialogProps) {
   const [reason, setReason] = useState('')
   const [attempted, setAttempted] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const panelRef = useRef<HTMLElement>(null)
+  const openerRef = useRef<Element | null>(null)
   const pendingRef = useRef(pending)
   const onCloseRef = useRef(onClose)
   const titleId = useId()
@@ -46,17 +55,38 @@ export function ReasonDialog({
     if (!open) return
     setReason('')
     setAttempted(false)
+    openerRef.current = document.activeElement
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const focusTimer = window.setTimeout(() => textareaRef.current?.focus(), 0)
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !pendingRef.current) onCloseRef.current()
+      if (event.key === 'Escape' && !pendingRef.current) {
+        event.stopPropagation()
+        onCloseRef.current()
+        return
+      }
+      // focus trap (issue #22 — diálogo pode abrir por cima de outro modal)
+      if (event.key !== 'Tab' || !panelRef.current) return
+      const focaveis = panelRef.current.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), textarea:not(:disabled), input:not(:disabled):not([type="file"]):not([hidden]), [tabindex]:not([tabindex="-1"]), a[href]',
+      )
+      if (focaveis.length === 0) return
+      const primeiro = focaveis[0]
+      const ultimo = focaveis[focaveis.length - 1]
+      if (event.shiftKey && document.activeElement === primeiro) {
+        event.preventDefault()
+        ultimo.focus()
+      } else if (!event.shiftKey && document.activeElement === ultimo) {
+        event.preventDefault()
+        primeiro.focus()
+      }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => {
       window.clearTimeout(focusTimer)
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = previousOverflow
+      if (openerRef.current instanceof HTMLElement) openerRef.current.focus()
     }
   }, [open])
 
@@ -82,6 +112,7 @@ export function ReasonDialog({
       }}
     >
       <section
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -102,13 +133,13 @@ export function ReasonDialog({
           <div className="space-y-4 px-6 py-5">
             {context && <div className="rounded-lg border border-silver-200 bg-silver-50 px-4 py-3 text-sm text-silver-700">{context}</div>}
             <label className="block">
-              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-silver-600">Motivo da reabertura</span>
+              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-silver-600">{reasonLabel}</span>
               <textarea
                 ref={textareaRef}
                 value={reason}
                 onChange={event => setReason(event.target.value)}
                 className="input min-h-28 resize-y py-3"
-                placeholder="Descreva por que esta competência precisa ser reaberta."
+                placeholder={reasonPlaceholder}
                 maxLength={500}
                 disabled={pending}
                 aria-invalid={invalid}
@@ -133,7 +164,7 @@ export function ReasonDialog({
             <Button type="button" variant="outline" onClick={close} disabled={pending}>Cancelar</Button>
             <Button type="submit" variant="primary" disabled={pending}>
               {pending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {pending ? 'Reabrindo...' : confirmLabel}
+              {pending ? pendingLabel : confirmLabel}
             </Button>
           </div>
         </form>

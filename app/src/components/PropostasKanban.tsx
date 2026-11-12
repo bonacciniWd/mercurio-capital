@@ -9,6 +9,10 @@ import { incluiStatusNaVisaoKanban, PRODUTO_LABEL, PROPOSTA_KANBAN_STATUS, PROPO
 import { getProposalStageAge, isProposalStageAgeEligible } from '@/lib/propostaStageAge'
 import { FUNDO_STATUS, FUNDO_STATUS_COLOR, FUNDO_STATUS_LABEL, type FundoStatus } from '@/lib/fundoStatus'
 import { invalidateAdminDashboardQueries } from '@/lib/adminDashboardCache'
+import { ObservacoesKanbanContext } from '@/components/observacoesKanbanContext'
+import { PropostaObservacoesButton } from '@/components/PropostaObservacoesButton'
+import { PropostaObservacoesModal } from '@/components/PropostaObservacoesModal'
+import { usePropostaObservacaoContagem } from '@/hooks/usePropostaObservacoes'
 import { useAuth } from '@/auth/AuthContext'
 
 type KanbanScope = 'admin' | 'partner'
@@ -400,7 +404,23 @@ export function PropostasKanban({ scope }: { scope: KanbanScope }) {
     if (card) void moverPara(card, String(event.over.id) as PropostaKanbanStatus)
   }
 
+  // Snapshot do card na abertura: se um refetch remover a proposta do board,
+  // o modal (e um eventual rascunho) não desmonta abruptamente.
+  const [obsCard, setObsCard] = useState<KanbanCard | null>(null)
+  const { data: obsContagem = {} } = usePropostaObservacaoContagem(proposalIds)
+  const obsCtx = useMemo(
+    () => ({
+      contagem: obsContagem,
+      onOpen: (cardId: string) => {
+        const card = propostas.find(p => p.id === cardId)
+        if (card) setObsCard(card)
+      },
+    }),
+    [obsContagem, propostas],
+  )
+
   return <>
+  <ObservacoesKanbanContext.Provider value={obsCtx}>
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div><h1 className="text-2xl font-bold text-slate-950">Kanban de propostas</h1><p className="text-sm text-silver-600">{scope === 'admin' ? 'Pipeline global da operação.' : 'Pipeline restrito às propostas da sua operação.'}</p></div>
       <Link to={detailBase} className="btn-outline">Ver lista</Link>
@@ -488,6 +508,15 @@ export function PropostasKanban({ scope }: { scope: KanbanScope }) {
         </div>
       </div>
     )}
+
+    {obsCard && (
+      <PropostaObservacoesModal
+        key={obsCard.id}
+        proposta={obsCard}
+        onClose={() => setObsCard(null)}
+      />
+    )}
+  </ObservacoesKanbanContext.Provider>
   </>
 }
 
@@ -579,7 +608,7 @@ function CardView({ card, scope, detailBase, dragging, fundos, winner, onFundoSt
     ? getProposalStageAge(stageStartedAt)
     : null
   const overdue = stageAge?.overdue === true
-  return <div className={`card relative overflow-hidden ${overdue ? '!border-2 !border-danger ring-2 ring-danger/20 shadow-[0_0_0_3px_rgba(220,38,38,0.08)]' : ''} ${dragging ? 'rotate-1 shadow-xl' : 'cursor-grab active:cursor-grabbing'}`} aria-label={overdue ? `Proposta parada há ${stageAge?.days ?? 0} dias nesta etapa` : undefined}><div className="p-3">{overdue && <div className="mb-2 flex items-center gap-1.5 rounded-md border border-danger/25 bg-danger/10 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-danger"><TriangleAlert className="h-3.5 w-3.5" />Parada há mais de 10 dias</div>}<div className="flex items-start gap-2"><GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-silver-400" /><div className="min-w-0 flex-1"><p className="font-mono text-xs text-silver-500">{card.protocolo || card.id.slice(0, 8)}</p><Link to={`${detailBase}/${card.id}`} onPointerDown={event => event.stopPropagation()} className="mt-1 block truncate text-sm font-semibold text-silver-900 hover:text-red-700">{card.cliente_nome || 'Cliente não informado'}</Link><p className="mt-1 truncate text-xs text-silver-600">{scope === 'admin' ? `Responsável: ${card.responsavel_nome || 'Não atribuído'}` : `Originador: ${card.partner_nome || '—'}`}</p>{scope === 'admin' && <p className="mt-1 truncate text-[11px] text-silver-500">Originador: {card.partner_nome || '—'}</p>}<dl className={`mt-3 grid gap-2 text-xs ${stageAge ? 'grid-cols-2' : 'grid-cols-2'}`}><div><dt className="text-silver-400">Crédito</dt><dd className="font-medium text-silver-700">{brl(card.valor_solicitado * 100)}</dd></div><div><dt className="text-silver-400">Na esteira</dt><dd className="font-medium text-silver-900">{dias} dias</dd></div>{stageAge && <div><dt className="text-silver-400">Nesta etapa</dt><dd className={`flex items-center gap-1 font-semibold ${overdue ? 'text-danger' : 'text-silver-900'}`}>{stageAge.days === null ? '—' : `${stageAge.days} dias`}{overdue && <span className="inline-flex animate-pulse motion-reduce:animate-none items-center gap-1 rounded-full bg-danger/10 px-1.5 py-0.5 text-[10px] text-danger" title="Proposta há mais de 10 dias nesta etapa"><TriangleAlert className="h-3 w-3" />Atenção</span>}</dd></div>}</dl>{winner && scope === 'admin' && <p className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-success"><span className="h-2 w-2 rounded-full" style={{backgroundColor:winner.cor_hex}} />Fundo vencedor: {winner.nome}</p>}<FundoBadges propostaId={card.id} fundos={fundos} winnerId={winner?.fundo_id} onFundoStatus={onFundoStatus} />{isLegacy && <p className="mt-2 text-[10px] font-medium text-red-700">{PROPOSTA_STATUS_LABEL[card.status]}</p>}</div></div></div><div className="border-t border-silver-100 bg-silver-50 px-3 py-2 text-[11px] font-semibold text-silver-600">{PRODUTO_LABEL[card.produto] ?? card.produto}</div></div>
+  return <div className={`card relative overflow-hidden ${overdue ? '!border-2 !border-danger ring-2 ring-danger/20 shadow-[0_0_0_3px_rgba(220,38,38,0.08)]' : ''} ${dragging ? 'rotate-1 shadow-xl' : 'cursor-grab active:cursor-grabbing'}`} aria-label={overdue ? `Proposta parada há ${stageAge?.days ?? 0} dias nesta etapa` : undefined}><div className="p-3">{overdue && <div className="mb-2 flex items-center gap-1.5 rounded-md border border-danger/25 bg-danger/10 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-danger"><TriangleAlert className="h-3.5 w-3.5" />Parada há mais de 10 dias</div>}<div className="flex items-start gap-2"><GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-silver-400" /><div className="min-w-0 flex-1"><p className="font-mono text-xs text-silver-500">{card.protocolo || card.id.slice(0, 8)}</p><Link to={`${detailBase}/${card.id}`} onPointerDown={event => event.stopPropagation()} className="mt-1 block truncate text-sm font-semibold text-silver-900 hover:text-red-700">{card.cliente_nome || 'Cliente não informado'}</Link><p className="mt-1 truncate text-xs text-silver-600">{scope === 'admin' ? `Responsável: ${card.responsavel_nome || 'Não atribuído'}` : `Originador: ${card.partner_nome || '—'}`}</p>{scope === 'admin' && <p className="mt-1 truncate text-[11px] text-silver-500">Originador: {card.partner_nome || '—'}</p>}<dl className={`mt-3 grid gap-2 text-xs ${stageAge ? 'grid-cols-2' : 'grid-cols-2'}`}><div><dt className="text-silver-400">Crédito</dt><dd className="font-medium text-silver-700">{brl(card.valor_solicitado * 100)}</dd></div><div><dt className="text-silver-400">Na esteira</dt><dd className="font-medium text-silver-900">{dias} dias</dd></div>{stageAge && <div><dt className="text-silver-400">Nesta etapa</dt><dd className={`flex items-center gap-1 font-semibold ${overdue ? 'text-danger' : 'text-silver-900'}`}>{stageAge.days === null ? '—' : `${stageAge.days} dias`}{overdue && <span className="inline-flex animate-pulse motion-reduce:animate-none items-center gap-1 rounded-full bg-danger/10 px-1.5 py-0.5 text-[10px] text-danger" title="Proposta há mais de 10 dias nesta etapa"><TriangleAlert className="h-3 w-3" />Atenção</span>}</dd></div>}</dl>{winner && scope === 'admin' && <p className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-success"><span className="h-2 w-2 rounded-full" style={{backgroundColor:winner.cor_hex}} />Fundo vencedor: {winner.nome}</p>}<FundoBadges propostaId={card.id} fundos={fundos} winnerId={winner?.fundo_id} onFundoStatus={onFundoStatus} />{isLegacy && <p className="mt-2 text-[10px] font-medium text-red-700">{PROPOSTA_STATUS_LABEL[card.status]}</p>}</div></div></div><div className="flex items-center justify-between gap-2 border-t border-silver-100 bg-silver-50 px-3 py-2 text-[11px] font-semibold text-silver-600"><span className="truncate">{PRODUTO_LABEL[card.produto] ?? card.produto}</span><PropostaObservacoesButton cardId={card.id} dragging={dragging} /></div></div>
 }
 
 function KanbanFiltrosModal({
