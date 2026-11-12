@@ -52,7 +52,7 @@ em `screenshots/ios/6.9/`; textos e campos completos em `screenshots/app-store-c
 | #7 | Organizar ~235 arquivos não commitados | 🟢 | 10 commits temáticos (`9dd9c26`…`10dd7f6`) + rebase sobre release v0.3.0; working tree limpo; fecha #3 e #6 via mensagens |
 
 ---
-Atualizado em 2026-11-11.
+Atualizado em 2026-11-12.
 
 ## Observações no Kanban (nova feature — mesma release do push web)
 
@@ -63,6 +63,7 @@ Atualizado em 2026-11-11.
 | #20 | obs-kanban: notificação in_app + fan-out push | 🟢 | `25dc41a`; link por papel real; sem trecho do comentário |
 | #21 | obs-kanban: hook + signed URL | 🟢 | `c7587c6`; 9 testes; refetch 45s real (M1 do Revisor) |
 | #22 | obs-kanban: botão no card + modal timeline | 🟢 | `1f3f00b`; spec UX/UI aprovada; 9 testes; M1+L1-L5 do Revisor corrigidos |
+| #27 | obs-kanban: dashboard fundos + timeline reconciliada | 🟢 | `c923f08`; delta aprovado; 12 testes; H1/M1/L1 do Revisor corrigidos |
 | #23 | obs-kanban: upload de prints (2 fases) | ⚪ | WS-Web; máx. 3 anexos (S2 do dono) |
 | #24 | obs-kanban: testes web + evidências | ⚪ | |
 | #25 | obs-kanban: docs + handoff 22 | ⚪ | |
