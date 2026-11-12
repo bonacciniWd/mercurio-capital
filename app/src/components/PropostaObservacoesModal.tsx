@@ -78,6 +78,8 @@ type AnexoDraft = {
   estado: 'enviando' | 'pronto' | 'erro'
   anexoId?: string
   erro?: string
+  /** 'validacao' = determinístico (sem retry); 'upload' = transitório (com retry) */
+  erroOrigem?: 'validacao' | 'upload'
 }
 
 export function PropostaObservacoesModal({
@@ -176,6 +178,21 @@ export function PropostaObservacoesModal({
     return () => document.removeEventListener('keydown', onKeyDown)
   })
 
+  function iniciarUpload(key: string, file: File) {
+    setAnexos((prev) => {
+      const existe = prev.some((a) => a.key === key)
+      const atualizado = { key, file, estado: 'enviando' as const }
+      return existe
+        ? prev.map((a) => (a.key === key ? { ...atualizado, erro: undefined, anexoId: undefined } : a))
+        : [...prev, atualizado]
+    })
+    uploadObservacaoAnexo(proposta.id, file)
+      .then((anexoId) => setAnexos((prev) => prev.map((a) => (a.key === key ? { ...a, estado: 'pronto', anexoId } : a))))
+      .catch((err: unknown) => setAnexos((prev) => prev.map((a) => (a.key === key
+        ? { ...a, estado: 'erro', erro: err instanceof Error ? err.message : 'Falha ao enviar o print.', erroOrigem: 'upload' as const }
+        : a))))
+  }
+
   function handleSelecionarArquivos(files: FileList | null) {
     if (!files) return
     setErroComposer(null)
@@ -186,15 +203,13 @@ export function PropostaObservacoesModal({
       const invalido = validarArquivoObservacao(file)
       const key = `${file.name}-${file.size}-${file.lastModified}`
       if (invalido) {
-        setAnexos((prev) => [...prev, { key, file, estado: 'erro', erro: invalido }])
+        // upsert por key: re-selecionar o mesmo arquivo inválido não duplica o chip
+        setAnexos((prev) => prev.some((a) => a.key === key)
+          ? prev
+          : [...prev, { key, file, estado: 'erro', erro: invalido, erroOrigem: 'validacao' }])
         continue
       }
-      setAnexos((prev) => [...prev, { key, file, estado: 'enviando' }])
-      uploadObservacaoAnexo(proposta.id, file)
-        .then((anexoId) => setAnexos((prev) => prev.map((a) => (a.key === key ? { ...a, estado: 'pronto', anexoId } : a))))
-        .catch((err: unknown) => setAnexos((prev) => prev.map((a) => (a.key === key
-          ? { ...a, estado: 'erro', erro: err instanceof Error ? err.message : 'Falha ao enviar o print.' }
-          : a))))
+      iniciarUpload(key, file)
     }
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
@@ -303,14 +318,25 @@ export function PropostaObservacoesModal({
                   {a.estado === 'enviando' && <span>Enviando…</span>}
                   {a.estado === 'pronto' && <span className="text-success">Anexado</span>}
                   {a.estado === 'erro' && (
-                    <button
-                      type="button"
-                      className="font-semibold underline"
-                      title={a.erro}
-                      onClick={() => setAnexos((prev) => prev.filter((x) => x.key !== a.key))}
-                    >
-                      Remover
-                    </button>
+                    <>
+                      {a.erroOrigem !== 'validacao' && (
+                        <button
+                          type="button"
+                          className="font-semibold underline"
+                          title={a.erro}
+                          onClick={() => iniciarUpload(a.key, a.file)}
+                        >
+                          Tentar de novo
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="font-semibold underline"
+                        onClick={() => setAnexos((prev) => prev.filter((x) => x.key !== a.key))}
+                      >
+                        Remover
+                      </button>
+                    </>
                   )}
                   {a.estado === 'pronto' && (
                     <button
@@ -341,7 +367,7 @@ export function PropostaObservacoesModal({
                 type="button"
                 className="btn-no-liquid btn-outline h-9 px-3 text-xs"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={pendente || anexos.length >= PROPOSTA_OBS_MAX_ANEXOS}
+                disabled={pendente || enviandoAnexo || anexos.length >= PROPOSTA_OBS_MAX_ANEXOS}
               >
                 <Paperclip className="h-4 w-4" aria-hidden="true" /> Anexar print
               </button>

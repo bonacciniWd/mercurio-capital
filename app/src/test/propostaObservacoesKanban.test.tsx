@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   criar: vi.fn(),
   editar: vi.fn(),
   remover: vi.fn(),
+  uploadAnexo: vi.fn(),
   listarData: [] as unknown[],
   isLoading: false,
   isError: false,
@@ -32,7 +33,11 @@ vi.mock('@/auth/AuthContext', () => ({
 }))
 vi.mock('@/lib/propostaObservacaoAnexo', async () => {
   const actual = await vi.importActual<typeof import('@/lib/propostaObservacaoAnexo')>('@/lib/propostaObservacaoAnexo')
-  return { ...actual, createObservacaoAnexoSignedUrl: vi.fn(async () => 'https://signed/x') }
+  return {
+    ...actual,
+    createObservacaoAnexoSignedUrl: vi.fn(async () => 'https://signed/x'),
+    uploadObservacaoAnexo: (...args: unknown[]) => mocks.uploadAnexo(...args),
+  }
 })
 
 import { ObservacoesKanbanContext } from '@/components/observacoesKanbanContext'
@@ -178,6 +183,58 @@ describe('PropostaObservacoesModal', () => {
     await waitFor(() => expect(mocks.criar).toHaveBeenCalledWith(
       { corpo: 'texto da obs', anexoIds: [] },
       expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) }),
+    ))
+  })
+
+  it('anexo: falha de envio → "Tentar de novo" → anexado (retry da issue #23)', async () => {
+    mocks.uploadAnexo
+      .mockRejectedValueOnce(new Error('Falha ao enviar o print. Tente novamente.'))
+      .mockResolvedValueOnce('anexo-1')
+    renderComClient(<PropostaObservacoesModal proposta={proposta} onClose={vi.fn()} />)
+    fireEvent.focus(screen.getByPlaceholderText(/Escreva uma observação interna/))
+
+    const input = document.querySelector('input[type="file"]')!
+    const file = new File(['img'], 'erro-cadastro.png', { type: 'image/png' })
+    fireEvent.change(input, { target: { files: [file] } })
+
+    expect(await screen.findByText('Tentar de novo')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Tentar de novo'))
+    expect(await screen.findByText('Anexado')).toBeInTheDocument()
+    expect(mocks.uploadAnexo).toHaveBeenCalledTimes(2)
+    expect(mocks.uploadAnexo).toHaveBeenCalledWith('p1', file)
+  })
+
+  it('arquivo inválido entra como chip de erro SEM chamar upload (validação local)', async () => {
+    renderComClient(<PropostaObservacoesModal proposta={proposta} onClose={vi.fn()} />)
+    fireEvent.focus(screen.getByPlaceholderText(/Escreva uma observação interna/))
+    const input = document.querySelector('input[type="file"]')!
+    const pdf = new File(['x'], 'doc.pdf', { type: 'application/pdf', lastModified: 1763000000000 })
+    fireEvent.change(input, { target: { files: [pdf] } })
+    expect(await screen.findByText('doc.pdf')).toBeInTheDocument()
+    expect(mocks.uploadAnexo).not.toHaveBeenCalled()
+    // erro de validação é determinístico: sem "Tentar de novo" (L2)
+    expect(screen.queryByText('Tentar de novo')).toBeNull()
+    // re-selecionar o mesmo inválido não duplica o chip (L3)
+    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [pdf] } }) // mesmo arquivo (mesma key)
+    expect(screen.getAllByText('doc.pdf')).toHaveLength(1)
+    // remover o chip de erro limpa a lista
+    fireEvent.click(screen.getByText('Remover'))
+    await waitFor(() => expect(screen.queryByText('doc.pdf')).toBeNull())
+  })
+
+  it('publicar vincula os IDs dos anexos prontos', async () => {
+    mocks.uploadAnexo.mockResolvedValue('anexo-42')
+    renderComClient(<PropostaObservacoesModal proposta={proposta} onClose={vi.fn()} />)
+    fireEvent.focus(screen.getByPlaceholderText(/Escreva uma observação interna/))
+    fireEvent.change(document.querySelector('input[type="file"]')!, {
+      target: { files: [new File(['x'], 'print.png', { type: 'image/png' })] },
+    })
+    await screen.findByText('Anexado')
+    fireEvent.change(screen.getByPlaceholderText(/Escreva uma observação interna/), { target: { value: 'com print' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar' }))
+    await waitFor(() => expect(mocks.criar).toHaveBeenCalledWith(
+      { corpo: 'com print', anexoIds: ['anexo-42'] },
+      expect.anything(),
     ))
   })
 })
