@@ -252,6 +252,18 @@
 
 ---
 
+## Frente Observações por proposta (Kanban + dashboard) — 2026-11-12
+
+- [x] Modelo `proposta_observacoes` + anexos (bucket `proposta-obs` privado) + RLS/RPCs (migration `20261111000003`, smoke fase-60).
+- [x] Botão/badge no card do Kanban + modal timeline (carimbo de etapa, janela de edição 15 min, soft delete com trilha, prints com signed URL).
+- [x] Mesma função na "Distribuição por fundos" do dashboard admin (issue #27, delta aprovado).
+- [x] Notificação in-app aos envolvidos com fan-out de push (Frente A).
+- [ ] Limpeza de anexos órfãos (#26, P2).
+
+Detalhes em [docs/handoffs/22-handoff-observacoes-kanban.md](handoffs/22-handoff-observacoes-kanban.md).
+
+---
+
 ## Backlog para fases futuras
 
 - App mobile (PWA → React Native).

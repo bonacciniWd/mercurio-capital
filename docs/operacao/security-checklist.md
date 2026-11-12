@@ -28,6 +28,7 @@ Checklist baseado em OWASP Top 10 (2021). Cada item deve ser executado antes de 
 - [x] Senhas armazenadas via `auth.users` (bcrypt do Supabase Auth).
 - [x] 2FA TOTP obrigatório para admin (`two_factor_at` claim).
 - [ ] Storage buckets de documentos: `signed url` com TTL ≤ 5 min.
+- [x] Bucket `proposta-obs` (observações no Kanban, #18–#27): privado, 2 MB e MIME allowlist (jpg/png/webp/heic) no bucket **e** na RPC; upload só com linha `preparado` < 24 h; leitura por signed URL 300 s via helper de escopo; objetos referenciados preservados (policies restrictive delete/update); escrita nas tabelas somente via RPCs com revoke estrito.
 - [ ] Service role key apenas em Edge Functions; nunca commitar.
 - [x] Push web (Frente A): service account FCM (`FCM_SERVICE_ACCOUNT_JSON`) e `PUSH_WORKER_SECRET` somente em Edge Secrets; bundle web carrega apenas config pública (`VITE_FIREBASE_*` + VAPID); RPCs do dispatcher restritas a `service_role` (revoke de `public, anon, authenticated`); `push_outbox` sem policy para authenticated/anon (leitura admin-only).
 

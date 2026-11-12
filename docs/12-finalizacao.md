@@ -152,10 +152,11 @@ Pendências para conclusão da Fase 11:
 
 ### 4.3 Próximas evoluções (priorizar)
 
-1. **Fase 11 (Mobile)** — maior ROI para parceiros em campo.
-2. Push web (FCM) — recupera comunicação ativa.
-3. Marketplace + ranking — alavanca de growth.
-4. IA assistente (resumo / risco) — diferencial competitivo.
+1. **Fase 11 (Mobile)** — maior ROI para parceiros em campo (em submissão App Store).
+2. ~~Push web (FCM)~~ — **entregue** (Frente A, handoff 21); ativação em `runbooks.md` §17.
+3. **Observações por proposta (Kanban + dashboard fundos)** — **entregue** (issues #18–#27, handoff 22); sem pendência de ativação externa (só deploy Supabase com GO).
+4. Marketplace + ranking — alavanca de growth.
+5. IA assistente (resumo / risco) — diferencial competitivo.
 
 ---
 

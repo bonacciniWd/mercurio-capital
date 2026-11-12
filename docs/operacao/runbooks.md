@@ -1004,3 +1004,29 @@ Checar no cliente: permissão do navegador (`Notification.permission`), bloqueio
 - `select status, count(*) from push_outbox where created_at > now() - interval '24 hours' group by 1;`
 - Tokens mortos/dia: `erro = 'todos_tokens_invalidos'` e `push_devices.ativo=false` recentes.
 - Taxa de aceite (opt-in) é medida no cliente (não há tabela de eventos de prompt nesta versão).
+
+## 18. Observações por proposta (Kanban + dashboard fundos)
+
+Cobertura das issues #18–#27 (handoff `docs/handoffs/22-handoff-observacoes-kanban.md`).
+
+### Diagnóstico
+
+```sql
+-- volume por proposta (timeline + badge)
+select proposta_id, count(*) filter (where deleted_at is null) as ativas,
+       count(*) filter (where deleted_at is not null) as removidas
+  from proposta_observacoes group by 1 order by 2 desc limit 20;
+
+-- trilha de remoções (auditoria)
+select o.id, o.proposta_id, u.email as removido_por, o.deleted_motivo, o.deleted_at
+  from proposta_observacoes o join usuarios u on u.id = o.deleted_by
+ where o.deleted_at is not null order by o.deleted_at desc limit 20;
+
+-- anexos órfãos (preparados há >24h sem vínculo) — dívida #26
+select count(*) from proposta_observacao_anexos
+ where estado='preparado' and observacao_id is null and created_at < now() - interval '24 hours';
+```
+
+### Notificações
+
+Comentário novo notifica in-app (parceiro dono aprovado + responsável interno + admins operacionais; nunca autor/cliente) e dispara push via fan-out da Frente A. Se push não chega, o diagnóstico é o da §17 — a fila é a mesma `push_outbox`.
