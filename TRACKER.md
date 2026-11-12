@@ -68,3 +68,20 @@ Atualizado em 2026-11-12.
 | #24 | obs-kanban: testes web + evidências | 🟢 | `7f3a427`; 23/23 novos; suite 285/299 (14 pré-existentes); validate:release OK; fase-60 verde |
 | #25 | obs-kanban: docs + handoff 22 | 🟢 | handoff 22 + runbooks §18 + checklist A02 + roadmap/finalização |
 | #26 | obs-kanban: limpeza de anexos órfãos | ⚪ | Dívida P2, não bloqueia v1 |
+
+## Funil comercial de prospecção de parceiros + admin_comercial (nova frente)
+
+Plano aprovado: `prompts/2026-11-12-funil-prospeccao-parceiros.md`. Entidade nova `prospeccoes_parceiro`; `admin_nivel='comercial'` (não é role nova). 🔴 Fix obrigatório no mesmo merge: fallback admin_nivel→full nos parsers (#31).
+
+| Issue | Item | Status | Notas |
+|---|---|---|---|
+| #28 | prospeccao: modelo + histórico + RLS + view + smoke | ⚪ | P0 DB |
+| #29 | prospeccao: helper escopo comercial + nível | ⚪ | P0 DB |
+| #30 | prospeccao: RPCs create/update/move/arquivar | ⚪ | P0 DB |
+| #31 | auth: parsers admin_nivel comercial (web+mobile) | ⚪ | P0 — 🔴 crítico (fallback→full) |
+| #32 | prospeccao: guards por nível + rota + menu | ⚪ | P0 web |
+| #33 | prospeccao: RPC converter (cria proposta via wizard) | ⚪ | P1 — S1 confirmada |
+| #34 | prospeccao: UI Kanban de prospecção | 🔴 | Bloqueada pelo print do dono + UX/UI |
+| #35 | auth: admin-invite-internal aceita comercial | ⚪ | P1 |
+| #36 | prospeccao: ocultar escrita em Carteiras/Universidade | ⚪ | P1 |
+| #37 | prospeccao: drawer + métricas + docs | ⚪ | P2 |
