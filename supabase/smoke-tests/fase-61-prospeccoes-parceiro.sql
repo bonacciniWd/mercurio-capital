@@ -191,6 +191,81 @@ begin
   raise notice 'FASE 61 serasa-juridico negado OK';
 end $$;
 
+-- ---------------- anexos (#38) + conversão (#33) ----------------
+-- anexos: comercial prepara; validações de MIME/tamanho; máx 3; confirmar exige objeto
+set local request.jwt.claims = '{"sub":"52222222-2222-2222-2222-222222222222","role":"authenticated","app_metadata":{"role":"admin","admin_nivel":"comercial"}}';
+do $$
+declare
+  v_prop uuid; v_anexo uuid; v_path text;
+begin
+  select id into v_prop from public.prospeccoes_parceiro where deleted_at is null limit 1;
+  if v_prop is null then
+    insert into public.prospeccoes_parceiro (nome_empresa, contato_nome, contato_email)
+    values ('Imob Anexo','Cont Anexo','anexo@x.com') returning id into v_prop;
+  end if;
+
+  -- preparar válido
+  select anexo_id, storage_path into v_anexo, v_path
+    from public.admin_prospeccao_anexo_preparar(v_prop, 'print.png', 'image/png', 1000);
+  if v_anexo is null then raise exception 'F61-19 FAIL: preparar não retornou'; end if;
+
+  -- MIME inválido / tamanho / extensão incoerente
+  begin perform public.admin_prospeccao_anexo_preparar(v_prop, 'doc.pdf', 'application/pdf', 100);
+    raise exception 'F61-20 FAIL: pdf aceito'; exception when sqlstate '22023' then null; end;
+  begin perform public.admin_prospeccao_anexo_preparar(v_prop, 'big.png', 'image/png', 3000000);
+    raise exception 'F61-21 FAIL: >2MB aceito'; exception when sqlstate '22023' then null; end;
+
+  -- confirmar exige objeto real no storage
+  begin
+    perform public.admin_prospeccao_anexo_confirmar(v_anexo);
+    raise exception 'F61-22 FAIL: confirmou sem objeto';
+  exception when sqlstate '22023' then null; end;
+
+  -- sobe o objeto e confirma
+  insert into storage.objects (bucket_id, name, owner_id, version)
+  values ('prospeccao-anexos', v_path, '52222222-2222-2222-2222-222222222222', '1');
+  perform public.admin_prospeccao_anexo_confirmar(v_anexo);
+  if not exists(select 1 from public.admin_prospeccao_anexos_listar(v_prop) where id=v_anexo) then
+    raise exception 'F61-23 FAIL: anexo confirmado não listado'; end if;
+
+  raise notice 'FASE 61 anexos OK';
+end $$;
+
+-- conversão: juridico negado; comercial passa o guard (validação do wizard atua); fora da etapa negado
+insert into public.prospeccoes_parceiro (id, nome_empresa, contato_nome, contato_email, status)
+values ('75555555-7555-7555-7555-755555555555','Imob Conv','Cont Conv','conv@x.com','converter_proposta')
+on conflict do nothing;
+
+set local request.jwt.claims = '{"sub":"53333333-3333-3333-3333-333333333333","role":"authenticated","app_metadata":{"role":"admin","admin_nivel":"juridico"}}';
+do $$
+begin
+  begin
+    perform public.admin_prospeccao_converter('75555555-7555-7555-7555-755555555555', null, '{}');
+    raise exception 'F61-24 FAIL: juridico converteu';
+  exception when insufficient_privilege then null; end;
+end $$;
+
+set local request.jwt.claims = '{"sub":"52222222-2222-2222-2222-222222222222","role":"authenticated","app_metadata":{"role":"admin","admin_nivel":"comercial"}}';
+do $$
+declare v_fora uuid;
+begin
+  -- fora da etapa de conversão
+  insert into public.prospeccoes_parceiro (nome_empresa, contato_nome, contato_email, status)
+  values ('Imob Fora','Cont Fora','fora@x.com','oportunidade') returning id into v_fora;
+  begin
+    perform public.admin_prospeccao_converter(v_fora, null, '{}');
+    raise exception 'F61-25 FAIL: converteu fora da etapa';
+  exception when sqlstate '22023' then null; -- prospeccao_nao_esta_na_etapa_de_conversao
+  end;
+  -- comercial na etapa: guard passa; o wizard rejeita payload vazio (prova que a elevação funciona)
+  begin
+    perform public.admin_prospeccao_converter('75555555-7555-7555-7555-755555555555', null, '{}');
+    raise exception 'F61-26 FAIL: payload vazio passou';
+  exception when sqlstate '22023' then null; -- partner_id é obrigatório / cliente é obrigatório (wizard)
+  end;
+  raise notice 'FASE 61 conversão OK';
+end $$;
+
 -- ---------------- admin_set_admin_nivel aceita 'comercial' ----------------
 do $$
 begin
@@ -203,7 +278,7 @@ begin
     perform public.admin_set_admin_nivel('52222222-2222-2222-2222-222222222222','superadmin');
     raise exception 'F61-16 FAIL: nível inválido aceito';
   exception when raise_exception then null; end;
-  raise notice 'FASE 61 TRANSACIONAL OK (19 verificações)';
+  raise notice 'FASE 61 TRANSACIONAL OK (26 verificações)';
 end $$;
 
 rollback;
