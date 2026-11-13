@@ -81,7 +81,11 @@ interface Props {
 
 export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
   const { session } = useAuth()
+  // S2 (plano 2026-11-12): comercial/juridico NÃO disparam Serasa — gate de UI por nível
+  // (backend endurecido na migration 20261112000002). Demais admins (full/limitado) seguem.
   const isAdmin = session?.role === 'admin'
+  const podeDispararSerasa = isAdmin
+    && (session?.adminNivel === 'full' || session?.adminNivel === 'limitado')
   const qc = useQueryClient()
   const [erro, setErro] = useState<string | null>(null)
   const [executingTipo, setExecutingTipo] = useState<string | null>(null)
@@ -335,6 +339,8 @@ export function PropostaConsultas({ propostaId, readOnly = false }: Props) {
                 const Icon = meta?.Icon ?? FileSearch
                 const isRunning = executingTipo === p.tipo
                 const isSerasa = p.tipo === 'serasa_pf' || p.tipo === 'serasa_pj'
+                // comercial/juridico não disparam Serasa (S2) — esconder o card de disparo
+                if (isSerasa && !podeDispararSerasa) return null
                 const eligibleProponentes = proponentes.filter(proponente =>
                   (p.tipo === 'serasa_pf' && proponente.pessoa_tipo === 'PF') ||
                   (p.tipo === 'serasa_pj' && proponente.pessoa_tipo === 'PJ'),

@@ -1030,3 +1030,32 @@ select count(*) from proposta_observacao_anexos
 ### Notificações
 
 Comentário novo notifica in-app (parceiro dono aprovado + responsável interno + admins operacionais; nunca autor/cliente) e dispara push via fan-out da Frente A. Se push não chega, o diagnóstico é o da §17 — a fila é a mesma `push_outbox`.
+
+## 21. Funil de prospecção de parceiros (`/admin/prospeccao`) + admin comercial
+
+Cobertura das issues #28–#37 (plano `prompts/2026-11-12-funil-prospeccao-parceiros.md`).
+
+### Papel
+
+`admin_nivel='comercial'` (claim em `app_metadata.admin_nivel`; atribuído por admin full via `admin_set_admin_nivel`). Acessa aprovações/parceiros/rede/propostas/leads/carteiras(leitura)/universidade/prospecção; **não** financeiro geral, configurações, Serasa, feature flags, usuários internos, integrações, kanban de propostas, relatórios, WhatsApp. Backend: escrita no funil exige `app_is_admin_escopo_comercial()` (full/limitado/comercial; jurídico fora).
+
+### LGPD de prospects
+
+Prospects não têm conta (fora de `lgpd_export_meus_dados`). Tratamento: origem da prospecção registrada; arquivamento (perda/desistência) com motivo obrigatório; acesso restrito a admin. **Pedido de titular (eliminação):** purge manual documentado — soft delete via SQL admin + registro em `audit_log` (ver §7). Retenção: arquivadas permanecem para inteligência comercial; purge físico sob demanda do titular.
+
+### Diagnóstico
+
+```sql
+-- funil por coluna
+select status, count(*) from prospeccoes_parceiro
+ where deleted_at is null and arquivado_em is null group by 1 order by 1;
+
+-- histórico de uma prospecção
+select status_anterior, status_novo, alterado_em, u.email as alterado_por
+  from prospeccoes_parceiro_historico h left join usuarios u on u.id=h.alterado_por
+ where prospeccao_id = '<uuid>' order by alterado_em desc;
+
+-- arquivadas com motivo
+select nome_empresa, motivo_arquivamento, arquivado_em from prospeccoes_parceiro
+ where arquivado_em is not null order by arquivado_em desc limit 20;
+```

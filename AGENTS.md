@@ -73,7 +73,7 @@ Convenções de banco (invariantes): tabelas e colunas em `snake_case` em portug
 
 ## 7. Decisões já tomadas (não reabrir sem o dono)
 
-- Papéis: `admin`, `parceiro` (dono da operação), `assistente` (equipe do parceiro, privilégios reduzidos), `cliente` (lead/tomador). RBAC detalhado em `docs/blueprint/02-roles-permissions.md`.
+- Papéis: `admin`, `parceiro` (dono da operação), `assistente` (equipe do parceiro, privilégios reduzidos), `cliente` (lead/tomador). `admin` subdivide-se por `admin_nivel`: `full` (padrão), `limitado`, `juridico` e `comercial` (funil de prospecção de parceiros). RBAC detalhado em `docs/blueprint/02-roles-permissions.md`.
 - Autenticação de cliente por **magic link** (e-mail e/ou WhatsApp); **protocolo público** permite consulta de proposta sem login.
 - Classificador de leads é **server-side e configurável** (critérios em `docs/operacao/criterios-classificador-leads-v1.md` e `matriz-criterios-classificacao-leads.md`).
 - Consultas Serasa iniciadas por admin têm **cota diária** (`docs/operacao/serasa-admin-cota-diaria.md`).

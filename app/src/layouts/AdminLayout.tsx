@@ -7,7 +7,7 @@ import {
 import { useAuth } from '@/auth/AuthContext'
 import { NotificationBell } from '@/components/NotificationBell'
 import { PushOptIn } from '@/components/PushOptIn'
-import { isRestrictedAdmin, isRestrictedAdminNavPath } from '@/lib/adminScope'
+import { isRestrictedAdmin, isRestrictedAdminNavPath, adminNivelOf } from '@/lib/adminScope'
 
 const ITEMS = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -45,7 +45,7 @@ export function AdminLayout() {
   }, [])
 
   const items = isRestrictedAdmin(session)
-    ? ITEMS.filter((it) => isRestrictedAdminNavPath(it.to))
+    ? ITEMS.filter((it) => isRestrictedAdminNavPath(it.to, adminNivelOf(session)))
     : ITEMS
 
   async function handleLogout() {

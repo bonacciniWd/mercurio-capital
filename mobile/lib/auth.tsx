@@ -7,7 +7,7 @@ import { DeviceLock } from '@/components/DeviceLock'
 import { setQueryIdentity } from './queryClient'
 
 type Role = 'admin' | 'partner' | 'team_member' | 'client' | null
-type AdminNivel = 'full' | 'limitado' | 'juridico'
+type AdminNivel = 'full' | 'limitado' | 'juridico' | 'comercial'
 
 interface SessionExt {
   userId: string
@@ -36,7 +36,7 @@ async function loadProfile(s: Session | null): Promise<SessionExt | null> {
 
   const rawAdminNivel = (s.user.app_metadata as { admin_nivel?: unknown } | undefined)?.admin_nivel
   const adminNivel: AdminNivel =
-    rawAdminNivel === 'limitado' || rawAdminNivel === 'juridico' || rawAdminNivel === 'full'
+    rawAdminNivel === 'limitado' || rawAdminNivel === 'juridico' || rawAdminNivel === 'comercial' || rawAdminNivel === 'full'
       ? rawAdminNivel
       : 'full'
 

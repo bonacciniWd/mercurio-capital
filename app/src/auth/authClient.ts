@@ -177,8 +177,8 @@ function sanitizeRole(value: unknown): AppRole {
   return 'client'
 }
 
-function sanitizeAdminNivel(value: unknown): AdminNivel {
-  if (value === 'limitado' || value === 'juridico' || value === 'full') {
+export function sanitizeAdminNivel(value: unknown): AdminNivel {
+  if (value === 'limitado' || value === 'juridico' || value === 'comercial' || value === 'full') {
     return value
   }
   return 'full'

@@ -10,7 +10,7 @@ client (lead autenticado)
 public (visitante)
 ```
 
-- `admin`: operação interna Mercurio. Subdivide-se por `admin_nivel` (claim em `app_metadata`): `full` (padrão), `limitado` e `juridico`.
+- `admin`: operação interna Mercurio. Subdivide-se por `admin_nivel` (claim em `app_metadata`): `full` (padrão), `limitado`, `juridico` e `comercial`.
 - `partner`: dono da conta de parceria. Pode ter um ou mais `team_member` na sua **equipe**.
 - `team_member`: pertence a **uma única** equipe; herda visibilidade das propostas da equipe, mas com permissões reduzidas.
 - `client`: cliente final autenticado, vê apenas suas próprias propostas.
@@ -76,7 +76,7 @@ Papel operacional que é `role='admin'` mas com escopo reduzido. Implementado se
 
 - Helper `public.app_admin_nivel()` → `coalesce(app_metadata->>'admin_nivel','full')`.
 - Helper `public.app_is_admin_full()` → `app_is_admin() AND app_admin_nivel()='full'`.
-- RPC `admin_set_admin_nivel(p_user_id uuid, p_nivel text)` (`security definer`, guard `app_is_admin_full()`, valida `full`|`limitado`|`juridico`, grava em `auth.users.raw_app_meta_data`, audita).
+- RPC `admin_set_admin_nivel(p_user_id uuid, p_nivel text)` (`security definer`, guard `app_is_admin_full()`, valida `full`|`limitado`|`juridico`|`comercial`, grava em `auth.users.raw_app_meta_data`, audita).
 
 **Telas liberadas por `admin_nivel`** (as demais rotas `/admin/*` redirecionam para `/admin`):
 
@@ -97,7 +97,28 @@ Papel operacional que é `role='admin'` mas com escopo reduzido. Implementado se
 | Fluxos / Campanhas / Templates | `/admin/{fluxos,campanhas,templates}` | ✅ | ❌ | ❌ |
 | Feature flags / Integrações / Configurações | … | ✅ | ❌ | ❌ |
 
-No front, o gate é `app/src/guards/RequireAdminScope.tsx` (allowlist **por nível** em `app/src/lib/adminScope.ts`, via `isAdminPathAllowed(pathname, nivel)`) aplicado dentro do bloco `/admin`; o `AdminLayout` filtra a navegação pelo mesmo allowlist. O botão **"Nova proposta"** em `/admin/propostas` só aparece para `full` e `limitado` (`canCreateProposta`). Paridade no mobile: `mobile/lib/adminScope.ts` filtra o hub (`(admin)/index.tsx`), esconde o botão "Nova" (`(admin)/propostas.tsx`) e bloqueia deep link em `(admin)/propostas-nova.tsx`.
+## 2.3 Admin comercial (`admin_nivel='comercial'`)
+
+Papel voltado à **captação de parceiros** (funil de prospecção). Continua `role='admin'`; guard dedicado `public.app_is_admin_escopo_comercial()` = `app_is_admin()` AND nível ∈ {full, limitado, comercial} (jurídico fora).
+
+**Telas do comercial** (allowlist própria; demais `/admin/*` redirecionam para `/admin`):
+
+| Tela | Rota | Comercial |
+|---|---|:---:|
+| Dashboard | `/admin` | ✅ |
+| Aprovações / Parceiros (+equipes) / Rede | … | ✅ |
+| Propostas (listagem + detalhe) | `/admin/propostas`, `/admin/propostas/:id` | ✅ |
+| **Nova proposta (criação — via conversão do funil)** | `/admin/propostas/nova` | ✅ |
+| Leads do simulador (leitura) | `/admin/leads/simulacoes` | ✅ |
+| Carteiras (somente leitura) | `/admin/financeiro/carteiras` | ✅ (read) |
+| Universidade | `/admin/universidade` | ✅ |
+| **Prospecção (funil de parceiros)** | `/admin/prospeccao` | ✅ |
+| Kanban de propostas / Relatórios / WhatsApp | … | ❌ |
+| Financeiro geral / Preços / Configurações / Feature flags / Integrações / Usuários internos / Auditoria / Serasa | … | ❌ |
+
+Backend: escrita nas tabelas do funil só via RPCs com guard `app_is_admin_escopo_comercial()`; leitura por qualquer `app_is_admin()`. Detalhe: carteiras permanecem com escrita restrita a `app_is_admin_full()` — o comercial só lê.
+
+No front, o gate é `app/src/guards/RequireAdminScope.tsx` (allowlist **por nível** em `app/src/lib/adminScope.ts`, via `isAdminPathAllowed(pathname, nivel)`) aplicado dentro do bloco `/admin`; o `AdminLayout` filtra a navegação pelo mesmo allowlist. O botão **"Nova proposta"** em `/admin/propostas` aparece para `full`, `limitado` e `comercial` (`canCreateProposta`). **Mobile:** o hub admin mobile foi descontinuado (v0.0.2 removeu `(admin)/*`) — a paridade de escopo no mobile é apenas o parser de `admin_nivel` em `mobile/lib/auth.tsx` (defesa em profundidade); o funil de prospecção é web-only na v1.
 
 O atendimento WhatsApp é uma exceção delimitada para Admin limitado: a rota permite apenas a caixa de entrada, e políticas/RPCs retornam somente conversas manualmente atribuídas ao operador e vinculadas a uma proposta que ele pode acessar. Configuração, templates, fluxos, vinculação de identidade e consentimento continuam exclusivos de Admin full.
 

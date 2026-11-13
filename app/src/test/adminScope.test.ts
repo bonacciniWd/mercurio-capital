@@ -42,18 +42,29 @@ describe('adminScope — escopo por admin_nivel', () => {
     expect(adminNivelOf(admin('juridico'))).toBe('juridico')
   })
 
-  it('isRestrictedAdmin true apenas para limitado/juridico', () => {
+  it('isRestrictedAdmin true apenas para limitado/juridico/comercial', () => {
     expect(isRestrictedAdmin(admin('full'))).toBe(false)
     expect(isRestrictedAdmin(admin('limitado'))).toBe(true)
     expect(isRestrictedAdmin(admin('juridico'))).toBe(true)
+    expect(isRestrictedAdmin(admin('comercial'))).toBe(true)
     expect(isRestrictedAdmin(null)).toBe(false)
   })
 
-  it('canCreateProposta apenas full e limitado', () => {
+  it('canCreateProposta: full, limitado e comercial (S1) — juridico não', () => {
     expect(canCreateProposta(admin('full'))).toBe(true)
     expect(canCreateProposta(admin('limitado'))).toBe(true)
+    expect(canCreateProposta(admin('comercial'))).toBe(true)
     expect(canCreateProposta(admin('juridico'))).toBe(false)
     expect(canCreateProposta(null)).toBe(false)
+  })
+
+  it('comercial: nav inclui prospecção/carteiras/universidade; exclui kanban/relatorios/whatsapp', () => {
+    for (const to of ['/admin', '/admin/aprovacoes', '/admin/parceiros', '/admin/rede', '/admin/propostas', '/admin/leads/simulacoes', '/admin/financeiro/carteiras', '/admin/universidade', '/admin/prospeccao']) {
+      expect(isRestrictedAdminNavPath(to, 'comercial')).toBe(true)
+    }
+    for (const to of ['/admin/kanban', '/admin/relatorios', '/admin/integracoes/whatsapp', '/admin/financeiro', '/admin/configuracoes', '/admin/feature-flags']) {
+      expect(isRestrictedAdminNavPath(to, 'comercial')).toBe(false)
+    }
   })
 
   it('nav allowlist inclui propostas, leads e relatorios para escopo reduzido', () => {
@@ -90,5 +101,37 @@ describe('adminScope — escopo por admin_nivel', () => {
     expect(isAdminPathAllowed('/admin/leads/simulacoes', 'juridico')).toBe(true)
     expect(isAdminPathAllowed('/admin/propostas/nova', 'juridico')).toBe(false)
     expect(isAdminPathAllowed('/admin/financeiro', 'juridico')).toBe(false)
+    expect(isAdminPathAllowed('/admin/prospeccao', 'juridico')).toBe(false) // juridico fora da prospecção (S4)
+    expect(isAdminPathAllowed('/admin/prospeccao', 'limitado')).toBe(true) // limitado acessa prospecção (S4)
+  })
+
+  it('guard não é contornado por caixa do path (M1) — /ADMIN/KANBAN bloqueado p/ restrito', () => {
+    expect(isAdminPathAllowed('/ADMIN/KANBAN', 'comercial')).toBe(false)
+    expect(isAdminPathAllowed('/Admin/Financeiro', 'limitado')).toBe(false)
+    expect(isAdminPathAllowed('/ADMIN/PROSPECCAO', 'comercial')).toBe(true)
+  })
+
+  it('comercial: allowlist de rotas (aprovacoes/parceiros/rede/propostas/leads/carteiras/universidade/prospeccao)', () => {
+    for (const p of ['/admin', '/admin/aprovacoes', '/admin/parceiros', '/admin/rede', '/admin/propostas', '/admin/propostas/abc-123', '/admin/propostas/nova', '/admin/leads/simulacoes', '/admin/financeiro/carteiras', '/admin/universidade', '/admin/prospeccao', '/admin/parceiros/p1/equipes']) {
+      expect(isAdminPathAllowed(p, 'comercial')).toBe(true)
+    }
+    for (const p of ['/admin/kanban', '/admin/relatorios', '/admin/integracoes/whatsapp', '/admin/financeiro', '/admin/financeiro/precos', '/admin/configuracoes', '/admin/feature-flags', '/admin/auditoria', '/admin/fluxos', '/admin/campanhas', '/admin/templates', '/admin/milestones']) {
+      expect(isAdminPathAllowed(p, 'comercial')).toBe(false)
+    }
+  })
+})
+
+// R1 do plano 2026-11-12: nível desconhecido NÃO pode virar 'full' na UI.
+describe('sanitizeAdminNivel (fallback seguro)', () => {
+  it('reconhece os 4 níveis; desconhecido/ausente cai para full (comportamento legado documentado)', async () => {
+    const { sanitizeAdminNivel } = await import('@/auth/authClient')
+    expect(sanitizeAdminNivel('full')).toBe('full')
+    expect(sanitizeAdminNivel('limitado')).toBe('limitado')
+    expect(sanitizeAdminNivel('juridico')).toBe('juridico')
+    expect(sanitizeAdminNivel('comercial')).toBe('comercial')
+    // fallback legado: backend é a autoridade (RPCs restringem); UI assume full por padrão
+    expect(sanitizeAdminNivel('superadmin')).toBe('full')
+    expect(sanitizeAdminNivel(undefined)).toBe('full')
+    expect(sanitizeAdminNivel(null)).toBe('full')
   })
 })
