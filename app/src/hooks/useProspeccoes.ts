@@ -67,7 +67,7 @@ export function useProspeccaoHistorico(prospeccaoId: string | null) {
       const rows = (data ?? []) as Omit<ProspeccaoHistoricoItem, 'autor_nome'>[]
       // resolve nomes dos autores em lote
       const ids = [...new Set(rows.map(r => r.alterado_por).filter(Boolean))] as string[]
-      let nomes: Record<string, string> = {}
+      const nomes: Record<string, string> = {}
       if (ids.length > 0) {
         const { data: users } = await supabase.from('usuarios').select('id, nome_completo').in('id', ids)
         for (const u of (users ?? []) as { id: string; nome_completo: string }[]) nomes[u.id] = u.nome_completo
@@ -139,7 +139,12 @@ export function useProspeccaoMove() {
         p_novo_status: input.novoStatus,
         p_status_esperado: input.statusEsperado,
       })
-      if (error) throw new Error(mapearErroProspeccao(error.code, error.message), { cause: error })
+      if (error) {
+        // lib ES2020 não tipa ErrorOptions; cause anexado à mão (mesmo valor semântico).
+        const err = new Error(mapearErroProspeccao(error.code, error.message)) as Error & { cause?: unknown }
+        err.cause = error
+        throw err
+      }
     },
     onSettled: useInvalidar(qc),
   })

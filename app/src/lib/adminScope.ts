@@ -11,8 +11,9 @@ import type { AdminNivel, AuthSession } from '@/auth/types'
 // "base" (limitado/juridico) = dashboard, aprovações, parceiros (+ equipes), rede e kanban.
 
 // Itens de menu (paths absolutos) visíveis para admins de escopo reduzido.
-// limitado e juridico compartilham o mesmo menu (a diferença de criação é
-// aplicada por rota e pelo botão "Nova proposta", não por item de menu).
+// juridico usa a allowlist base; limitado ganha Prospecção (S4 — issue #34).
+// (A diferença de criação de proposta segue aplicada por rota e pelo botão
+// "Nova proposta", não por item de menu.)
 const RESTRICTED_ADMIN_NAV_ALLOWLIST = new Set<string>([
   '/admin',
   '/admin/aprovacoes',
@@ -23,6 +24,12 @@ const RESTRICTED_ADMIN_NAV_ALLOWLIST = new Set<string>([
   '/admin/leads/simulacoes',
   '/admin/relatorios',
   '/admin/integracoes/whatsapp',
+])
+
+// Menu do nível limitado: base + Prospecção (/admin/prospeccao). juridico NÃO (S4).
+const LIMITADO_ADMIN_NAV_ALLOWLIST = new Set<string>([
+  ...RESTRICTED_ADMIN_NAV_ALLOWLIST,
+  '/admin/prospeccao',
 ])
 
 // Menu do nível comercial (separado: tem carteiras/universidade/prospecção; não tem
@@ -56,6 +63,10 @@ export function isRestrictedAdminNavPath(to: string, nivel?: AdminNivel | null):
   if (nivel === 'comercial') {
     return COMERCIAL_ADMIN_NAV_ALLOWLIST.has(to)
   }
+  if (nivel === 'limitado') {
+    return LIMITADO_ADMIN_NAV_ALLOWLIST.has(to)
+  }
+  // juridico (e chamadas sem nível) — allowlist base, sem prospecção (S4).
   return RESTRICTED_ADMIN_NAV_ALLOWLIST.has(to)
 }
 

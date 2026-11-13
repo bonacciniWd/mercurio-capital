@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Suspense, useEffect } from 'react'
 import {
   LayoutDashboard, UserCheck, Network, Kanban, FileText, Folder, Wallet, Coins,
-  BarChart3, GraduationCap, Settings, Loader2, Trophy, UserRoundPlus,
+  BarChart3, GraduationCap, Settings, Loader2, Trophy, UserRoundPlus, Target,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { NotificationBell } from '@/components/NotificationBell'
@@ -17,6 +17,7 @@ const ITEMS = [
   { to: '/admin/kanban', icon: Kanban, label: 'Kanban' },
   { to: '/admin/propostas', icon: FileText, label: 'Propostas' },
   { to: '/admin/leads/simulacoes', icon: UserRoundPlus, label: 'Leads' },
+  { to: '/admin/prospeccao', icon: Target, label: 'Prospecção' },
   // Carteiras permanece como atalho operacional; os demais módulos financeiros ficam agrupados.
   { to: '/admin/financeiro/carteiras', icon: Wallet, label: 'Carteiras' },
   { to: '/admin/financeiro', icon: Coins, label: 'Financeiro', end: true },

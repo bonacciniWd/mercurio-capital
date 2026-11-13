@@ -1043,6 +1043,10 @@ Cobertura das issues #28–#37 (plano `prompts/2026-11-12-funil-prospeccao-parce
 
 Prospects não têm conta (fora de `lgpd_export_meus_dados`). Tratamento: origem da prospecção registrada; arquivamento (perda/desistência) com motivo obrigatório; acesso restrito a admin. **Pedido de titular (eliminação):** purge manual documentado — soft delete via SQL admin + registro em `audit_log` (ver §7). Retenção: arquivadas permanecem para inteligência comercial; purge físico sob demanda do titular.
 
+### Conversão em proposta
+
+Card na coluna "Converter em proposta" → botão "Converter em proposta" (só admin full/comercial; S1) → confirmação → abre `/admin/propostas/nova?prospeccao=<id>` → o wizard admin coleta cliente/proponentes/imóveis e submete via `admin_prospeccao_converter` (cria a proposta, vincula partner_id+proposta_id, audita). Backend barra jurídico/limitado (42501) e reconversão (prospeccao_ja_convertida).
+
 ### Diagnóstico
 
 ```sql

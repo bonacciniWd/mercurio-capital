@@ -75,6 +75,7 @@ const AdminPropostas       = lazy(() => import('@/pages/admin/Propostas').then(m
 const AdminPropostaDetalhe = lazy(() => import('@/pages/admin/PropostaDetalhe').then(m => ({ default: m.AdminPropostaDetalhe })))
 const AdminRelatorios      = lazy(() => import('@/pages/admin/Relatorios').then(m => ({ default: m.AdminRelatorios })))
 const AdminLeadsSimulacoes = lazy(() => import('@/pages/admin/LeadsSimulacoes').then(m => ({ default: m.AdminLeadsSimulacoes })))
+const AdminProspeccao      = lazy(() => import('@/pages/admin/Prospeccao').then(m => ({ default: m.AdminProspeccao })))
 const AdminConfiguracoes   = lazy(() => import('@/pages/admin/Configuracoes').then(m => ({ default: m.AdminConfiguracoes })))
 const AdminUniversidade    = lazy(() => import('@/pages/admin/Universidade').then(m => ({ default: m.AdminUniversidade })))
 const AdminMilestones      = lazy(() => import('@/pages/admin/Milestones').then(m => ({ default: m.AdminMilestones })))
@@ -227,6 +228,7 @@ const appRoutes = [
                       { path: 'propostas/nova', element: <PartnerWizard mode="admin" /> },
                       { path: 'propostas/:id', element: <AdminPropostaDetalhe /> },
                       { path: 'leads/simulacoes', element: <AdminLeadsSimulacoes /> },
+                      { path: 'prospeccao', element: <AdminProspeccao /> },
                       { path: 'financeiro/carteiras', element: <AdminCarteiras /> },
                       { path: 'financeiro/precos', element: <AdminPrecos /> },
                       { path: 'financeiro', element: <AdminFinanceiro /> },

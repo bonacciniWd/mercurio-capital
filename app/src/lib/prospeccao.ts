@@ -36,6 +36,20 @@ export const PROSPECCAO_ORIGEM_LABEL: Record<ProspeccaoOrigem, string> = {
   outro: 'Outro',
 }
 
+// Máscara de telefone BR da UI (#34): dígitos → (11) 99999-9999; submit envia só dígitos.
+// Espelha o padrão de CpcLeadForm (sem biblioteca nova).
+export function prospeccaoTelefoneDigits(value: string): string {
+  return value.replace(/\D/g, '').slice(0, 11)
+}
+
+export function prospeccaoTelefoneDisplay(value: string): string {
+  const digits = prospeccaoTelefoneDigits(value)
+  if (digits.length <= 2) return digits ? `(${digits}` : ''
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+}
+
 // PostgREST devolve SQLSTATE em error.code e a mensagem em error.message.
 // Mapear por code + substring (mesmo cuidado de propostaObservacaoAnexo).
 export function mapearErroProspeccao(code?: string, message?: string): string {

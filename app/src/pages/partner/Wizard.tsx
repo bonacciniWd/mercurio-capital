@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Building, Home as HomeIcon, Hammer, Check, Plus, Trash2, MapPin, ChevronDown, Copy, Loader2, RefreshCw, Search, ShieldCheck, FileDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -12,6 +12,7 @@ import { BrandLoading } from '@/components/BrandLoading'
 import { imprimirSimulacaoCreditoPdf } from '@/lib/simulacaoCreditoPdf'
 import { consumeSimulacaoDraft } from '@/lib/simulacaoDraft'
 import { publicAppUrl } from '@/lib/publicUrl'
+import { useProspeccaoConverter } from '@/hooks/useProspeccoes'
 import {
   maskCpf, maskCnpj, onlyDigits, isValidCpf, isValidCnpj, validarDocumento, consultarCnpj,
 } from '@/lib/documentoBr'
@@ -252,6 +253,12 @@ const ADMIN_PARTNER_STATUS_LABEL: Record<string, string> = {
 export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) {
   const navigate = useNavigate()
   const isAdminMode = mode === 'admin'
+  // Conversão do funil de prospecção (#34/#33, S1 do dono): /admin/propostas/nova?prospeccao=<id>
+  // faz o submit via admin_prospeccao_converter (guard full/comercial) em vez de
+  // admin_create_proposta, vinculando partner_id/proposta_id ao card do funil.
+  const [searchParams] = useSearchParams()
+  const prospeccaoId = isAdminMode ? searchParams.get('prospeccao') : null
+  const converterMut = useProspeccaoConverter()
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<FormState>(() => {
     if (isAdminMode) return initialState
@@ -272,7 +279,7 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
   })
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<SubmitResult | null>(null)
-  const [adminPartnerId, setAdminPartnerId] = useState('')
+  const [adminPartnerId, setAdminPartnerId] = useState(() => (mode === 'admin' ? searchParams.get('partner') ?? '' : ''))
 
   const simulatorParamsQ = useQuery({
     queryKey: ['simulador-parametros-publicos'],
@@ -417,6 +424,17 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
 
       if (isAdminMode) {
         if (!adminPartnerId) throw new Error('Selecione um parceiro para criar a proposta (aprovado ou pendente).')
+        if (prospeccaoId) {
+          // Conversão do funil (#34): RPC dedicada cria a proposta com o payload do
+          // wizard e vincula o card (proposta_id/partner_id) com auditoria própria.
+          const data = await converterMut.mutateAsync({ id: prospeccaoId, partnerId: adminPartnerId, payload: payload as Record<string, unknown> })
+          return {
+            proposta_id: data.proposta_id,
+            protocolo: data.protocolo ?? '',
+            cliente_id: '',
+            magic_token: '',
+          } satisfies SubmitResult
+        }
         const { data, error } = await supabase.rpc('admin_create_proposta', {
           p_partner_id: adminPartnerId,
           p_payload: payload,
@@ -430,6 +448,12 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
       return data as SubmitResult
     },
     onSuccess: (data) => {
+      // Conversão do funil: sem magic link (o retorno da RPC não tem token) — vai
+      // direto para o detalhe da proposta criada e o board invalida via hook.
+      if (prospeccaoId && data.proposta_id) {
+        navigate(`/admin/propostas/${data.proposta_id}`)
+        return
+      }
       setResult(data)
       setError(null)
     },
@@ -496,6 +520,12 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
         <Link to={isAdminMode ? '/admin/propostas' : '/p/propostas'} className="text-sm text-silver-500 hover:underline">Cancelar</Link>
       </div>
       <p className="mb-6 text-sm text-silver-600">Passo {step + 1} de {STEPS.length} — {STEPS[step]}</p>
+
+      {prospeccaoId && (
+        <div className="mb-5 rounded-lg border border-gold/30 bg-gold/5 p-4 text-sm text-silver-700" role="status">
+          Convertendo oportunidade do funil de prospecção: ao concluir, a proposta criada ficará vinculada ao card e a conversão será registrada na auditoria.
+        </div>
+      )}
 
       {isAdminMode && (
         <div className="mb-5 rounded-lg border border-gold/30 bg-gold/5 p-4">

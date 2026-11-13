@@ -76,6 +76,18 @@ describe('adminScope — escopo por admin_nivel', () => {
     }
   })
 
+  it('nav por nível (S4, issue #34): limitado vê Prospecção no menu; juridico NÃO', () => {
+    expect(isRestrictedAdminNavPath('/admin/prospeccao', 'limitado')).toBe(true)
+    expect(isRestrictedAdminNavPath('/admin/prospeccao', 'juridico')).toBe(false)
+    expect(isRestrictedAdminNavPath('/admin/prospeccao', 'comercial')).toBe(true)
+    // demais itens do limitado preservados
+    expect(isRestrictedAdminNavPath('/admin/relatorios', 'limitado')).toBe(true)
+    expect(isRestrictedAdminNavPath('/admin/kanban', 'limitado')).toBe(true)
+    expect(isRestrictedAdminNavPath('/admin/financeiro', 'limitado')).toBe(false)
+    // chamada sem nível mantém a allowlist base (sem prospecção)
+    expect(isRestrictedAdminNavPath('/admin/prospeccao')).toBe(false)
+  })
+
   it('full acessa qualquer rota admin', () => {
     for (const p of ['/admin', '/admin/financeiro', '/admin/propostas/nova', '/admin/configuracoes']) {
       expect(isAdminPathAllowed(p, 'full')).toBe(true)
