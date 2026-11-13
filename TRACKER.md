@@ -81,7 +81,8 @@ Plano aprovado: `prompts/2026-11-12-funil-prospeccao-parceiros.md`. Entidade nov
 | #31 | auth: parsers admin_nivel comercial (web+mobile) | 🟢 | `4120fa1`; fallback corrigido + teste |
 | #32 | prospeccao: guards por nível + rota + menu | 🟢 | `4120fa1`; +H1 Serasa endurecida, +H2 limitado na prospecção, +M1 case-bypass |
 | #33 | prospeccao: RPC converter (cria proposta via wizard) | ⚪ | P1 — S1 confirmada |
-| #34 | prospeccao: UI Kanban de prospecção | 🔴 | Bloqueada pelo print do dono + UX/UI |
+| #34 | prospeccao: UI Kanban de prospecção | ⚪ | Spec UX/UI aprovada; anexos DB (#38) + converter (#33) sobem juntos |
 | #35 | auth: admin-invite-internal aceita comercial | ⚪ | P1 |
 | #36 | prospeccao: ocultar escrita em Carteiras/Universidade | ⚪ | P1 |
 | #37 | prospeccao: drawer + métricas + docs | ⚪ | P2 |
+| #38 | prospeccao: DB anexos | ⚪ | gap detectado pela spec #34; espelha obs |
