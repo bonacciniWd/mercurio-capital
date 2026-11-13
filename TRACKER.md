@@ -75,11 +75,11 @@ Plano aprovado: `prompts/2026-11-12-funil-prospeccao-parceiros.md`. Entidade nov
 
 | Issue | Item | Status | Notas |
 |---|---|---|---|
-| #28 | prospeccao: modelo + histórico + RLS + view + smoke | ⚪ | P0 DB |
-| #29 | prospeccao: helper escopo comercial + nível | ⚪ | P0 DB |
-| #30 | prospeccao: RPCs create/update/move/arquivar | ⚪ | P0 DB |
-| #31 | auth: parsers admin_nivel comercial (web+mobile) | ⚪ | P0 — 🔴 crítico (fallback→full) |
-| #32 | prospeccao: guards por nível + rota + menu | ⚪ | P0 web |
+| #28 | prospeccao: modelo + histórico + RLS + view + smoke | 🟢 | `4120fa1` |
+| #29 | prospeccao: helper escopo comercial + nível | 🟢 | `4120fa1` |
+| #30 | prospeccao: RPCs create/update/move/arquivar | 🟢 | `4120fa1`; move otimista 40001 |
+| #31 | auth: parsers admin_nivel comercial (web+mobile) | 🟢 | `4120fa1`; fallback corrigido + teste |
+| #32 | prospeccao: guards por nível + rota + menu | 🟢 | `4120fa1`; +H1 Serasa endurecida, +H2 limitado na prospecção, +M1 case-bypass |
 | #33 | prospeccao: RPC converter (cria proposta via wizard) | ⚪ | P1 — S1 confirmada |
 | #34 | prospeccao: UI Kanban de prospecção | 🔴 | Bloqueada pelo print do dono + UX/UI |
 | #35 | auth: admin-invite-internal aceita comercial | ⚪ | P1 |
