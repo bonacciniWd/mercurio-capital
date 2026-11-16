@@ -2,7 +2,7 @@
 
 **Data:** 2026-11-16
 **Plano-base aprovado:** `prompts/2026-11-12-funil-prospeccao-parceiros.md`
-**Status:** aprovado pelo dono em 2026-11-16; implementação local em validação.
+**Status:** implementado, validado e publicado em produção em 2026-11-16 após GO separado.
 
 ## Objetivo
 
@@ -79,4 +79,15 @@ Sem novas entidades ou colunas. O JWT existente continua sendo a fonte de nível
 - `supabase db lint --local --schema public,storage --level error`: sem erro nas alterações da FASE 63; encontrou issues existentes em `admin_campanha_disparar`, `admin_config_leads_classificador_atualizar` e funções Storage do ambiente.
 - `git diff --check`: passou.
 
-Não houve acesso a produção, deploy, publicação de Edge, fechamento remoto de issue ou alteração de dados persistentes pelo smoke.
+Na validação local, não houve acesso à produção, deploy, publicação de Edge, fechamento remoto de issue nem alteração persistente pelo smoke.
+
+## Ativação em produção — GO separado de 2026-11-16
+
+- Commit `7d3ab4a` enviado para `main`, contendo apenas os arquivos de #35–#37 e a correção de data do fixture de testes. Alterações paralelas do working tree ficaram fora do commit.
+- Workflow CI do GitHub estava desativado; o workflow Desktop Release está ativo somente para tags. Nenhum GitHub Action foi iniciado.
+- Migration `20261116000002_universidade_admin_full_only.sql` aplicada no projeto `bhagksfvszeogtjvjtpx`; `supabase migration list --linked` confirma `20261116000001` e `20261116000002` sincronizadas.
+- Smoke remoto `fase-63-universidade-admin-full-only.sql`: `FASE 63 SMOKE: OK` (transação revertida).
+- Edges publicadas: `admin-invite-internal` v20 e `vimeo-upload-init` v46. POST sem autenticação recebeu HTTP 401 nas duas.
+- Vercel produção Ready: deployment `dpl_JVXwiqDWHWoEUzhEZo3QcUNwMtv7`, alias `https://mercuriocapitalsa.com.br`. Rotas `/`, `/admin/carteiras` e `/admin/universidade` responderam HTTP 200; bundles Carteiras, Universidade e Configurações retornaram HTTP 200 e contêm os novos textos de somente leitura/nível comercial.
+- Pós-publicação autenticado como admin comercial e admin full ainda precisa ser validado pelo usuário no navegador. Não foram criados convites, vídeos ou dados persistentes.
+- Nenhuma nova tag ou release desktop foi criada. A versão local validada por `npm run validate:release` segue `0.3.0`; a release desktop v0.3.1 existente ainda precisa ser reconciliada com `main` numa frente própria.
