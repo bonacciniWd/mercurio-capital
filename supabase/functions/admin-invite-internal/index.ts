@@ -6,7 +6,8 @@ const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const SITE_URL = (Deno.env.get('SITE_URL') ?? Deno.env.get('APP_URL') ?? 'https://mercuriocapitalsa.com.br').replace(/\/+$/, '')
 
-type Body = { email?: string; nome_completo?: string }
+type AdminNivel = 'limitado' | 'comercial'
+type Body = { email?: string; nome_completo?: string; p_nivel?: AdminNivel }
 
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
@@ -16,11 +17,17 @@ Deno.serve(async req => {
   if (!authorization.startsWith('Bearer ')) return jsonResponse({ error: 'unauthorized' }, 401)
 
   let body: Body
-  try { body = await req.json() } catch { return jsonResponse({ error: 'invalid_json' }, 400) }
-  const email = (body.email ?? '').trim().toLowerCase()
-  const nome = (body.nome_completo ?? '').trim()
+  try {
+    const parsed: unknown = await req.json()
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return jsonResponse({ error: 'invalid_body' }, 400)
+    body = parsed as Body
+  } catch { return jsonResponse({ error: 'invalid_json' }, 400) }
+  const email = (typeof body.email === 'string' ? body.email : '').trim().toLowerCase()
+  const nome = (typeof body.nome_completo === 'string' ? body.nome_completo : '').trim()
+  const nivel = body.p_nivel ?? 'limitado'
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return jsonResponse({ error: 'email_invalido' }, 400)
   if (nome.length < 3 || nome.length > 120) return jsonResponse({ error: 'nome_invalido' }, 400)
+  if (nivel !== 'limitado' && nivel !== 'comercial') return jsonResponse({ error: 'nivel_invalido' }, 400)
 
   const actor = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: authorization } },
@@ -48,7 +55,7 @@ Deno.serve(async req => {
 
   const userId = invitation.data.user.id
   const { error: roleError } = await admin.auth.admin.updateUserById(userId, {
-    app_metadata: { role: 'admin', admin_nivel: 'limitado' },
+    app_metadata: { role: 'admin', admin_nivel: nivel },
     user_metadata: { nome_completo: nome, role: 'admin' },
   })
   if (roleError) {
@@ -62,5 +69,5 @@ Deno.serve(async req => {
     return jsonResponse({ error: 'cadastro_interno_falhou' }, 500)
   }
 
-  return jsonResponse({ ok: true, usuario_id: userId, email_sent: true }, 201)
+  return jsonResponse({ ok: true, usuario_id: userId, admin_nivel: nivel, email_sent: true }, 201)
 })

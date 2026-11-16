@@ -1,7 +1,7 @@
 // supabase/functions/vimeo-upload-init/index.ts
 // Inicializa upload de video no Vimeo via TUS para aulas da Universidade.
 // Fluxo:
-//  1) valida JWT e role admin
+//  1) valida JWT e acesso de admin full
 //  2) cria video no Vimeo (unlisted)
 //  3) aplica whitelist de dominios (se configurada)
 //  4) retorna upload_link + vimeo_id para o frontend enviar o arquivo direto
@@ -132,8 +132,8 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   })
 
-  const { data: isAdmin, error: adminErr } = await userClient.rpc('app_is_admin')
-  if (adminErr || isAdmin !== true) return jsonResponse({ error: 'forbidden' }, 403)
+  const { data: isAdminFull, error: adminErr } = await userClient.rpc('app_is_admin_full')
+  if (adminErr || isAdminFull !== true) return jsonResponse({ error: 'forbidden' }, 403)
 
   let body: Body
   try {

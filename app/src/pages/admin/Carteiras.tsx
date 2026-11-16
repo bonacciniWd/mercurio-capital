@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Lock, Unlock, Plus, Minus, Search, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { brl } from '@/lib/utils'
+import { useAuth } from '@/auth/AuthContext'
+import { adminNivelOf } from '@/lib/adminScope'
 
 interface WalletRow {
   id: string
@@ -18,6 +20,8 @@ interface WalletRow {
 type AjusteState = { partner_id: string; partner_nome: string; tipo: 'ajuste_credito' | 'ajuste_debito' } | null
 
 export function AdminCarteiras() {
+  const { session } = useAuth()
+  const canManage = adminNivelOf(session) === 'full'
   const qc = useQueryClient()
   const [busca, setBusca] = useState('')
   const [ajuste, setAjuste] = useState<AjusteState>(null)
@@ -85,7 +89,7 @@ export function AdminCarteiras() {
     <>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-navy">Carteiras de parceiros</h1>
-        <p className="text-sm text-silver-500">Saldos, ajustes manuais e bloqueio/desbloqueio.</p>
+        <p className="text-sm text-silver-500">{canManage ? 'Saldos, ajustes manuais e bloqueio/desbloqueio.' : 'Consulta de saldos e movimentações em modo somente leitura.'}</p>
       </div>
 
       <div className="card mb-4 flex items-center gap-3 p-3">
@@ -106,7 +110,7 @@ export function AdminCarteiras() {
                 <th className="px-5 py-3 text-right">Saldo</th>
                 <th className="px-5 py-3">Status</th>
                 <th className="px-5 py-3">Última mov.</th>
-                <th className="px-5 py-3 text-right">Ações</th>
+                {canManage && <th className="px-5 py-3 text-right">Ações</th>}
               </tr>
             </thead>
             <tbody>
@@ -131,7 +135,7 @@ export function AdminCarteiras() {
                     )}
                   </td>
                   <td className="px-5 py-3 text-silver-700">{w.ultima_movimentacao ? new Date(w.ultima_movimentacao).toLocaleString('pt-BR') : '—'}</td>
-                  <td className="px-5 py-3 text-right">
+                  {canManage && <td className="px-5 py-3 text-right">
                     <div className="inline-flex gap-1">
                       <button className="btn-outline" title="Crédito" onClick={() => { setAjuste({ partner_id: w.partner_id, partner_nome: w.partner_nome, tipo: 'ajuste_credito' }); setErro(null) }}>
                         <Plus className="h-3 w-3" />
@@ -147,7 +151,7 @@ export function AdminCarteiras() {
                         {w.bloqueada ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
                       </button>
                     </div>
-                  </td>
+                  </td>}
                 </tr>
               ))}
             </tbody>

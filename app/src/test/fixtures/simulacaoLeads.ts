@@ -12,7 +12,7 @@ export function simulationLead(overrides: Partial<LeadRow> = {}): LeadRow {
     origem: 'Site da Mercúrio', data_inicio: null, periodicidade_juros: null, sistema_amortizacao: null,
     quantidade_parcelas: null, taxa_juros_informada: null, primeira_parcela: null, ultima_parcela: null,
     total_pago: null, total_juros: null, planos_amortizacao: null, resultado_com_amortizacao: null,
-    status_email_prospect: 'enviado', status_email_interno: 'enviado', created_at: '2026-10-08T15:00:00Z',
+    status_email_prospect: 'enviado', status_email_interno: 'enviado', created_at: new Date().toISOString(),
     ...overrides,
   }
 }

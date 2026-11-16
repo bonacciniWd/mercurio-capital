@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Edit2, Trash2, Video, FileText, ChevronRight, ChevronDown, Eye, Upload, Search, Loader2, X, GripVertical } from 'lucide-react'
 import { Badge } from '@/components/Badge'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/auth/AuthContext'
+import { adminNivelOf } from '@/lib/adminScope'
 
 type CursoNivel = 'iniciante' | 'intermediario' | 'avancado'
 type CursoPublico = 'cliente' | 'parceiro' | 'ambos'
@@ -65,6 +67,8 @@ const STATUS_LBL: Record<CursoStatus, string> = {
 }
 
 export function AdminUniversidade() {
+  const { session } = useAuth()
+  const canManage = adminNivelOf(session) === 'full'
   const qc = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [openModulos, setOpenModulos] = useState<Set<string>>(new Set())
@@ -311,12 +315,14 @@ export function AdminUniversidade() {
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold text-navy">Universidade Mercurio</h1>
-          <p className="text-sm text-silver-600">Gerencie cursos, módulos e episódios.</p>
+          <p className="text-sm text-silver-600">{canManage ? 'Gerencie cursos, módulos e episódios.' : 'Conteúdo dos cursos em modo somente leitura.'}</p>
         </div>
-        <button className="btn-gold" disabled={criarCurso.isPending} onClick={() => criarCurso.mutate()}>
+        {canManage && <button className="btn-gold" disabled={criarCurso.isPending} onClick={() => criarCurso.mutate()}>
           {criarCurso.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Novo curso
-        </button>
+        </button>}
       </div>
+
+      {!canManage && <p className="mb-4 rounded-md border border-silver-200 bg-silver-50 px-3 py-2 text-sm text-silver-600">Acesso somente leitura para este nível administrativo.</p>}
 
       {erro && (
         <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 flex items-center justify-between">
@@ -368,36 +374,36 @@ export function AdminUniversidade() {
             <>
               <div className="mb-5 flex items-start justify-between gap-3">
                 <div className="flex-1">
-                  <input
+                  {canManage ? <input
                     className="w-full text-xl font-bold text-navy bg-transparent outline-none border-b border-transparent hover:border-silver-200 focus:border-gold py-1"
                     defaultValue={selected.titulo}
                     onBlur={(e) => e.target.value !== selected.titulo && salvarCurso.mutate({ titulo: e.target.value })}
-                  />
-                  <textarea
+                  /> : <h2 className="py-1 text-xl font-bold text-navy">{selected.titulo}</h2>}
+                  {canManage ? <textarea
                     className="mt-2 w-full text-sm text-silver-600 bg-transparent outline-none resize-none"
                     rows={2} placeholder="Descrição..."
                     defaultValue={selected.descricao ?? ''}
                     onBlur={(e) => e.target.value !== (selected.descricao ?? '') && salvarCurso.mutate({ descricao: e.target.value })}
-                  />
+                  /> : <p className="mt-2 text-sm text-silver-600">{selected.descricao || 'Sem descrição.'}</p>}
                 </div>
-                <div className="flex gap-2">
+                {canManage && <div className="flex gap-2">
                   {selected.status === 'publicado'
                     ? <button className="btn-outline" onClick={() => publicar.mutate('rascunho')}>Despublicar</button>
                     : <button className="btn-gold" onClick={() => publicar.mutate('publicado')}>
                         <Eye className="h-4 w-4" /> Publicar
                       </button>}
-                </div>
+                </div>}
               </div>
 
               <div className="mb-6 grid gap-4 rounded-lg bg-silver-50 p-4 md:grid-cols-4">
                 <div>
                   <label className="label">Categoria</label>
-                  <input className="input" defaultValue={selected.categoria ?? ''} placeholder="Crédito / Vendas..."
+                  <input className="input" readOnly={!canManage} defaultValue={selected.categoria ?? ''} placeholder="Crédito / Vendas..."
                     onBlur={(e) => e.target.value !== (selected.categoria ?? '') && salvarCurso.mutate({ categoria: e.target.value })} />
                 </div>
                 <div>
                   <label className="label">Nível</label>
-                  <select className="input" value={selected.nivel}
+                  <select className="input" disabled={!canManage} value={selected.nivel}
                     onChange={(e) => salvarCurso.mutate({ nivel: e.target.value as CursoNivel })}>
                     <option value="iniciante">Iniciante</option>
                     <option value="intermediario">Intermediário</option>
@@ -406,7 +412,7 @@ export function AdminUniversidade() {
                 </div>
                 <div>
                   <label className="label">Público</label>
-                  <select className="input" value={selected.publico}
+                  <select className="input" disabled={!canManage} value={selected.publico}
                     onChange={(e) => salvarCurso.mutate({ publico: e.target.value as CursoPublico })}>
                     <option value="cliente">Cliente</option>
                     <option value="parceiro">Parceiro</option>
@@ -415,7 +421,7 @@ export function AdminUniversidade() {
                 </div>
                 <div>
                   <label className="label">Acesso</label>
-                  <select className="input" value={selected.gratuito ? 'gratuito' : 'assinatura'}
+                  <select className="input" disabled={!canManage} value={selected.gratuito ? 'gratuito' : 'assinatura'}
                     onChange={(e) => salvarCurso.mutate({ gratuito: e.target.value === 'gratuito' })}>
                     <option value="gratuito">Gratuito</option>
                     <option value="assinatura">Por assinatura</option>
@@ -424,23 +430,23 @@ export function AdminUniversidade() {
 
                 <div className="md:col-span-4">
                   <label className="label">Capa do curso</label>
-                  <label className="block rounded-lg border-2 border-dashed border-silver-300 p-4 text-center text-xs text-silver-500 hover:border-gold cursor-pointer">
+                  <label className={`block rounded-lg border-2 border-dashed border-silver-300 p-4 text-center text-xs text-silver-500 ${canManage ? 'hover:border-gold cursor-pointer' : ''}`}>
                     {capaUrl(selected.capa_storage_path) ? (
                       <img src={capaUrl(selected.capa_storage_path)!} alt="Capa" className="mx-auto max-h-32 rounded" />
                     ) : (
-                      <><Upload className="mx-auto mb-1 h-6 w-6" /> Enviar imagem (1280×720)</>
+                      canManage ? <><Upload className="mx-auto mb-1 h-6 w-6" /> Enviar imagem (1280×720)</> : 'Sem capa cadastrada.'
                     )}
-                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCapa.mutate(f) }} />
+                    {canManage && <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCapa.mutate(f) }} />}
                   </label>
                 </div>
               </div>
 
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="font-semibold text-navy">Módulos & episódios</h2>
-                <button className="btn-outline text-sm" onClick={() => criarModulo.mutate()}>
+                {canManage && <button className="btn-outline text-sm" onClick={() => criarModulo.mutate()}>
                   <Plus className="h-4 w-4" /> Novo módulo
-                </button>
+                </button>}
               </div>
 
               <div className="space-y-2">
@@ -460,7 +466,7 @@ export function AdminUniversidade() {
                           {open ? <ChevronDown className="h-4 w-4 text-silver-500" /> : <ChevronRight className="h-4 w-4 text-silver-500" />}
                         </button>
                         <span className="text-xs font-mono text-silver-400">M{idx + 1}</span>
-                        {editModulo?.id === m.id ? (
+                        {canManage && editModulo?.id === m.id ? (
                           <input autoFocus className="input flex-1 py-1" value={editModulo.titulo}
                             onChange={(e) => setEditModulo({ ...editModulo, titulo: e.target.value })}
                             onBlur={() => salvarModulo.mutate(editModulo)}
@@ -469,13 +475,13 @@ export function AdminUniversidade() {
                           <span className="flex-1 font-semibold text-silver-900">{m.titulo}</span>
                         )}
                         <span className="text-xs text-silver-500">{aulasM.length} aulas</span>
-                        <button className="rounded-md p-1.5 hover:bg-silver-100" onClick={() => setEditModulo(m)}>
+                        {canManage && <button className="rounded-md p-1.5 hover:bg-silver-100" onClick={() => setEditModulo(m)}>
                           <Edit2 className="h-3.5 w-3.5 text-silver-500" />
-                        </button>
-                        <button className="rounded-md p-1.5 hover:bg-red-100"
+                        </button>}
+                        {canManage && <button className="rounded-md p-1.5 hover:bg-red-100"
                           onClick={() => confirm('Remover módulo e todas as aulas?') && excluirModulo.mutate(m.id)}>
                           <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                        </button>
+                        </button>}
                       </div>
                       {open && (
                         <div className="border-t border-silver-100 bg-silver-50/50 p-3">
@@ -493,16 +499,16 @@ export function AdminUniversidade() {
                                 <span className="text-xs text-silver-500 w-14 text-right">
                                   {a.duracao_segundos ? formatDur(a.duracao_segundos) : '—'}
                                 </span>
-                                <button className="rounded-md p-1 hover:bg-silver-100" onClick={() => setEditAula(a)}>
+                                {canManage && <button className="rounded-md p-1 hover:bg-silver-100" onClick={() => setEditAula(a)}>
                                   <Edit2 className="h-3.5 w-3.5 text-silver-500" />
-                                </button>
-                                <button className="rounded-md p-1 hover:bg-red-100"
+                                </button>}
+                                {canManage && <button className="rounded-md p-1 hover:bg-red-100"
                                   onClick={() => confirm('Remover aula?') && excluirAula.mutate(a.id)}>
                                   <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                                </button>
+                                </button>}
                               </div>
                             ))}
-                            <button
+                            {canManage && <button
                               className="flex w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-silver-300 py-2 text-xs font-medium text-silver-600 hover:border-gold hover:text-red-700"
                               onClick={() => setEditAula({
                                 id: `new-${crypto.randomUUID()}`, modulo_id: m.id, titulo: '',
@@ -511,7 +517,7 @@ export function AdminUniversidade() {
                                 duracao_segundos: null, gratuita: false,
                               })}>
                               <Plus className="h-3.5 w-3.5" /> Adicionar episódio
-                            </button>
+                            </button>}
                           </div>
                         </div>
                       )}
@@ -524,7 +530,7 @@ export function AdminUniversidade() {
         </section>
       </div>
 
-      {editAula && (
+      {editAula && canManage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditAula(null)}>
           <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">

@@ -74,11 +74,17 @@ export function EquipeInterna() {
   async function invite(form: FormData) {
     setBusy(true); setError(''); setFeedback('')
     const { data, error: inviteError } = await supabase.functions.invoke('admin-invite-internal', {
-      body: { nome_completo: String(form.get('nome') || ''), email: String(form.get('email') || '') },
+      body: {
+        nome_completo: String(form.get('nome') || ''),
+        email: String(form.get('email') || ''),
+        p_nivel: String(form.get('nivel') || 'limitado'),
+      },
     })
     setBusy(false)
     if (inviteError || data?.error) { setError(data?.error || inviteError?.message || 'Não foi possível criar o convite.'); return }
-    setInviteOpen(false); setFeedback('Convite enviado. O novo usuário receberá acesso administrativo limitado.'); await load()
+    setInviteOpen(false)
+    setFeedback(`Convite enviado. O novo usuário receberá acesso administrativo ${data?.admin_nivel === 'comercial' ? 'comercial' : 'limitado'}.`)
+    await load()
   }
 
   async function saveCatalog(form?: FormData, item?: CatalogItem, active?: boolean) {
@@ -129,9 +135,10 @@ export function EquipeInterna() {
     </div>
 
     {inviteOpen && <Modal title="Convidar usuário interno" onClose={() => setInviteOpen(false)}><form onSubmit={event => { event.preventDefault(); void invite(new FormData(event.currentTarget)) }} className="space-y-4">
-      <p className="text-sm text-silver-600">Será criada uma conta interna com nível administrativo limitado. A promoção para acesso completo continua sujeita ao processo administrativo.</p>
+      <p className="text-sm text-silver-600">Escolha o nível inicial do novo usuário interno. O acesso completo continua sujeito ao processo administrativo.</p>
       <label className="label">Nome completo<input name="nome" className="input mt-1" minLength={3} maxLength={120} required autoFocus /></label>
       <label className="label">E-mail corporativo<input name="email" className="input mt-1" type="email" required /></label>
+      <label className="label">Nível de acesso<select name="nivel" className="input mt-1" defaultValue="limitado"><option value="limitado">Admin limitado</option><option value="comercial">Admin comercial</option></select></label>
       <div className="flex justify-end gap-2"><button type="button" className="btn-outline" onClick={() => setInviteOpen(false)}>Cancelar</button><button className="btn-gold" disabled={busy}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />} Enviar convite</button></div>
     </form></Modal>}
     {editor && <Modal title={`Perfil · ${editor.nome_completo}`} onClose={() => setEditor(null)}><form onSubmit={event => { event.preventDefault(); void saveProfile(new FormData(event.currentTarget)) }} className="space-y-4">

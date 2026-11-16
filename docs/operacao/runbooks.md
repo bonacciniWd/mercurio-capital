@@ -1037,7 +1037,7 @@ Cobertura das issues #28–#37 (plano `prompts/2026-11-12-funil-prospeccao-parce
 
 ### Papel
 
-`admin_nivel='comercial'` (claim em `app_metadata.admin_nivel`; atribuído por admin full via `admin_set_admin_nivel`). Acessa aprovações/parceiros/rede/propostas/leads/carteiras(leitura)/universidade/prospecção; **não** financeiro geral, configurações, Serasa, feature flags, usuários internos, integrações, kanban de propostas, relatórios, WhatsApp. Backend: escrita no funil exige `app_is_admin_escopo_comercial()` (full/limitado/comercial; jurídico fora).
+`admin_nivel='comercial'` (claim em `app_metadata.admin_nivel`; atribuído por admin full via `admin_set_admin_nivel`). Acessa aprovações/parceiros/rede/propostas/leads/carteiras(leitura)/universidade(leitura)/prospecção; **não** financeiro geral, configurações, Serasa, feature flags, usuários internos, integrações, kanban de propostas, relatórios, WhatsApp. Backend: escrita no funil exige `app_is_admin_escopo_comercial()` (full/limitado/comercial; jurídico fora); escrita, publicação e uploads da Universidade exigem `app_is_admin_full()` (migration FASE 63).
 
 ### LGPD de prospects
 
@@ -1048,6 +1048,8 @@ Prospects não têm conta (fora de `lgpd_export_meus_dados`). Tratamento: origem
 Card na coluna "Converter em proposta" → botão "Converter em proposta" (só admin full/comercial; S1) → confirmação → abre `/admin/propostas/nova?prospeccao=<id>` → o wizard admin coleta cliente/proponentes/imóveis e submete via `admin_prospeccao_converter` (cria a proposta, vincula partner_id+proposta_id, audita). Backend barra jurídico/limitado (42501) e reconversão (prospeccao_ja_convertida).
 
 ### Diagnóstico
+
+O painel Kanban da prospecção mostra a quantidade de cards em cada etapa, separada do funil legado `admin_funil_parceiros`; os números acompanham os filtros aplicados no painel.
 
 ```sql
 -- funil por coluna
