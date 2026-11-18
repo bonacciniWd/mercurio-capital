@@ -104,7 +104,12 @@ describe('página pública de Crédito para Construção', () => {
     expect(screen.getByText(/confirmação do tratamento e acesso aos dados/i)).toBeVisible()
     const privacyRequestLink = screen.getByRole('link', { name: 'Enviar solicitação por e-mail' })
     const privacyRequestHref = privacyRequestLink.getAttribute('href') ?? ''
-    expect(privacyRequestHref).toMatch(/^mailto:contato@mercuriocapitalsa\.com\?subject=/)
+    expect(privacyRequestHref).toMatch(/^mailto:contato@mercuriocapitalsa\.com\.br\?subject=/)
+    expect(policyText.match(/contato@mercuriocapitalsa\.com(?:\.br)?/g)).toEqual([
+      'contato@mercuriocapitalsa.com.br',
+      'contato@mercuriocapitalsa.com.br',
+      'contato@mercuriocapitalsa.com.br',
+    ])
     const decodedPrivacyRequest = decodeURIComponent(privacyRequestHref)
     expect(decodedPrivacyRequest).toContain('Solicitação sobre meus dados pessoais')
     expect(decodedPrivacyRequest).toContain('Nome completo:')

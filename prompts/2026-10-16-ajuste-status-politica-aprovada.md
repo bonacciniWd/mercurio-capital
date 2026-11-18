@@ -70,6 +70,10 @@ Apresentar a política aprovada sem rótulos de minuta/revisão e sem ressalvas 
 
 O usuário informou o canal `contato@mercuriocapitalsa.com` e pediu um link que abra o aplicativo de e-mail com destinatário, assunto e corpo-modelo preenchidos, para que a própria pessoa complete seus dados e envie a solicitação. Incluir os campos mínimos nome, e-mail de contato e descrição do pedido. O link não envia a mensagem automaticamente; nenhum e-mail será enviado durante a implementação.
 
+### Correção posterior do endereço
+
+Em 2026-11-18, o usuário confirmou que o canal correto é `contato@mercuriocapitalsa.com.br`. Essa confirmação posterior supersede o endereço `.com` registrado neste histórico. A implementação e validação da correção estão acompanhadas em `prompts/2026-11-18-corrigir-canal-privacidade-com-br.md`.
+
 ## Aprovação
 
 O usuário informou que o texto foi aprovado pelo advogado, pediu remover as ressalvas públicas de revisão, e forneceu o canal de e-mail e os dados institucionais confirmados. A execução não altera consentimento, captura, configuração remota ou fluxo de envio; registrar abaixo os testes efetivamente executados.

@@ -91,3 +91,7 @@ Aprovado pelo usuário em 2026-11-18. Implementação local autorizada; publica�
 - Deploy foi executado via Vercel CLI a partir de worktree limpo; nenhum push foi feito ao GitHub e nenhum GitHub Action foi acionado.
 - O build remoto terminou com sucesso. `npm install` reportou 18 vulnerabilidades (14 moderate, 4 high) no grafo de dependências já existente; nenhuma alteração de dependências foi feita nesta entrega.
 - O ajuste local de endereço de contato em `app/src/pages/public/PoliticaPrivacidade.tsx` (`.com.br`) não foi incluído; permanece fora deste commit/deploy, pois diverge do canal `.com` registrado na documentação e no conteúdo aprovado.
+
+## Correção posterior do canal — 2026-11-18
+
+O usuário confirmou que o endereço correto é `contato@mercuriocapitalsa.com.br` e que a documentação deve ser alinhada caso divirja. Esta confirmação supersede o endereço `.com` registrado no plano original. A atualização do componente, teste, documentação operacional e este histórico está sendo tratada em `prompts/2026-11-18-corrigir-canal-privacidade-com-br.md`; o estado de commit/deploy dessa correção deve ser registrado após sua conclusão, sem alterar o registro do deploy original.

@@ -27,7 +27,7 @@ A rota `/politica-de-privacidade` descreve separadamente:
 - Amortização coleta contato, dados da garantia, parâmetros do cálculo, planos extras e perfil da solicitação.
 - Os simuladores registram leads internos e os fluxos podem enfileirar resultado por e-mail e notificação interna. A simulação pública não solicita CPF/documentos e não executa consulta a bureau durante o cálculo.
 - Os endpoints processam IP e e-mail para controles contra abuso; prazos desses registros precisam ser confirmados.
-- A seção de direitos disponibiliza um link `mailto:` para `contato@mercuriocapitalsa.com`, com assunto e modelo de solicitação pré-preenchidos. A pessoa completa os próprios dados, revisa e envia pelo aplicativo de e-mail; o site não envia automaticamente.
+- A seção de direitos disponibiliza um link `mailto:` para `contato@mercuriocapitalsa.com.br`, com assunto e modelo de solicitação pré-preenchidos. A pessoa completa os próprios dados, revisa e envia pelo aplicativo de e-mail; o site não envia automaticamente.
 
 ### Propostas autenticadas
 

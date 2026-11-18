@@ -12,7 +12,7 @@ const privacyRequestBody = [
   'Descrição da solicitação:',
   '',
 ].join('\n')
-const privacyRequestHref = `mailto:contato@mercuriocapitalsa.com?subject=${encodeURIComponent(privacyRequestSubject)}&body=${encodeURIComponent(privacyRequestBody)}`
+const privacyRequestHref = `mailto:contato@mercuriocapitalsa.com.br?subject=${encodeURIComponent(privacyRequestSubject)}&body=${encodeURIComponent(privacyRequestBody)}`
 
 const sections = [
   {
@@ -27,7 +27,7 @@ const sections = [
         <p>
           A Mercurio Capital Ltda. está inscrita no CNPJ sob o nº <strong>64.382.034/0001-70</strong> e tem sede na{' '}
           <strong>Rua 1301, 471, Centro, Balneário Camboriú/SC, CEP 88330-795</strong>. O canal para solicitações
-          relacionadas a dados pessoais é o e-mail contato@mercuriocapitalsa.com, descrito na seção de direitos.
+          relacionadas a dados pessoais é o e-mail contato@mercuriocapitalsa.com.br, descrito na seção de direitos.
         </p>
         <p>
           A plataforma autenticada pode ser usada por clientes, parceiros, equipes de parceiros e equipe interna,
@@ -200,7 +200,7 @@ const sections = [
           cabíveis, informações sobre compartilhamentos e, quando o tratamento se basear em consentimento, sua
           revogação. Você também pode solicitar informações e revisão de decisão baseada exclusivamente em
           tratamento automatizado que afete seus interesses, quando aplicável. Outros direitos legais podem se
-          aplicar ao seu caso. Para falar sobre seus dados, escreva para contato@mercuriocapitalsa.com.
+          aplicar ao seu caso. Para falar sobre seus dados, escreva para contato@mercuriocapitalsa.com.br.
         </p>
         <p>
           Para enviar uma solicitação, use o botão abaixo. Ele abre o aplicativo de e-mail com o destinatário, o
@@ -246,7 +246,7 @@ export function PoliticaPrivacidade() {
         <footer className="mt-8 flex flex-col gap-4 rounded-2xl border border-silver-200 bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm leading-6 text-silver-600">
             Mercurio Capital Ltda. · CNPJ 64.382.034/0001-70 · Rua 1301, 471, Centro, Balneário Camboriú/SC,
-            CEP 88330-795 · Solicitações sobre dados pessoais: contato@mercuriocapitalsa.com.
+            CEP 88330-795 · Solicitações sobre dados pessoais: contato@mercuriocapitalsa.com.br
           </p>
           <Link className="inline-flex min-h-11 shrink-0 items-center font-semibold text-red-700 underline underline-offset-4" to="/credito-para-construcao">
             Voltar para Crédito para Construção
