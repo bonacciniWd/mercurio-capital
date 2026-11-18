@@ -4,7 +4,8 @@
 // sincronizada, coluna com badge de contagem, toggle Recentes/Antigos e expansão.
 // Removidos do padrão (fora da spec): fundos, stage-age, viewMode de pipelines,
 // somas R$ e link de rota de detalhe. No lugar da soma: "próx. follow-up: DD mmm".
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable,
@@ -160,8 +161,7 @@ export function ProspeccaoKanban() {
   const expandedCards = expandedStatus ? byStatus[expandedStatus] : []
 
   const totalColunas = PROSPECCAO_STATUS.length
-  const larguraConteudo = totalColunas * 288 + Math.max(0, totalColunas - 1) * 16
-
+  const larguraConteudo = `calc(${totalColunas * 38}rem + ${Math.max(0, totalColunas - 1)}rem)`
 
   function onToggleOrdenacao(status: ProspeccaoStatus) {
     setOrdenacaoPorStatus(prev => ({
@@ -452,7 +452,7 @@ function Column({
   const { setNodeRef, isOver } = useDroppable({ id: status })
   const prox = proximoFollowUp(cards)
   return (
-    <div className="w-72 shrink-0">
+    <div className="w-[38rem] shrink-0">
       <div className="rounded-t-md bg-slate-950 p-3 text-white">
         <div className="flex items-center justify-between gap-2">
           <button type="button" className="btn-no-liquid truncate text-left text-sm font-semibold hover:text-gold" onClick={onExpand} title="Expandir etapa" data-no-kanban-pan="true">{PROSPECCAO_STATUS_LABEL[status]}</button>
@@ -466,7 +466,7 @@ function Column({
           </div>
         </div>
       </div>
-      <div ref={setNodeRef} className={`min-h-[240px] space-y-2 rounded-b-md p-2 ${isOver ? 'bg-gold/10' : 'bg-silver-100'}`}>
+      <div ref={setNodeRef} className={`min-h-[980px] space-y-2 rounded-b-md p-2 ${isOver ? 'bg-gold/10' : 'bg-silver-100'}`}>
         {cards.length === 0 && <p className="px-2 py-8 text-center text-xs text-silver-500">Sem cards — arraste uma oportunidade para cá.</p>}
         {cards.map(card => <DraggableCard key={card.id} card={card} anexos={anexosContagem[card.id] ?? 0} onOpen={onOpen} onMove={onMove} />)}
       </div>
@@ -548,9 +548,37 @@ function ProspeccaoCardView({ card, anexos, dragging, onOpen, onMove }: { card: 
 // Menu "Mover para…" — caminho de teclado obrigatório para mover sem drag (a11y).
 function CardMenu({ card, onMove }: { card: ProspeccaoCard; onMove: (card: ProspeccaoCard, status: ProspeccaoStatus) => void }) {
   const [open, setOpen] = useState(false)
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
+
+  useLayoutEffect(() => {
+    if (!open) return
+    const updatePosition = () => {
+      const anchor = btnRef.current?.getBoundingClientRect()
+      const menu = menuRef.current
+      if (!anchor || !menu) return
+
+      const viewportPadding = 8
+      const menuWidth = Math.min(menu.offsetWidth || 256, window.innerWidth - viewportPadding * 2)
+      const menuHeight = Math.min(menu.scrollHeight || 288, window.innerHeight - viewportPadding * 2)
+      const left = Math.max(viewportPadding, Math.min(anchor.right - menuWidth, window.innerWidth - menuWidth - viewportPadding))
+      const roomBelow = window.innerHeight - anchor.bottom - viewportPadding
+      const preferredTop = roomBelow >= menuHeight + 4
+        ? anchor.bottom + 4
+        : anchor.top - menuHeight - 4
+      const top = Math.max(viewportPadding, Math.min(preferredTop, window.innerHeight - menuHeight - viewportPadding))
+      setPosition({ top, left })
+    }
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -558,11 +586,10 @@ function CardMenu({ card, onMove }: { card: ProspeccaoCard; onMove: (card: Prosp
       menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus()
     }, 0)
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.stopPropagation()
-        setOpen(false)
-        btnRef.current?.focus()
-      }
+      if (event.key !== 'Escape') return
+      event.stopPropagation()
+      setOpen(false)
+      btnRef.current?.focus()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => {
@@ -581,15 +608,22 @@ function CardMenu({ card, onMove }: { card: ProspeccaoCard; onMove: (card: Prosp
         aria-controls={menuId}
         aria-label={`Ações de ${card.nome_empresa}`}
         data-no-kanban-pan="true"
-        onClick={() => setOpen(v => !v)}
+        onClick={() => { setPosition(null); setOpen(value => !value) }}
         className="btn-no-liquid rounded-md p-1 text-silver-500 hover:bg-silver-100 hover:text-silver-700"
       >
         <Ellipsis className="h-4 w-4" aria-hidden="true" />
       </button>
-      {open && (
+      {open && createPortal(
         <>
           <div className="fixed inset-0 z-40 cursor-default" aria-hidden="true" onClick={() => setOpen(false)} />
-          <div ref={menuRef} id={menuId} role="menu" aria-label={`Mover ${card.nome_empresa} para outra etapa`} className="absolute right-0 z-50 mt-1 max-h-72 w-64 overflow-y-auto rounded-md border border-silver-200 bg-white p-1 shadow-lg">
+          <div
+            ref={menuRef}
+            id={menuId}
+            role="menu"
+            aria-label={`Mover ${card.nome_empresa} para outra etapa`}
+            style={{ position: 'fixed', top: position?.top ?? 8, left: position?.left ?? 8, zIndex: 50, visibility: position ? 'visible' : 'hidden' }}
+            className="max-h-[min(18rem,calc(100vh-1rem))] w-64 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-md border border-silver-200 bg-white p-1 shadow-lg"
+          >
             <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-silver-400">Mover para…</p>
             {PROSPECCAO_STATUS.map(s => (
               <button
@@ -599,14 +633,15 @@ function CardMenu({ card, onMove }: { card: ProspeccaoCard; onMove: (card: Prosp
                 disabled={s === card.status}
                 data-no-kanban-pan="true"
                 className="btn-no-liquid flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs text-silver-700 hover:bg-silver-50 disabled:opacity-40"
-                onClick={() => { setOpen(false); onMove(card, s) }}
+                onClick={() => { setOpen(false); btnRef.current?.focus(); onMove(card, s) }}
               >
                 <span>{PROSPECCAO_STATUS_LABEL[s]}</span>
                 {s === card.status && <span className="text-[9px] font-semibold uppercase text-silver-400">atual</span>}
               </button>
             ))}
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   )

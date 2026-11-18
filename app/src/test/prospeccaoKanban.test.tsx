@@ -111,7 +111,7 @@ function makeCard(over: Partial<ProspeccaoCard> = {}): ProspeccaoCard {
 // Coluna do board pelo título (botão "Expandir etapa" do header bg-slate-950).
 function coluna(label: string): HTMLElement {
   const titulo = screen.getAllByText(label).find(n => n.tagName === 'BUTTON' && n.getAttribute('title') === 'Expandir etapa')
-  const col = titulo?.closest('.w-72')
+  const col = titulo?.closest('.rounded-t-md')?.parentElement
   if (!col) throw new Error(`coluna "${label}" não encontrada`)
   return col as HTMLElement
 }
@@ -149,6 +149,27 @@ describe('Prospecção — board Kanban', () => {
     expect(screen.getByRole('button', { name: /Nova oportunidade/ })).toBeInTheDocument()
     // coluna sem cards mostra o vazio de coluna
     expect(within(coluna('Follow Up')).getByText('Sem cards — arraste uma oportunidade para cá.')).toBeInTheDocument()
+  })
+
+  it('mostra contagem de oportunidades por coluna conforme os filtros do painel', async () => {
+    mocks.cards = [
+      makeCard({ id: 'opp-1', status: 'oportunidade' }),
+      makeCard({ id: 'opp-2', status: 'oportunidade', nome_empresa: 'Imobiliária Beta' }),
+      makeCard({ id: 'follow-1', status: 'follow_up', nome_empresa: 'Imobiliária Gama' }),
+    ]
+    renderBoard()
+    await screen.findByText('Imobiliária Alfa')
+    expect(within(coluna(PROSPECCAO_STATUS_LABEL.oportunidade)).getByText('2')).toBeInTheDocument()
+    expect(within(coluna(PROSPECCAO_STATUS_LABEL.follow_up)).getByText('1')).toBeInTheDocument()
+  })
+
+  it('dimensiona a barra superior para a largura real das colunas ampliadas', async () => {
+    mocks.cards = [makeCard()]
+    const { container } = renderBoard()
+    await screen.findByText('Imobiliária Alfa')
+
+    const scrollbar = container.querySelector('.mb-2.overflow-x-auto > div')
+    expect(scrollbar).toHaveStyle({ width: `calc(${PROSPECCAO_STATUS.length * 38}rem + ${PROSPECCAO_STATUS.length - 1}rem)` })
   })
 
   it('vazio global: ícone Target + textos + CTA', async () => {
@@ -253,12 +274,27 @@ describe('Prospecção — move otimista', () => {
     await screen.findByText('Imobiliária Alfa')
     fireEvent.click(screen.getByRole('button', { name: 'Ações de Imobiliária Alfa' }))
     const menu = await screen.findByRole('menu')
+    expect(menu.closest('[data-kanban-card="true"]')).toBeNull()
     const itens = within(menu).getAllByRole('menuitem')
     expect(itens).toHaveLength(8)
     expect(within(menu).getByRole('menuitem', { name: /Follow Up/ })).toBeDisabled()
     fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'Ações de Imobiliária Alfa' })).toHaveFocus()
+  })
+
+  it('reposiciona o menu acima do botão quando não há espaço abaixo', async () => {
+    mocks.cards = [makeCard({ id: 'c1', status: 'oportunidade' })]
+    renderBoard()
+    await screen.findByText('Imobiliária Alfa')
+    const trigger = screen.getByRole('button', { name: 'Ações de Imobiliária Alfa' })
+    vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue(new DOMRect(870, 720, 30, 24))
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 })
+
+    fireEvent.click(trigger)
+    const menu = await screen.findByRole('menu')
+    await waitFor(() => expect(menu).toHaveStyle({ top: '428px', left: '644px' }))
   })
 })
 
@@ -275,6 +311,9 @@ describe('Prospecção — detalhe', () => {
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('heading', { name: 'Imobiliária Alfa' })).toBeInTheDocument()
     expect(within(dialog).getByText(/Criado em .* · Responsável: Carlos Admin/)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Responsável')).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Próxima ação em')).toBeInTheDocument()
+    expect(within(dialog).getByPlaceholderText(/Anotações livres sobre a negociação/)).toBeInTheDocument()
     // histórico: criação do card
     await within(dialog).findByText(/criou o card em/)
     // salvar começa desabilitado (pristine)

@@ -8,6 +8,7 @@ import { brl } from '@/lib/utils'
 import { incluiStatusNaVisaoKanban, PRODUTO_LABEL, PROPOSTA_KANBAN_STATUS, PROPOSTA_STATUS_LABEL, toKanbanStatus, type KanbanViewMode, type PropostaKanbanStatus } from '@/lib/propostaStatus'
 import { getProposalStageAge, isProposalStageAgeEligible } from '@/lib/propostaStageAge'
 import { FUNDO_STATUS, FUNDO_STATUS_COLOR, FUNDO_STATUS_LABEL, type FundoStatus } from '@/lib/fundoStatus'
+import { propostasKanbanScrollWidth } from '@/lib/propostasKanbanLayout'
 import { invalidateAdminDashboardQueries } from '@/lib/adminDashboardCache'
 import { ObservacoesKanbanContext } from '@/components/observacoesKanbanContext'
 import { PropostaObservacoesButton } from '@/components/PropostaObservacoesButton'
@@ -294,8 +295,8 @@ export function PropostasKanban({ scope }: { scope: KanbanScope }) {
 
   const expandedCards = expandedStatus ? byStatus.map[expandedStatus] : []
 
-  const totalColunas = PROPOSTA_KANBAN_STATUS.length + (byStatus.naoMapeadas.length > 0 ? 1 : 0)
-  const larguraConteudo = totalColunas * 288 + Math.max(0, totalColunas - 1) * 16
+  const temColunaLegada = byStatus.naoMapeadas.length > 0
+  const larguraConteudo = propostasKanbanScrollWidth(temColunaLegada)
 
   function onToggleOrdenacao(status: PropostaKanbanStatus) {
     setOrdenacaoPorStatus(prev => ({
@@ -371,7 +372,7 @@ export function PropostasKanban({ scope }: { scope: KanbanScope }) {
     if (topScrollRef.current && boardScrollRef.current) {
       topScrollRef.current.scrollLeft = boardScrollRef.current.scrollLeft
     }
-  }, [totalColunas, viewMode])
+  }, [temColunaLegada, viewMode])
 
   async function moverPara(card: KanbanCard, novoStatus: PropostaKanbanStatus) {
     if (card.status === novoStatus) return
@@ -477,7 +478,7 @@ export function PropostasKanban({ scope }: { scope: KanbanScope }) {
           className={`flex gap-4 overflow-x-auto pb-4 ${isPanning ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
         >
           {PROPOSTA_KANBAN_STATUS.map(status => <Column key={status} status={status} cards={byStatus.map[status]} order={ordenacaoPorStatus[status]} onToggleOrder={onToggleOrdenacao} onExpand={() => setExpandedStatus(status)} scope={scope} detailBase={detailBase} fundosByProposta={fundosByProposta} winnersByProposta={winnerByProposal} onFundoStatus={scope === 'admin' ? setFundoStatus : undefined} stageEntryByProposal={stageEntryByProposal} showStageAge={canViewStageAlerts} />)}
-          {byStatus.naoMapeadas.length > 0 && <div className="w-72 shrink-0"><div className="rounded-t-md bg-silver-700 p-3 text-white"><span className="text-sm font-semibold">Legado / Não mapeado</span></div><div className="min-h-[240px] space-y-2 rounded-b-md bg-silver-100 p-2">{byStatus.naoMapeadas.map(card => <CardView key={card.id} card={card} scope={scope} detailBase={detailBase} fundos={fundosByProposta[card.id]} winner={winnerByProposal.get(card.id)} onFundoStatus={scope === 'admin' ? setFundoStatus : undefined} stageStartedAt={stageStartedAtFor(card)} showStageAge={canViewStageAlerts} />)}</div></div>}
+          {temColunaLegada && <div className="w-72 shrink-0"><div className="rounded-t-md bg-silver-700 p-3 text-white"><span className="text-sm font-semibold">Legado / Não mapeado</span></div><div className="min-h-[240px] space-y-2 rounded-b-md bg-silver-100 p-2">{byStatus.naoMapeadas.map(card => <CardView key={card.id} card={card} scope={scope} detailBase={detailBase} fundos={fundosByProposta[card.id]} winner={winnerByProposal.get(card.id)} onFundoStatus={scope === 'admin' ? setFundoStatus : undefined} stageStartedAt={stageStartedAtFor(card)} showStageAge={canViewStageAlerts} />)}</div></div>}
         </div>
         <DragOverlay>{activeCard ? <CardView card={activeCard} scope={scope} detailBase={detailBase} fundos={fundosByProposta[activeCard.id]} winner={winnerByProposal.get(activeCard.id)} stageStartedAt={stageStartedAtFor(activeCard)} showStageAge={canViewStageAlerts} dragging /> : null}</DragOverlay>
       </DndContext>}
@@ -551,7 +552,7 @@ function Column({
   const total = cards.reduce((sum, card) => sum + card.valor_solicitado, 0)
   const totalCentavos = total * 100
   const totalCompacto = formatKanbanTotalCompact(totalCentavos)
-  return <div className="w-72 shrink-0"><div className="rounded-t-md bg-slate-950 p-3 text-white"><div className="flex items-center justify-between gap-2"><button type="button" className="btn-no-liquid truncate text-left text-sm font-semibold hover:text-red-200" onClick={onExpand} title="Expandir etapa" data-no-kanban-pan="true">{PROPOSTA_STATUS_LABEL[status]}</button><span className="rounded bg-white/15 px-2 py-0.5 text-xs">{cards.length}</span></div><div className="mt-2 flex items-center justify-between gap-2"><p className="max-w-[104px] truncate whitespace-nowrap text-xs text-white/70" title={brl(totalCentavos)}>{totalCompacto}</p><div className="flex items-center gap-1"><button type="button" onClick={() => onToggleOrder(status)} className="btn-no-liquid inline-flex items-center gap-1 rounded border border-white/20 px-1.5 py-1 text-[10px] font-semibold text-white/90 hover:bg-white/10" title="Alternar ordenação da coluna" data-no-kanban-pan="true"><ArrowUpDown className="h-3 w-3" />{order === 'recentes' ? 'Recentes' : 'Antigos'}</button><button type="button" onClick={onExpand} className="btn-no-liquid inline-flex items-center gap-1 rounded border border-white/20 px-1.5 py-1 text-[10px] font-semibold text-white/90 hover:bg-white/10" title="Expandir etapa" data-no-kanban-pan="true"><Maximize2 className="h-3 w-3" />Expandir</button></div></div></div><div ref={setNodeRef} className={`min-h-[240px] space-y-2 rounded-b-md p-2 ${isOver ? 'bg-gold/10' : 'bg-silver-100'}`}>{cards.map(card => <DraggableCard key={card.id} card={card} scope={scope} detailBase={detailBase} fundos={fundosByProposta[card.id]} winner={winnersByProposta.get(card.id)} onFundoStatus={onFundoStatus} stageStartedAt={stageEntryByProposal.get(card.id)?.entrou_em} showStageAge={showStageAge} />)}</div></div>
+  return <div className="w-[28rem] shrink-0"><div className="rounded-t-md bg-slate-950 p-3 text-white"><div className="flex items-center justify-between gap-2"><button type="button" className="btn-no-liquid truncate text-left text-sm font-semibold hover:text-red-200" onClick={onExpand} title="Expandir etapa" data-no-kanban-pan="true">{PROPOSTA_STATUS_LABEL[status]}</button><span className="rounded bg-white/15 px-2 py-0.5 text-xs">{cards.length}</span></div><div className="mt-2 flex items-center justify-between gap-2"><p className="max-w-[104px] truncate whitespace-nowrap text-xs text-white/70" title={brl(totalCentavos)}>{totalCompacto}</p><div className="flex items-center gap-1"><button type="button" onClick={() => onToggleOrder(status)} className="btn-no-liquid inline-flex items-center gap-1 rounded border border-white/20 px-1.5 py-1 text-[10px] font-semibold text-white/90 hover:bg-white/10" title="Alternar ordenação da coluna" data-no-kanban-pan="true"><ArrowUpDown className="h-3 w-3" />{order === 'recentes' ? 'Recentes' : 'Antigos'}</button><button type="button" onClick={onExpand} className="btn-no-liquid inline-flex items-center gap-1 rounded border border-white/20 px-1.5 py-1 text-[10px] font-semibold text-white/90 hover:bg-white/10" title="Expandir etapa" data-no-kanban-pan="true"><Maximize2 className="h-3 w-3" />Expandir</button></div></div></div><div ref={setNodeRef} className={`min-h-[240px] space-y-2 rounded-b-md p-2 ${isOver ? 'bg-gold/10' : 'bg-silver-100'}`}>{cards.map(card => <DraggableCard key={card.id} card={card} scope={scope} detailBase={detailBase} fundos={fundosByProposta[card.id]} winner={winnersByProposta.get(card.id)} onFundoStatus={onFundoStatus} stageStartedAt={stageEntryByProposal.get(card.id)?.entrou_em} showStageAge={showStageAge} />)}</div></div>
 }
 
 function DraggableCard({ card, scope, detailBase, fundos, winner, onFundoStatus, stageStartedAt, showStageAge }: { card: KanbanCard; scope: KanbanScope; detailBase: string; fundos?: CardFundo[]; winner?: FundWinnerProjection; onFundoStatus?: FundoStatusHandler; stageStartedAt?: string; showStageAge: boolean }) {

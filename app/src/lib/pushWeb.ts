@@ -2,7 +2,7 @@
 // token FCM: o prompt contextual de permissão é a issue #14. Push é canal
 // complementar — nenhuma falha aqui pode quebrar login/logout/sessão.
 import { initializeApp, type FirebaseApp } from 'firebase/app'
-import { getMessaging, getToken, deleteToken, type Messaging } from 'firebase/messaging'
+import { getMessaging, getToken, deleteToken, onMessage, type Messaging } from 'firebase/messaging'
 import { supabase } from '@/lib/supabase'
 
 interface PushEnv {
@@ -61,6 +61,7 @@ function firebaseConfig(): FirebaseWebConfig | null {
 let app: FirebaseApp | null = null
 let messaging: Messaging | null = null
 let currentToken: string | null = null
+let stopForegroundMessages: (() => void) | null = null
 
 async function registrarServiceWorker(cfg: FirebaseWebConfig): Promise<ServiceWorkerRegistration> {
   const params = new URLSearchParams({
@@ -82,6 +83,20 @@ export async function initPushWeb(): Promise<void> {
     const registration = await registrarServiceWorker(cfg)
     if (!app) app = initializeApp(cfg, 'push-web')
     if (!messaging) messaging = getMessaging(app)
+    if (!stopForegroundMessages) {
+      stopForegroundMessages = onMessage(messaging, async (payload) => {
+        const data = payload.data || {}
+        try {
+          await registration.showNotification(data.titulo || 'Mercúrio Capital', {
+            body: data.mensagem || '',
+            icon: '/mercurio-icon.png',
+            data: { link: data.link },
+          })
+        } catch {
+          // Push é complementar: falha de exibição não pode afetar a sessão.
+        }
+      })
+    }
     const token = await getToken(messaging, {
       vapidKey: cfg.vapidKey,
       serviceWorkerRegistration: registration,
@@ -131,6 +146,8 @@ export async function requestPushPermission(): Promise<NotificationPermission> {
 export async function revokePushWeb(): Promise<void> {
   if (!pushWebSuportado()) return
   try {
+    stopForegroundMessages?.()
+    stopForegroundMessages = null
     if (currentToken) {
       await Promise.race([
         supabase.rpc('push_subscription_revogar', { p_token: currentToken }),

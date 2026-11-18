@@ -20,7 +20,7 @@ const messaging = firebase.messaging()
 // auto-exibiria e este handler exibiria de novo — push duplicado.
 messaging.onBackgroundMessage((payload) => {
   const d = payload.data || {}
-  self.registration.showNotification(d.titulo || 'Mercúrio Capital', {
+  return self.registration.showNotification(d.titulo || 'Mercúrio Capital', {
     body: d.mensagem || '',
     icon: '/mercurio-icon.png',
     data: { link: d.link },
