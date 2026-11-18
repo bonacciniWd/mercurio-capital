@@ -71,3 +71,9 @@ Aprovado pelo usuário em 2026-11-18 antes da implementação.
 ## Publicação
 
 A autorização anterior do usuário para “commit e deploy” desta política cobre a correção pontual do contato na mesma página. A publicação será um deploy direto de produção via Vercel a partir de checkout limpo, sem push ao GitHub ou acionamento de Actions. Registrar abaixo commit, deployment e smoke após concluir.
+
+- Commit local: `212da40` (`fix(web): use .com.br privacy contact`), somente os seis arquivos previstos no escopo.
+- Projeto Vercel correto `mercurio-digital`: deployment `dpl_5hVDNj6KUNWcWwwXrVZo2NGhyv79`, estado **READY**, produção em `https://mercuriocapitalsa.com.br`.
+- Smoke: `/politica-de-privacidade` respondeu HTTP 200. O bundle publicado contém `mailto:contato@mercuriocapitalsa.com.br` e três referências visíveis ao endereço `.com.br`.
+- Sem push ao GitHub e sem execução de GitHub Actions.
+- Atenção operacional: uma primeira chamada do CLI, antes de aplicar o vínculo Vercel na raiz do worktree, criou o projeto Vercel separado `mercurio-privacy-release-212da40` (`dpl_BSyNbNfqy6XYbPtHEJNbgxhPjWv3`) e associou-o ao repositório GitHub. Esse deployment não recebeu o domínio oficial, não substituiu a produção e não houve push ao GitHub. O projeto separado foi deixado intacto; remoção/desconexão não foi feita.

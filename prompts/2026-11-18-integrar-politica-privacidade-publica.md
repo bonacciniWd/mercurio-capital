@@ -95,3 +95,5 @@ Aprovado pelo usuário em 2026-11-18. Implementação local autorizada; publica�
 ## Correção posterior do canal — 2026-11-18
 
 O usuário confirmou que o endereço correto é `contato@mercuriocapitalsa.com.br` e que a documentação deve ser alinhada caso divirja. Esta confirmação supersede o endereço `.com` registrado no plano original. A atualização do componente, teste, documentação operacional e este histórico está sendo tratada em `prompts/2026-11-18-corrigir-canal-privacidade-com-br.md`; o estado de commit/deploy dessa correção deve ser registrado após sua conclusão, sem alterar o registro do deploy original.
+
+Correção concluída: commit local `212da40`; deploy de produção `dpl_5hVDNj6KUNWcWwwXrVZo2NGhyv79` no projeto `mercurio-digital`, com rota pública HTTP 200 e bundle confirmando o canal `.com.br`. Nenhum push ou GitHub Action foi executado. A execução do CLI também criou o projeto separado `mercurio-privacy-release-212da40`, sem domínio oficial, conforme detalhado no plano de correção; ele permanece sem intervenção de limpeza.
