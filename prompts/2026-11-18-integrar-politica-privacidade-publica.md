@@ -82,3 +82,12 @@ Aprovado pelo usuário em 2026-11-18. Implementação local autorizada; publica�
 - Não foi executado smoke interativo/click em navegador neste ambiente; a renderização do componente foi verificada pelo teste, e o fallback da rota foi verificado via HTTP.
 - Revisão read-only do Revisor Mercurio Capital: **aprovado com ressalva baixa**. O revisor confirmou a correspondência entre rota pública, link do rodapé e adaptador; recomendou teste integrado navegando pelo roteador/link e smoke visual em navegador. Não apontou risco crítico ou alto.
 - O usuário autorizou em 2026-11-18 o commit e o deploy de produção desta integração. A publicação será direta pela Vercel em checkout isolado, sem push ao GitHub Actions e sem incluir outras alterações locais.
+
+## Commit e deploy autorizados — 2026-11-18
+
+- Commit de código implantado: `57d5b53` (`feat(web): link privacy policy from landing footer`). Apenas os quatro arquivos de código/teste deste escopo foram empacotados junto com este plano inicial; as demais alterações locais permaneceram fora.
+- Vercel `mercurio-digital`: deployment `dpl_2ZFoqJNWL8FbL2zizH2znJAgGg76`, estado **Ready**, alias de produção `https://mercuriocapitalsa.com.br` e `https://www.mercuriocapitalsa.com.br`.
+- Smoke pós-deploy: `https://mercuriocapitalsa.com.br/politica-de-privacidade` respondeu HTTP 200 e serviu o shell da aplicação. A rota também foi testada localmente por HTTP e a renderização React pelos testes automatizados.
+- Deploy foi executado via Vercel CLI a partir de worktree limpo; nenhum push foi feito ao GitHub e nenhum GitHub Action foi acionado.
+- O build remoto terminou com sucesso. `npm install` reportou 18 vulnerabilidades (14 moderate, 4 high) no grafo de dependências já existente; nenhuma alteração de dependências foi feita nesta entrega.
+- O ajuste local de endereço de contato em `app/src/pages/public/PoliticaPrivacidade.tsx` (`.com.br`) não foi incluído; permanece fora deste commit/deploy, pois diverge do canal `.com` registrado na documentação e no conteúdo aprovado.
