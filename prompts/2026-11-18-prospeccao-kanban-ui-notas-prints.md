@@ -2,7 +2,7 @@
 
 **Data:** 2026-11-18
 
-**Status:** implementação e validação técnica locais concluídas, revisão sem bloqueios. GO explícito do dono em 2026-11-18 para migration, deploy e commit/push; publicação em andamento.
+**Status:** GO explícito do dono em 2026-11-18 para migration, deploy e commit/push. Publicação concluída em produção; smokes e push confirmados, Actions desativados.
 
 ## Objetivo
 
@@ -189,3 +189,24 @@ O dono autorizou explicitamente: **“Go para migration e deploy aprovados, não
 - Smoke estrutural remoto: `fase66_estrutura_ok`, `rls=true`, `bucket_publico=false`. Smoke fase 65 reexecutado em transação read-only sem erro. Nenhum usuário/registro/print de teste foi criado em produção.
 - Leitura efetiva de privilégios: preparar/confirmar/cancelar com `anon=false`, `authenticated=true`. Checks de papel/AAL/carteira continuam dentro das RPCs e RLS.
 - A CLI recusa `BEGIN/DO` no filtro sintático `--read-only`; os arquivos foram executados com `--yes` e **transação SQL `BEGIN READ ONLY`**, preservando o limite de leitura no banco. As primeiras tentativas de leitura não executaram SQL por validação de caminho/parser; nenhuma mutation adicional ocorreu.
+
+### Candidato Git/Vercel
+
+- Commit local de implementação: `98fd6e8f84c98b8a8b4cac59717ef3b12c4fdf9e`, 37 arquivos da allowlist. Documentos compartilhados foram stageados parcialmente, preservando fora do commit as alterações de push/expurgo/SMTP.
+- Worktree temporário limpo a partir do commit, sem envs ou secrets locais; todos os arquivos `app/` rastreados conferidos byte a byte com a árvore validada. `validate:release` e build do candidato passaram (Vite 4,22s); nenhum build nativo.
+- Deploy manual submetido à Vercel com metadado do SHA aprovado: `dpl_DtRd7EvZyb4CB59AVTsxFgqMVZfc`, URL `https://mercurio-digital-huaw9qfht-bonacciniwds-projects.vercel.app`. Aguardar Ready e smoke antes de registrar conclusão.
+
+### Publicação concluída
+
+- Deployment `dpl_DtRd7EvZyb4CB59AVTsxFgqMVZfc` **Ready**, target production, build remoto 2m33s; alias `https://mercuriocapitalsa.com.br` e demais aliases preservados. Código do commit `98fd6e8f84c98b8a8b4cac59717ef3b12c4fdf9e`.
+- Smoke HTTP: `/`, `/p/prospeccao`, `/admin/prospeccao?aba=b2c`, `/admin/propostas`, `/p/propostas` responderam 200. Bundles `/assets/Prospeccao-h-pnRwxO.js`, `/assets/index--jQExEwk.js` e `/assets/index-C3V6bcv0.css` responderam 200; marcadores de prints/RPCs e CSS 24rem conferidos nos chunks de rota e compartilhados. Configuração pública aponta para o projeto Supabase correto. `www/p/prospeccao` mantém 308 para o domínio canônico sem www.
+- Smoke público no Chromium: guards de parceiro/Admin redirecionam respectivamente a `/p/login` e `/admin/login`; inputs renderizados, zero exceções JavaScript. Nenhuma sessão autenticada de produção nem fixture de negócio foi criada; o fluxo completo autenticado/upload já havia passado no Docker.
+- Push `main` concluído no repositório `bonacciniWd/mercurio-capital` até o commit `98fd6e8`. GitHub API confirmou **zero Actions runs** para o SHA; workflows `CI` e `Desktop Release` desativados. O push também transportou os commits web/documentais anteriores já existentes na história local, sem incluir os demais arquivos da working tree.
+- Ajustes locais de mobile, screenshots, config MFA, push/expurgo e seus documentos/migrations não foram incluídos. Sem tag, GitHub Release, build nativo ou alteração de artefatos de download.
+- Rollback disponível: Vercel anterior `dpl_5hVDNj6KUNWcWwwXrVZo2NGhyv79`. Preservar bucket/tabela e anexos recebidos; forward-fix para banco.
+
+### Observação de dependências preexistentes
+
+O `npm install` remoto reportou 18 avisos no grafo completo. Auditoria read-only local `npm audit --omit=dev --json` identificou 4 High propagados por `@grpc/grpc-js@1.9.16 → @firebase/firestore@4.20.0/compat → firebase@13.3.0` e 2 Moderate de React Router. `app/package.json` e `app/package-lock.json` não mudaram neste lote.
+
+Revisão pontual independente (`/root/review_frontend_ui`): **sem novo bloqueio para esta publicação web**, risco residual Low. Evidências: Vercel entrega site estático (`dist`), sem runtime servidor; fonte importa apenas `firebase/app` e `firebase/messaging`; service worker usa app/messaging compat; artefatos contêm nomes do registro de componentes, mas não implementação Firestore/gRPC. Os avisos do grafo de instalação são reais e devem ser tratados numa frente de dependências, junto com a avaliação dos avisos Moderate, seguida de audit/build. Não executado `npm audit fix`, downgrade ou alteração automática de SDK.

@@ -11,9 +11,11 @@
 - [x] Preflight remoto: projeto produção `bhagksfvszeogtjvjtpx`; dry-run lista apenas `20261118000002`, sem Vault/seed/roles.
 - [x] Smoke estrutural sem fixtures preparado e validado localmente; rollback Vercel anterior `dpl_5hVDNj6KUNWcWwwXrVZo2NGhyv79` mapeado.
 - [x] Aplicação remota de `20261118000002`, smokes estruturais 65/66 e grants confirmados; nenhuma fixture em produção.
-- [ ] Commit allowlist e validação do candidato isolado.
-- [ ] Vercel Ready, domínio e assets conferidos.
-- [ ] Push GitHub confirmado, sem Actions disparado.
+- [x] Commit `98fd6e8` com 37 arquivos da allowlist; candidato isolado limpo, app byte a byte igual ao validado, sem envs/secrets locais. Build e `validate:release` aprovados.
+- [x] Vercel `dpl_DtRd7EvZyb4CB59AVTsxFgqMVZfc` Ready, SHA de código `98fd6e8`; domínio, 5 rotas, JS/CSS e redirect www conferidos. Smoke público no Chromium sem exceções; guards encaminham aos logins por perfil.
+- [x] Push de `main` até `98fd6e8` confirmado no GitHub; zero execuções Actions para esse SHA. Ambos os workflows permanecem desativados.
+
+Nota de dependências: o audit da instalação listou 4 High propagados por Firestore/gRPC. Revisor read-only avaliou como risco residual Low deste rollout: site estático, importações somente app/messaging e ausência da implementação Firestore/gRPC no bundle. Sem novas dependências; correção/auditoria geral ficam em frente própria. Dois avisos Moderate de React Router também foram registrados no plano, sem atualização automática de pacotes.
 
 Esta publicação web não cria versão desktop/mobile nem altera seus artefatos. As seções de releases abaixo são históricas e independentes deste rollout.
 

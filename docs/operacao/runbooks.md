@@ -1092,6 +1092,8 @@ select h.status_anterior, h.status_novo, h.alterado_em, u.email, h.motivo
 
 ### 22.1 Kanban, notas e prints privados B2C
 
+Frontend publicado em 2026-11-18: Vercel `dpl_DtRd7EvZyb4CB59AVTsxFgqMVZfc`, código `98fd6e8`, domínio `https://mercuriocapitalsa.com.br`; smokes públicos/estruturais e push GitHub aprovados, sem Actions. Evidências e limites no plano abaixo.
+
 Implementação local aprovada em `prompts/2026-11-18-prospeccao-kanban-ui-notas-prints.md`. Após GO explícito do dono, a migration aditiva `20261118000002_prospeccoes_clientes_anexos.sql` foi aplicada em produção em 2026-11-18; smoke estrutural, bucket privado, RLS e grants remotos aprovados. O teste comportamental com fixtures permanece exclusivo do Docker. O funil B2B mantém backend, colunas de 38rem e histórico atuais.
 
 - B2C usa colunas 24rem, arraste ou menu de etapas, estado esperado e rollback em conflito. Perdidos exige motivo; Proposta criada só pela conversão do wizard. Atalhos Notas/Anexos abrem as respectivas abas no detalhe; rascunhos são preservados ao alternar abas.
