@@ -786,6 +786,7 @@ export function Landing() {
                 <span className="text-white">© 2026</span>
               </div>
               <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 sm:justify-end">
+                <Link to="/politica-de-privacidade" className="transition hover:text-red-600">Política de privacidade</Link>
                 <Link to="/protocolo" className="transition hover:text-red-600">Consulta pública</Link>
                 <Link to="/download" className="transition hover:text-red-600">Download</Link>
                 <Link to="/login" className="transition hover:text-red-600">Entrar</Link>

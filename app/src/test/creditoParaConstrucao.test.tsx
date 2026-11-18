@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { CreditoParaConstrucao } from '@/pages/CreditoParaConstrucao'
 import { PoliticaPrivacidade } from '@/pages/public/PoliticaPrivacidade'
+import PoliticaDePrivacidade from '@/pages/Politica-de-privacidade'
 
 const invoke = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/supabase', () => ({ supabase: { functions: { invoke } } }))
@@ -111,5 +112,12 @@ describe('página pública de Crédito para Construção', () => {
     expect(decodedPrivacyRequest).toContain('Descrição da solicitação:')
     expect(screen.getByText(/O site não envia a solicitação automaticamente/i)).toBeVisible()
     expect(screen.getByRole('link', { name: /Voltar para Crédito para Construção/i })).toHaveAttribute('href', '/credito-para-construcao')
+  })
+
+  it('reutiliza a política pública existente no componente da página', () => {
+    render(<MemoryRouter><PoliticaDePrivacidade /></MemoryRouter>)
+
+    expect(screen.getByRole('heading', { name: 'Política de Privacidade' })).toBeVisible()
+    expect(screen.getByText(/Atualizada em 16 de outubro de 2026/i)).toBeVisible()
   })
 })

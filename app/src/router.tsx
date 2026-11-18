@@ -25,7 +25,7 @@ import { RedefinirSenha } from '@/pages/public/RedefinirSenha'
 import { ClienteProposta } from '@/pages/public/ClienteProposta'
 import { ConviteMembro } from '@/pages/public/ConviteMembro'
 import { PartnerBootstrap } from '@/pages/public/PartnerBootstrap'
-import { PoliticaPrivacidade } from '@/pages/public/PoliticaPrivacidade'
+import PoliticaDePrivacidade from '@/pages/Politica-de-privacidade'
 import { Simulador } from '@/pages/public/Simulador'
 import { CreditoParaConstrucao } from '@/pages/CreditoParaConstrucao'
 import { MerxPublicHost } from '@/components/merx/MerxPublicHost'
@@ -131,7 +131,7 @@ const appRoutes = [
       { path: '/protocolo', element: <Protocolo /> },
       { path: '/protocolo/:codigo', element: <Protocolo /> },
       { path: '/credito-para-construcao', element: <MerxPublicHost><CreditoParaConstrucao /></MerxPublicHost> },
-      { path: '/politica-de-privacidade', element: <PoliticaPrivacidade /> },
+      { path: '/politica-de-privacidade', element: <PoliticaDePrivacidade /> },
       { path: '/simulador', element: <MerxPublicHost><Simulador /></MerxPublicHost> },
       { path: '/magic/:token', element: <MagicLink /> },
       { path: '/c/proposta/:token', element: <ClienteProposta /> },
