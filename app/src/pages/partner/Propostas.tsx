@@ -50,6 +50,20 @@ export function PartnerPropostas() {
     },
   })
 
+  const propostaIds = (propostas ?? []).map(proposta => proposta.id)
+  const origensB2cQ = useQuery({
+    queryKey: ['partner-propostas-origem-b2c', propostaIds],
+    enabled: propostaIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('v_prospeccoes_clientes')
+        .select('id, proposta_id')
+        .in('proposta_id', propostaIds)
+      if (error) throw error
+      return new Map((data ?? []).filter(row => row.proposta_id).map(row => [row.proposta_id as string, row.id as string]))
+    },
+  })
+  const propostasB2c = origensB2cQ.data ?? new Map<string, string>()
+
   const filtradas = useMemo(() => {
     if (!propostas) return []
     const termo = busca.trim().toLocaleLowerCase('pt-BR')
@@ -213,6 +227,7 @@ export function PartnerPropostas() {
                         <td>
                           <strong className="admin-proposals__client">{proposta.cliente?.nome_completo || '—'}</strong>
                           <span className="admin-proposals__secondary">{proposta.cliente?.cpf ? maskCpf(proposta.cliente.cpf) : ''}</span>
+                          {propostasB2c.has(proposta.id) && <Link className="mt-1 inline-flex text-[11px] font-semibold text-red-700 hover:underline" to={`/p/prospeccao?prospect=${propostasB2c.get(proposta.id)}`}>Da prospecção B2C</Link>}
                         </td>
                         <td className="admin-proposals__product">{PRODUTO_LABEL[proposta.produto] || proposta.produto}</td>
                         <td className="admin-proposals__value">{brl(Number(proposta.valor_solicitado || 0) * 100)}</td>

@@ -251,6 +251,37 @@ Pré-cadastro antes de virar proposta.
 | `dados_vendedor_imovel` | jsonb | financiamento imobiliário |
 | `created_at` / `updated_at` | timestamptz | |
 
+### `prospeccoes_clientes` (migration `20261118000001`)
+Carteira B2C de prospects de parceiros, separada do funil B2B `prospeccoes_parceiro` e dos leads de simulador.
+
+| Coluna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid PK | |
+| `partner_id` | uuid FK → `partners` | Obrigatório; deriva da sessão nos RPCs do parceiro/equipe |
+| `equipe_id` | uuid FK → `equipes` | Nullable; trigger valida a mesma parceria |
+| `responsavel_id` | uuid FK → `usuarios` | Autor do registro |
+| `nome_completo` | text | Obrigatório |
+| `email`, `telefone` | text | Nullable individualmente; ao menos um canal obrigatório |
+| `origem`, `notas` | text | Origem controlada; notas limitadas a 2.000 caracteres |
+| `status` | text | `novo`, `em_contato`, `qualificado`, `proposta_criada`, `perdido` |
+| `motivo_perda` | text | Obrigatório quando o status é `perdido` |
+| `proposta_id` | uuid unique FK → `propostas` | Nullable; no máximo uma proposta por prospect |
+| `convertido_em` | timestamptz | Definido na conversão atômica |
+| `created_at`, `updated_at`, `created_by`, `updated_by`, `deleted_at` | auditoria/ciclo de vida | Soft delete |
+
+RLS permite leitura ao Admin comercial (`full`, `limitado`, `comercial`), ao parceiro dono da carteira e a membro da equipe atribuída, condicionada a `app_can_operate()` e a `deleted_at is null`. Escritas diretas são revogadas; RPCs validam papel, parceria, equipe e o requisito AAL2 quando `app_requires_2fa()` é verdadeiro. A conversão cria a proposta, registra o vínculo, muda a etapa e grava o histórico numa transação.
+
+### `prospeccoes_clientes_historico`
+Trilha append-only das etapas e conversões: `id`, `prospeccao_id`, `status_anterior`, `status_novo`, `alterado_em`, `alterado_por`, `motivo`. A leitura herda o escopo RLS do prospect; a escrita ocorre somente pelas RPCs.
+
+### `prospeccoes_clientes_anexos` (migration `20261118000002`, aplicada em produção em 2026-11-18)
+
+Um prospect B2C possui até três prints ativos, incluindo reservas de upload ainda válidas. Cada anexo referencia um único `prospeccoes_clientes.id` (FK restritiva). Campos: `id`, `prospeccao_id`, `bucket` fixo `prospeccao-clientes-anexos`, `storage_path` único gerado com UUIDs, `nome` sanitizado (1–200), `mime_type`, `tamanho_bytes` (1–2097152), `estado` (`preparado`/`recebido`), `expira_em` (24h), `created_at`, `updated_at`, `created_by`, `updated_by`, `deleted_at`.
+
+Bucket privado com allowlist JPG/PNG/WEBP/HEIC. RPCs `prospeccao_cliente_anexo_preparar`, `prospeccao_cliente_anexo_confirmar`, `prospeccao_cliente_anexo_cancelar` validam sessão, escopo e AAL2 quando exigido; não há escrita direta da tabela. Prospect e reserva são bloqueados na mesma ordem, inclusive na autorização de upload/delete no Storage, serializando quota, confirmação e cancelamento. Confirmação verifica tamanho/MIME do objeto e é idempotente; cancelar exige remover antes o objeto pendente. Objetos recebidos não podem ser sobrescritos nem removidos pelo usuário.
+
+RLS herda carteira/equipe/Admin operacional do prospect ativo; Jurídico, cliente, anônimo e carteiras/equipes alheias ficam excluídos. Após conversão, anexos recebidos continuam consultáveis, mas novos uploads são bloqueados. Leitura por URL assinada de 300s. Preparar/confirmar/cancelar geram auditoria sem conteúdo do print. Não há purge automático neste lote nem transferência automática para documentos de proposta. Smoke local: fase 66; operação: runbook §22.1.
+
 ### `proponentes`
 | Coluna | Tipo |
 |---|---|

@@ -53,6 +53,7 @@
 | `/p/simulacoes` | `SimuladorCredito` rápido; exporta PNG, compartilha texto via `wa.me` e pré-preenche o wizard | partner, team_member |
 | `/p/simulacoes/nova` | legado documental; nova simulação ocorre em `/p/simulacoes` | partner, team_member |
 | `/p/propostas` | `PropostasList` | partner, team_member |
+| `/p/prospeccao` | `ProspeccaoClientesBoard` (carteira B2C do parceiro/equipe) | partner, team_member |
 | `/p/kanban` | `PartnerKanban` (escopo por partner/equipe; transições validadas no backend) | partner, team_member |
 | `/p/propostas/nova` | `PropostaWizard` | partner, team_member |
 | `/p/propostas/:id` | `PropostaDetail` | partner, team_member |
@@ -95,6 +96,7 @@
 | `/admin/clientes` | `ClientesList` |
 | `/admin/clientes/:id` | `ClienteDetail` |
 | `/admin/propostas` | `PropostasAdminList` |
+| `/admin/prospeccao` | `ProspeccaoKanban` (aba Parceiros B2B) + `ProspeccaoClientesBoard` (aba Clientes B2C) |
 | `/admin/propostas/nova` | `PropostaWizard` (modo admin, parceiro alvo obrigatório em status `approved` ou `pending`) |
 | `/admin/propostas/:id` | `PropostaAdminDetail` |
 | `/admin/leads/simulacoes` | `LeadsSimulacoes` (leitura interna dos leads públicos: calculadoras e solicitações CPC) |

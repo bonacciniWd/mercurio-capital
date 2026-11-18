@@ -3,7 +3,7 @@ import { Logo } from '@/components/Logo'
 import { ElectricBannerCard } from '@/components/ElectricBannerCard'
 import {
   LayoutDashboard, Calculator, FileText, Users, Wallet, BarChart3, Coins,
-  GraduationCap, Settings, ChevronRight, Columns3,
+  GraduationCap, Settings, ChevronRight, Columns3, Target,
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { NotificationBell } from '@/components/NotificationBell'
@@ -13,8 +13,6 @@ import {
   partnerAvatarInitial,
   partnerDisplayName,
 } from '@/lib/partnerProfile'
-
-const logoSquare = new URL('../assets/logos/logo-square.png', import.meta.url).href
 
 // Banner images — will be configurable via admin/configurações → Domínio e Marca / Promoções
 const BANNER_SRCS = [
@@ -29,6 +27,7 @@ const ITEMS = [
   { to: '/p/simulacoes', icon: Calculator, label: 'Simulações' },
   { to: '/p/propostas', icon: FileText, label: 'Propostas' },
   { to: '/p/kanban', icon: Columns3, label: 'Kanban' },
+  { to: '/p/prospeccao', icon: Target, label: 'Prospecção' },
   { to: '/p/equipe', icon: Users, label: 'Equipe' },
   { to: '/p/carteira', icon: Wallet, label: 'Carteira' },
   { to: '/p/comissoes', icon: Coins, label: 'Comissões' },

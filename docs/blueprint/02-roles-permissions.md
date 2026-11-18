@@ -63,8 +63,12 @@ public (visitante)
 | 39 | Ver/baixar **modelo de contrato** da proposta | ✅ | ✅ (dono) | ✅ (equipe) | ✅ (cliente da proposta) | ❌ |
 | 40 | Enviar **modelo de contrato** | ✅ (admin operacional + jurídico) | ❌ | ❌ | ❌ | ❌ |
 | 41 | Operar atendimento WhatsApp atribuído | ✅ (full; limitado só no atendimento atribuído) | ❌ | ❌ | ❌ | ❌ |
+| 42 | Gerenciar prospecções de clientes B2C (escopo próprio/equipe) | ✅ (full/limitado/comercial) | ✅ (carteira própria) | ✅ (equipe atribuída) | ❌ | ❌ |
+| 43 | Consultar/enviar prints privados de prospect B2C | ✅ (full/limitado/comercial) | ✅ (carteira própria) | ✅ (equipe atribuída) | ❌ | ❌ |
 
 Legenda: ✅ pleno · ⚠️ parcial/condicional · ✏️ campos restritos · 🔒 público com restrição · ❌ negado.
+
+Item 43: migration `20261118000002` aplicada em produção em 2026-11-18; smoke estrutural e grants remotos aprovados. Até 3 prints de 2MB, gate `app_can_operate()`, upload/confirmação/cancelamento de reserva pelo autor autorizado. Anexo recebido é preservado; após conversão só consulta. Notas usam o campo já existente e não criam um chat.
 
 Consultas Serasa PF/PJ iniciadas por Admin não debitam a carteira do parceiro da proposta. O custo nominal fica auditado no log, com limite inicial de 20 novas consultas por usuário Admin por dia civil de São Paulo em produção. A permissão de consulta, a autorização do cliente e o escopo da proposta continuam obrigatórios. Consultas iniciadas por parceiro seguem a cobrança da carteira. A configuração e o fluxo de falha constam em [cota diária Serasa Admin](../operacao/serasa-admin-cota-diaria.md).
 
@@ -112,11 +116,11 @@ Papel voltado à **captação de parceiros** (funil de prospecção). Continua `
 | Leads do simulador (leitura) | `/admin/leads/simulacoes` | ✅ |
 | Carteiras (somente leitura) | `/admin/financeiro/carteiras` | ✅ (read) |
 | Universidade | `/admin/universidade` | ✅ |
-| **Prospecção (funil de parceiros)** | `/admin/prospeccao` | ✅ |
+| **Prospecção B2B e B2C** | `/admin/prospeccao` (abas Parceiros B2B e Clientes B2C) | ✅ |
 | Kanban de propostas / Relatórios / WhatsApp | … | ❌ |
 | Financeiro geral / Preços / Configurações / Feature flags / Integrações / Usuários internos / Auditoria / Serasa | … | ❌ |
 
-Backend: escrita nas tabelas do funil só via RPCs com guard `app_is_admin_escopo_comercial()`; leitura por qualquer `app_is_admin()`. Detalhe: carteiras permanecem com escrita restrita a `app_is_admin_full()` — o comercial só lê.
+Backend: escrita nos funis B2B e B2C só via RPCs com guard `app_is_admin_escopo_comercial()`; leitura B2C segue essa allowlist e o gate operacional `app_can_operate()` (AAL2 quando exigido). Parceiro vê sua carteira; membro de equipe vê a equipe atribuída. Carteiras financeiras permanecem com escrita restrita a `app_is_admin_full()` — o comercial só lê.
 
 No front, o gate é `app/src/guards/RequireAdminScope.tsx` (allowlist **por nível** em `app/src/lib/adminScope.ts`, via `isAdminPathAllowed(pathname, nivel)`) aplicado dentro do bloco `/admin`; o `AdminLayout` filtra a navegação pelo mesmo allowlist. O botão **"Nova proposta"** em `/admin/propostas` aparece para `full`, `limitado` e `comercial` (`canCreateProposta`). **Mobile:** o hub admin mobile foi descontinuado (v0.0.2 removeu `(admin)/*`) — a paridade de escopo no mobile é apenas o parser de `admin_nivel` em `mobile/lib/auth.tsx` (defesa em profundidade); o funil de prospecção é web-only na v1.
 

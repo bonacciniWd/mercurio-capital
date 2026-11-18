@@ -1,3 +1,4 @@
+import type { ProspeccaoDetalheTab } from '@/components/ProspeccaoDetalheTabs'
 // Board Kanban do funil de prospecção de parceiros (issue #34 — spec UX/UI aprovada).
 // Copia-adapta o padrão de PropostasKanban: PointerSensor distance 6, move otimista
 // (cache + rollback + banner no conflito 40001), pan do board + scrollbar superior
@@ -98,6 +99,8 @@ export function ProspeccaoKanban() {
   // Snapshot do card na abertura: se um refetch remover/atualizar o card, o modal
   // (e um eventual rascunho) não desmonta abruptamente (padrão PropostaObservacoesModal).
   const [detalheCard, setDetalheCard] = useState<ProspeccaoCard | null>(null)
+  const [detalheTab, setDetalheTab] = useState<ProspeccaoDetalheTab>('dados')
+  function openCard(card: ProspeccaoCard, tab: ProspeccaoDetalheTab = 'dados') { setDetalheTab(tab); setDetalheCard(card) }
   const [ordenacaoPorStatus, setOrdenacaoPorStatus] = useState<Record<ProspeccaoStatus, OrdenacaoTab>>(() => (
     Object.fromEntries(PROSPECCAO_STATUS.map(status => [status, 'recentes'])) as Record<ProspeccaoStatus, OrdenacaoTab>
   ))
@@ -278,7 +281,7 @@ export function ProspeccaoKanban() {
         <h1 className="text-2xl font-bold text-slate-950">Prospecção de parceiros</h1>
         <p className="text-sm text-silver-600">Funil comercial de originação — do primeiro contato à conversão em proposta.</p>
       </div>
-      <button type="button" className="btn-gold" onClick={() => setCreateOpen(true)}>
+      <button type="button" className="btn-no-liquid btn-gold" onClick={() => setCreateOpen(true)}>
         <Plus className="h-4 w-4" aria-hidden="true" />
         Nova oportunidade
       </button>
@@ -339,7 +342,7 @@ export function ProspeccaoKanban() {
         <Target className="h-10 w-10 text-silver-300" aria-hidden="true" />
         <h2 className="text-lg font-bold text-slate-950">Nenhuma oportunidade ainda</h2>
         <p className="max-w-md text-sm text-silver-600">Crie o primeiro card do funil para acompanhar a prospecção de parceiros.</p>
-        <button type="button" className="btn-gold" onClick={() => setCreateOpen(true)}>
+        <button type="button" className="btn-no-liquid btn-gold" onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" aria-hidden="true" />
           Nova oportunidade
         </button>
@@ -373,7 +376,7 @@ export function ProspeccaoKanban() {
               onToggleOrder={onToggleOrdenacao}
               onExpand={() => setExpandedStatus(status)}
               anexosContagem={anexosContagem}
-              onOpen={setDetalheCard}
+              onOpen={openCard}
               onMove={moverPara}
             />
           ))}
@@ -403,7 +406,7 @@ export function ProspeccaoKanban() {
           </div>
           <div className="max-h-[72vh] overflow-y-auto p-4">
             {expandedCards.length === 0 ? <p className="text-sm text-silver-500">Sem cards — arraste uma oportunidade para cá.</p>
-              : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{expandedCards.map(card => <ProspeccaoCardView key={card.id} card={card} anexos={anexosContagem[card.id] ?? 0} onOpen={() => { setExpandedStatus(null); setDetalheCard(card) }} onMove={moverPara} />)}</div>}
+              : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{expandedCards.map(card => <ProspeccaoCardView key={card.id} card={card} anexos={anexosContagem[card.id] ?? 0} onOpen={(clicked, tab) => { setExpandedStatus(null); openCard(clicked, tab) }} onMove={moverPara} />)}</div>}
           </div>
         </div>
       </div>
@@ -413,6 +416,7 @@ export function ProspeccaoKanban() {
       <ProspeccaoDetalheModal
         key={detalheCard.id}
         card={detalheCard}
+        initialTab={detalheTab}
         onClose={() => setDetalheCard(null)}
       />
     )}
@@ -446,7 +450,7 @@ function Column({
   onToggleOrder: (status: ProspeccaoStatus) => void
   onExpand: () => void
   anexosContagem: Record<string, number>
-  onOpen: (card: ProspeccaoCard) => void
+  onOpen: (card: ProspeccaoCard, tab?: ProspeccaoDetalheTab) => void
   onMove: (card: ProspeccaoCard, status: ProspeccaoStatus) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status })
@@ -474,7 +478,7 @@ function Column({
   )
 }
 
-function DraggableCard({ card, anexos, onOpen, onMove }: { card: ProspeccaoCard; anexos: number; onOpen: (card: ProspeccaoCard) => void; onMove: (card: ProspeccaoCard, status: ProspeccaoStatus) => void }) {
+function DraggableCard({ card, anexos, onOpen, onMove }: { card: ProspeccaoCard; anexos: number; onOpen: (card: ProspeccaoCard, tab?: ProspeccaoDetalheTab) => void; onMove: (card: ProspeccaoCard, status: ProspeccaoStatus) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id })
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
   return <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={isDragging ? 'opacity-40' : ''} data-kanban-card="true"><ProspeccaoCardView card={card} anexos={anexos} onOpen={onOpen} onMove={onMove} /></div>
@@ -483,7 +487,7 @@ function DraggableCard({ card, anexos, onOpen, onMove }: { card: ProspeccaoCard;
 // Card do funil (spec #34): empresa (clamp 2), contato, chip de origem + avatar do
 // responsável, badge de follow-up e rodapé com notas/anexos. Clique abre o detalhe;
 // o menu "…" (data-no-kanban-pan) é o caminho de teclado para mover (a11y).
-function ProspeccaoCardView({ card, anexos, dragging, onOpen, onMove }: { card: ProspeccaoCard; anexos: number; dragging?: boolean; onOpen: (card: ProspeccaoCard) => void; onMove: (card: ProspeccaoCard, status: ProspeccaoStatus) => void }) {
+function ProspeccaoCardView({ card, anexos, dragging, onOpen, onMove }: { card: ProspeccaoCard; anexos: number; dragging?: boolean; onOpen: (card: ProspeccaoCard, tab?: ProspeccaoDetalheTab) => void; onMove: (card: ProspeccaoCard, status: ProspeccaoStatus) => void }) {
   const badge = followUpBadge(card.proxima_acao_em)
   return (
     <div
@@ -535,10 +539,11 @@ function ProspeccaoCardView({ card, anexos, dragging, onOpen, onMove }: { card: 
           </div>
         </div>
       </div>
-      {(card.notas || anexos > 0) && (
-        <div className="flex items-center justify-end gap-3 border-t border-silver-100 bg-silver-50 px-3 py-2 text-[11px] font-semibold text-silver-600">
-          {card.notas && <span className="inline-flex items-center" title="Tem observações" role="img" aria-label="Tem observações"><StickyNote className="h-3.5 w-3.5" aria-hidden="true" /></span>}
-          {anexos > 0 && <span className="inline-flex items-center gap-1" role="img" aria-label={`${anexos} ${anexos === 1 ? 'anexo' : 'anexos'}`}><Paperclip className="h-3.5 w-3.5" aria-hidden="true" />{anexos}</span>}
+      {card.notas && <p className="mx-3 mb-3 line-clamp-2 whitespace-pre-wrap break-words rounded-lg bg-silver-50 p-3 text-sm text-silver-600">{card.notas}</p>}
+      {!dragging && (
+        <div className="flex items-center justify-between gap-3 border-t border-silver-100 bg-silver-50 px-3 py-3 text-xs font-semibold text-silver-600" onPointerDown={event => event.stopPropagation()}>
+          <button type="button" className="btn-no-liquid inline-flex items-center gap-1.5 rounded py-1 hover:text-red-700" onClick={() => onOpen(card, 'notas')}><StickyNote className="h-4 w-4" aria-hidden="true" />Notas</button>
+          <button type="button" className="btn-no-liquid inline-flex items-center gap-1.5 rounded py-1 hover:text-red-700" onClick={() => onOpen(card, 'anexos')}><Paperclip className="h-4 w-4" aria-hidden="true" />Anexos {anexos}</button>
         </div>
       )}
     </div>

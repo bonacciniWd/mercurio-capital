@@ -1065,3 +1065,52 @@ select status_anterior, status_novo, alterado_em, u.email as alterado_por
 select nome_empresa, motivo_arquivamento, arquivado_em from prospeccoes_parceiro
  where arquivado_em is not null order by arquivado_em desc limit 20;
 ```
+## 22. Prospecção B2C de clientes (`/p/prospeccao`)
+
+A migration `20261118000001_prospeccoes_clientes_b2c.sql` mantém a carteira B2C separada do funil de captação de parceiros. Parceiro consulta a carteira do próprio partner; membro de equipe consulta somente os prospects da equipe; Admin full/limitado/comercial tem visão global e Jurídico fica excluído. Escritas são feitas pelas RPCs dedicadas, nunca por insert/update direto.
+
+As políticas de leitura usam `app_can_operate()` e ocultam registros com `deleted_at` preenchido; o histórico também exige prospect ativo. RPCs exigem `app_has_verified_2fa()` quando `app_requires_2fa()` for verdadeiro (Admins e parceiros aprovados). Membros de equipe seguem a política vigente do helper de autenticação.
+
+Na conversão, o wizard pré-preenche nome/e-mail/telefone e solicita os dados completos já exigidos pela proposta. A RPC lê partner/equipe do prospect, cria e vincula uma proposta, atualiza o estágio e registra histórico na mesma transação. Não aceitar partner/equipe enviados pelo cliente. Uma segunda conversão do mesmo prospect deve falhar sem duplicar proposta.
+
+Antes de publicar, aplicar a migration e executar `supabase/smoke-tests/fase-65-prospeccoes-clientes-b2c.sql` em ambiente local/isolado com fixtures de dois parceiros, duas equipes e Admin full/limitado/comercial/jurídico. Validar AAL1 negado/AAL2 permitido, bypass por REST/RPC, registros soft-deleted invisíveis, atribuição cruzada, concorrência de estágio e conversão duplicada; não usar dados reais de clientes.
+
+```sql
+select status, count(*)
+  from prospeccoes_clientes
+ where deleted_at is null
+ group by status order by status;
+
+select nome_completo, status, partner_id, equipe_id, proposta_id, convertido_em, updated_at
+  from prospeccoes_clientes where id = '<uuid>';
+
+select h.status_anterior, h.status_novo, h.alterado_em, u.email, h.motivo
+  from prospeccoes_clientes_historico h
+  left join usuarios u on u.id = h.alterado_por
+ where h.prospeccao_id = '<uuid>' order by h.alterado_em desc;
+```
+
+### 22.1 Kanban, notas e prints privados B2C
+
+Implementação local aprovada em `prompts/2026-11-18-prospeccao-kanban-ui-notas-prints.md`. Após GO explícito do dono, a migration aditiva `20261118000002_prospeccoes_clientes_anexos.sql` foi aplicada em produção em 2026-11-18; smoke estrutural, bucket privado, RLS e grants remotos aprovados. O teste comportamental com fixtures permanece exclusivo do Docker. O funil B2B mantém backend, colunas de 38rem e histórico atuais.
+
+- B2C usa colunas 24rem, arraste ou menu de etapas, estado esperado e rollback em conflito. Perdidos exige motivo; Proposta criada só pela conversão do wizard. Atalhos Notas/Anexos abrem as respectivas abas no detalhe; rascunhos são preservados ao alternar abas.
+- Prints: até três imagens de 2MB, bucket privado `prospeccao-clientes-anexos`, extensões JPG/PNG/WEBP/HEIC. Selecionar, soltar ou colar na área focada da aba Anexos; nunca clipboard global. O sucesso só aparece após confirmação no banco.
+- Fluxo: reservar → upload `upsert:false` → confirmar. Em retry, confirmar primeiro a mesma reserva para recuperar respostas perdidas. Reserva dura 24h; expiradas não ocupam quota, mas não aceitam upload. Para cancelar, remover o objeto pendente e depois cancelar a reserva. Anexos recebidos são preservados e não podem ser removidos/sobrescritos pelo usuário.
+- Todas as etapas revalidam o escopo atual do prospect e 2FA quando exigido. Após conversão, apenas consulta dos anexos recebidos. URLs assinadas expiram em 300s; abrir novamente renova a URL. HEIC tem fallback com nome/abertura caso o navegador não gere miniatura.
+- Sem migration publicada, a UI informa indisponibilidade dos anexos; não tratar falha de tabela/RPC ausente como lista vazia. Reservas expiradas não têm purge automático neste lote; limpeza operacional futura precisa preservar anexos recebidos e auditoria.
+
+Verificação local, sem reset de banco:
+
+```bash
+supabase db push --local --dry-run
+# Conferir que somente a migration aprovada aparece antes de aplicar localmente.
+supabase db push --local
+docker exec -i supabase_db_MercurioCapital psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/smoke-tests/fase-65-prospeccoes-clientes-b2c.sql
+docker exec -i supabase_db_MercurioCapital psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/smoke-tests/fase-66-prospeccoes-clientes-anexos.sql
+node supabase/smoke-tests/fase-66-prospeccoes-clientes-anexos-concorrencia.mjs
+```
+
+O smoke fase 66 cria fixtures sintéticas transacionais e executa `ROLLBACK`. Inclui autorizações efetivas por role, carteira/equipe, confirmação, quota, expiração e Storage. Testes de concorrência usam sessões distintas e fixtures descartáveis apenas no Docker; evidências constam no plano aprovado.
+
+Rollout autorizado em 2026-11-18: migration e smoke estrutural remoto, depois frontend; GO também cobre commit/push. Demais publicações exigem autorização própria. Rollback de UI preserva bucket e metadados recebidos; migration aplicada é imutável, correções posteriores são forward-fix. Não alterar as políticas de outros buckets.

@@ -3,14 +3,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-const fixture = vi.hoisted(() => ({ rows: [] as Array<Record<string, unknown>> }))
+const fixture = vi.hoisted(() => ({ rows: [] as Array<Record<string, unknown>>, origins: [] as Array<Record<string, unknown>> }))
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: vi.fn(() => {
+    from: vi.fn((table: string) => {
       const builder: Record<string, unknown> = {}
       builder.select = () => builder
       builder.order = () => builder
+      builder.in = () => Promise.resolve({ data: table === 'v_prospeccoes_clientes' ? fixture.origins : fixture.rows, error: null })
       builder.limit = () => Promise.resolve({ data: fixture.rows, error: null })
       return builder
     }),
@@ -22,6 +23,7 @@ import { PartnerPropostas } from '@/pages/partner/Propostas'
 afterEach(() => {
   cleanup()
   fixture.rows = []
+  fixture.origins = []
 })
 
 function makeProposal(index: number, overrides: Record<string, unknown> = {}) {
@@ -98,5 +100,15 @@ describe('listagem de propostas partner', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }))
     await waitFor(() => expect(screen.getByText('2 resultados encontrados')).toBeInTheDocument())
     expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(3)
+  })
+
+  it('retorna ao prospect B2C vinculado à proposta', async () => {
+    fixture.rows = [makeProposal(1)]
+    fixture.origins = [{ id: 'lead-1', proposta_id: 'proposal-1' }]
+    mount()
+
+    expect(await screen.findByText('Cliente 1')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Da prospecção B2C' }))
+      .toHaveAttribute('href', '/p/prospeccao?prospect=lead-1')
   })
 })

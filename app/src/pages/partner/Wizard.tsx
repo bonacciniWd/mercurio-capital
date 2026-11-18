@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Building, Home as HomeIcon, Hammer, Check, Plus, Trash2, MapPin, ChevronDown, Copy, Loader2, RefreshCw, Search, ShieldCheck, FileDown } from 'lucide-react'
@@ -13,6 +13,8 @@ import { imprimirSimulacaoCreditoPdf } from '@/lib/simulacaoCreditoPdf'
 import { consumeSimulacaoDraft } from '@/lib/simulacaoDraft'
 import { publicAppUrl } from '@/lib/publicUrl'
 import { useProspeccaoConverter } from '@/hooks/useProspeccoes'
+import { useProspeccaoCliente, useProspeccaoClienteConvert } from '@/hooks/useProspeccoesClientes'
+import { SearchablePartnerSelect } from '@/components/SearchablePartnerSelect'
 import {
   maskCpf, maskCnpj, onlyDigits, isValidCpf, isValidCnpj, validarDocumento, consultarCnpj,
 } from '@/lib/documentoBr'
@@ -245,11 +247,6 @@ interface AdminPartnerOption {
   status: string
 }
 
-const ADMIN_PARTNER_STATUS_LABEL: Record<string, string> = {
-  approved: 'Aprovado',
-  pending: 'Pendente de confirmação/aprovação',
-}
-
 export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) {
   const navigate = useNavigate()
   const isAdminMode = mode === 'admin'
@@ -258,7 +255,11 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
   // admin_create_proposta, vinculando partner_id/proposta_id ao card do funil.
   const [searchParams] = useSearchParams()
   const prospeccaoId = isAdminMode ? searchParams.get('prospeccao') : null
+  const prospeccaoClienteId = searchParams.get('prospeccao_cliente')
   const converterMut = useProspeccaoConverter()
+  const converterClienteMut = useProspeccaoClienteConvert()
+  const prospeccaoClienteQ = useProspeccaoCliente(prospeccaoClienteId)
+  const prefilledProspectRef = useRef<string | null>(null)
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<FormState>(() => {
     if (isAdminMode) return initialState
@@ -316,6 +317,36 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
   })
 
   const adminPartners = adminPartnersQ.data ?? []
+
+  const assignedPartner = adminPartners.find(partner => partner.partner_id === prospeccaoClienteQ.data?.partner_id)
+  const assignedTeamQ = useQuery({
+    queryKey: ['prospeccao-cliente-assigned-team', prospeccaoClienteQ.data?.equipe_id],
+    enabled: Boolean(prospeccaoClienteQ.data?.equipe_id),
+    queryFn: async () => {
+      const { data, error } = await supabase.from('equipes').select('id, nome').eq('id', prospeccaoClienteQ.data!.equipe_id!).single()
+      if (error) throw error
+      return data as { id: string; nome: string }
+    },
+  })
+
+  useEffect(() => {
+    const prospect = prospeccaoClienteQ.data
+    if (!prospect || prefilledProspectRef.current === prospect.id) return
+    prefilledProspectRef.current = prospect.id
+    setForm(current => {
+      const merged = {
+        ...current,
+        cliente: {
+          ...current.cliente,
+          nome_completo: current.cliente.nome_completo || prospect.nome_completo,
+          razao_social: current.cliente.razao_social || prospect.nome_completo,
+          email: current.cliente.email || prospect.email || '',
+          telefone: current.cliente.telefone || prospect.telefone || '',
+        },
+      }
+      return { ...merged, proponentes: computeSyncedProponentes(merged) }
+    })
+  }, [prospeccaoClienteQ.data])
 
   const patch = (p: Partial<FormState>) =>
     setForm(f => {
@@ -423,6 +454,15 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
       }
 
       if (isAdminMode) {
+        if (prospeccaoClienteId) {
+          const result = await converterClienteMut.mutateAsync({ id: prospeccaoClienteId, payload: payload as Record<string, unknown>, admin: true })
+          return {
+            proposta_id: result.proposta_id,
+            protocolo: result.protocolo ?? '',
+            cliente_id: result.cliente_id ?? '',
+            magic_token: '',
+          } satisfies SubmitResult
+        }
         if (!adminPartnerId) throw new Error('Selecione um parceiro para criar a proposta (aprovado ou pendente).')
         if (prospeccaoId) {
           // Conversão do funil (#34): RPC dedicada cria a proposta com o payload do
@@ -443,6 +483,10 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
         return data as SubmitResult
       }
 
+      if (prospeccaoClienteId) {
+        return await converterClienteMut.mutateAsync({ id: prospeccaoClienteId, payload: payload as Record<string, unknown>, admin: false }) as SubmitResult
+      }
+
       const { data, error } = await supabase.rpc('partner_create_proposta', { p_payload: payload })
       if (error) throw error
       return data as SubmitResult
@@ -451,6 +495,10 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
       // Conversão do funil: sem magic link (o retorno da RPC não tem token) — vai
       // direto para o detalhe da proposta criada e o board invalida via hook.
       if (prospeccaoId && data.proposta_id) {
+        navigate(`/admin/propostas/${data.proposta_id}`)
+        return
+      }
+      if (isAdminMode && prospeccaoClienteId && data.proposta_id) {
         navigate(`/admin/propostas/${data.proposta_id}`)
         return
       }
@@ -465,7 +513,8 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
     if (s === 0) {
       if (!form.produto || !form.pessoa_tipo) return false
       if (!isAdminMode) return true
-      return !!adminPartnerId && !adminPartnersQ.isLoading
+      return prospeccaoClienteId ? !prospeccaoClienteQ.isLoading && !prospeccaoClienteQ.error && prospeccaoClienteQ.data?.status === 'qualificado'
+        : !!adminPartnerId && !adminPartnersQ.isLoading
     }
     if (s === 1) {
       const c = form.cliente
@@ -510,7 +559,10 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
   }
 
   if (result) {
-    return <SuccessPanel result={result} pessoaTipo={form.pessoa_tipo} onNew={() => { setResult(null); setForm(initialState); setStep(0) }} onDetalhe={() => navigate(isAdminMode ? `/admin/propostas/${result.proposta_id}` : `/p/propostas/${result.proposta_id}`)} />
+    return <SuccessPanel result={result} pessoaTipo={form.pessoa_tipo} onNew={() => {
+      if (prospeccaoClienteId) { navigate(isAdminMode ? '/admin/prospeccao?aba=b2c' : '/p/prospeccao', { replace: true }); return }
+      setResult(null); setForm(initialState); setStep(0)
+    }} onDetalhe={() => navigate(isAdminMode ? `/admin/propostas/${result.proposta_id}` : `/p/propostas/${result.proposta_id}`)} />
   }
 
   return (
@@ -521,13 +573,19 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
       </div>
       <p className="mb-6 text-sm text-silver-600">Passo {step + 1} de {STEPS.length} — {STEPS[step]}</p>
 
-      {prospeccaoId && (
+      {(prospeccaoId || prospeccaoClienteId) && (
         <div className="mb-5 rounded-lg border border-gold/30 bg-gold/5 p-4 text-sm text-silver-700" role="status">
-          Convertendo oportunidade do funil de prospecção: ao concluir, a proposta criada ficará vinculada ao card e a conversão será registrada na auditoria.
+          {prospeccaoClienteId
+            ? 'Convertendo prospect B2C. A atribuição de parceiro/equipe vem da carteira original e será preservada ao criar a proposta.'
+            : 'Convertendo oportunidade do funil de prospecção: ao concluir, a proposta criada ficará vinculada ao card e a conversão será registrada na auditoria.'}
         </div>
       )}
 
-      {isAdminMode && (
+      {prospeccaoClienteId && prospeccaoClienteQ.isLoading && <div role="status" className="mb-5 flex items-center gap-2 text-sm text-silver-600"><Loader2 className="h-4 w-4 animate-spin" />Carregando prospect e atribuição…</div>}
+      {prospeccaoClienteId && prospeccaoClienteQ.error && <div role="alert" className="mb-5 rounded-lg border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{prospeccaoClienteQ.error.message}</div>}
+      {prospeccaoClienteId && prospeccaoClienteQ.data && prospeccaoClienteQ.data.status !== 'qualificado' && <div role="alert" className="mb-5 rounded-lg border border-warning/40 bg-warning/10 p-4 text-sm text-silver-700">Este prospect precisa estar na etapa “Qualificado” para gerar uma proposta.</div>}
+
+      {isAdminMode && !prospeccaoClienteId && (
         <div className="mb-5 rounded-lg border border-gold/30 bg-gold/5 p-4">
           <label className="label">Parceiro responsável pela proposta *</label>
           {adminPartnersQ.isLoading ? (
@@ -539,22 +597,24 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
           ) : adminPartners.length === 0 ? (
             <p className="text-sm text-warning">Nenhum parceiro aprovado ou pendente disponível para criação.</p>
           ) : (
-            <select
-              className="input"
+            <SearchablePartnerSelect
+              options={adminPartners}
               value={adminPartnerId}
-              onChange={(e) => setAdminPartnerId(e.target.value)}
-            >
-              <option value="">Selecione um parceiro</option>
-              {adminPartners.map((partner) => (
-                <option key={partner.partner_id} value={partner.partner_id}>
-                  {(partner.nome || partner.email || partner.partner_id)} · {ADMIN_PARTNER_STATUS_LABEL[partner.status] ?? partner.status}
-                </option>
-              ))}
-            </select>
+              onChange={setAdminPartnerId}
+              placeholder="Buscar parceiro por nome ou e-mail"
+            />
           )}
           <p className="mt-2 text-xs text-silver-600">
             Admin pode criar proposta para parceiro aprovado ou pendente. Parceiro pendente continua sem acesso operacional ao módulo /p.
           </p>
+        </div>
+      )}
+
+      {isAdminMode && prospeccaoClienteId && prospeccaoClienteQ.data && (
+        <div className="mb-5 rounded-lg border border-silver-200 bg-silver-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-silver-500">Atribuição preservada</p>
+          <p className="mt-1 flex items-center gap-2 text-sm font-medium text-silver-800"><Building className="h-4 w-4" />{assignedPartner?.nome || assignedPartner?.email || 'Parceiro atribuído à carteira'}</p>
+          {prospeccaoClienteQ.data.equipe_id && <p className="mt-1 flex items-center gap-2 text-sm text-silver-600"><Building className="h-4 w-4" />{assignedTeamQ.data?.nome || 'Equipe atribuída'}</p>}
         </div>
       )}
 
@@ -584,11 +644,11 @@ export function PartnerWizard({ mode = 'partner' }: { mode?: WizardMode } = {}) 
       <div className="mt-6 flex justify-between">
         <button onClick={() => setStep(s => Math.max(0, s - 1))} className="btn-ghost" disabled={step === 0 || submitMut.isPending}>← Anterior</button>
         {step < STEPS.length - 1 ? (
-          <button onClick={next} className="btn-gold" disabled={isAdminMode && !adminPartnerId}>Próximo →</button>
+          <button onClick={next} className="btn-gold" disabled={(isAdminMode && !prospeccaoClienteId && !adminPartnerId) || Boolean(prospeccaoClienteId && (prospeccaoClienteQ.isLoading || prospeccaoClienteQ.error || prospeccaoClienteQ.data?.status !== 'qualificado'))}>Próximo →</button>
         ) : (
           <button
             onClick={() => submitMut.mutate()}
-            disabled={submitMut.isPending}
+            disabled={submitMut.isPending || Boolean(prospeccaoClienteId && (prospeccaoClienteQ.isLoading || prospeccaoClienteQ.error || prospeccaoClienteQ.data?.status !== 'qualificado'))}
             className="btn-gold"
           >
             {submitMut.isPending ? 'Salvando…' : 'Salvar e gerar link cliente'}

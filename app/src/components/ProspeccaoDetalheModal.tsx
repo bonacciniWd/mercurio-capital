@@ -1,3 +1,4 @@
+import { ProspeccaoDetalheTabs, type ProspeccaoDetalheTab } from '@/components/ProspeccaoDetalheTabs'
 // Modal de detalhe da oportunidade do funil de prospecção (issue #34 — spec UX/UI).
 // z-[60] (não <dialog>) para o ReasonDialog (z-[70]) e o diálogo de conversão abrirem
 // por cima; bottom-sheet <sm; shell a11y do PropostaObservacoesModal (foco inicial no
@@ -89,7 +90,9 @@ function tempoAbsoluto(iso: string): string {
   })
 }
 
-export function ProspeccaoDetalheModal({ card, onClose }: { card: ProspeccaoCard; onClose: () => void }) {
+export function ProspeccaoDetalheModal({ card, onClose, initialTab = 'dados' }: { card: ProspeccaoCard; onClose: () => void; initialTab?: ProspeccaoDetalheTab }) {
+  const [tab, setTab] = useState(initialTab)
+  const tabsId = useId()
   const { session } = useAuth()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -210,9 +213,9 @@ export function ProspeccaoDetalheModal({ card, onClose }: { card: ProspeccaoCard
       }
       if (event.key !== 'Tab' || !panelRef.current) return
       if (arquivarOpen || converterOpen) return // diálogos por cima têm o próprio trap
-      const focaveis = panelRef.current.querySelectorAll<HTMLElement>(
+      const focaveis = Array.from(panelRef.current.querySelectorAll<HTMLElement>(
         'button:not(:disabled), textarea:not(:disabled), input:not(:disabled):not([type="file"]):not([hidden]), select:not(:disabled), [tabindex]:not([tabindex="-1"]), a[href]',
-      )
+      )).filter(element => !element.closest('[hidden]'))
       if (focaveis.length === 0) return
       const primeiro = focaveis[0]
       const ultimo = focaveis[focaveis.length - 1]
@@ -237,7 +240,8 @@ export function ProspeccaoDetalheModal({ card, onClose }: { card: ProspeccaoCard
   function salvar() {
     setTentou(true)
     const dirty = dirtyPayload()
-    if (!valido || Object.keys(dirty).length === 0 || pendente) return
+    if (!valido) { setTab('dados'); return }
+    if (Object.keys(dirty).length === 0 || pendente) return
     setErroSalvar(null)
     setSucessoSalvar(null)
     updateMut.mutate(
@@ -313,7 +317,7 @@ export function ProspeccaoDetalheModal({ card, onClose }: { card: ProspeccaoCard
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-silver-950/55 backdrop-blur-[1px] sm:items-center sm:p-4"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/50 backdrop-blur-[1px] sm:items-center sm:p-4"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) pedirFechar()
@@ -325,7 +329,7 @@ export function ProspeccaoDetalheModal({ card, onClose }: { card: ProspeccaoCard
         aria-modal="true"
         aria-labelledby={tituloId}
         aria-describedby={subId}
-        className="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-xl border border-silver-200 bg-white shadow-2xl sm:max-h-[85vh] sm:rounded-xl"
+        className="flex max-h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-t-xl border border-silver-200 bg-white shadow-2xl sm:max-h-[85vh] sm:rounded-xl"
       >
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-silver-100 px-4 py-4 sm:px-6">
           <div className="min-w-0">
@@ -364,8 +368,9 @@ export function ProspeccaoDetalheModal({ card, onClose }: { card: ProspeccaoCard
           </div>
         )}
 
+        <ProspeccaoDetalheTabs id={tabsId} value={tab} onChange={setTab} />
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-silver-50 px-4 py-4 sm:px-6">
-          <section aria-label="Dados do contato" className="card p-4">
+          <section hidden={tab !== 'dados'} role="tabpanel" id={tabsId + "-panel-dados"} aria-labelledby={tabsId + "-tab-dados"} aria-label="Dados do contato" className="card p-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-silver-500">Dados do contato</h3>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <div>
@@ -466,7 +471,7 @@ export function ProspeccaoDetalheModal({ card, onClose }: { card: ProspeccaoCard
             </div>
           </section>
 
-          <section aria-label="Observações" className="card mt-4 p-4">
+          <section hidden={tab !== 'notas'} role="tabpanel" id={tabsId + "-panel-notas"} aria-labelledby={tabsId + "-tab-notas"} aria-label="Observações" className="card mt-4 p-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-silver-500">Observações</h3>
             <label className="sr-only" htmlFor={`${campoId}-notas`}>Observações</label>
             <textarea
@@ -480,7 +485,7 @@ export function ProspeccaoDetalheModal({ card, onClose }: { card: ProspeccaoCard
             <p className="mt-1 text-right text-xs tabular-nums text-silver-400">{form.notas.length}/4000</p>
           </section>
 
-          <section aria-label="Prints e anexos" className="card mt-4 p-4">
+          <section hidden={tab !== 'anexos'} role="tabpanel" id={tabsId + "-panel-anexos"} aria-labelledby={tabsId + "-tab-anexos"} aria-label="Prints e anexos" className="card mt-4 p-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-silver-500">Prints e anexos</h3>
             <p className="mt-1 text-xs text-silver-500">
               Anexe até {PROSPECCAO_MAX_ANEXOS} prints (JPG, PNG, WEBP ou HEIC, 2 MB cada) que ajudem a justificar a mudança de status.
@@ -559,7 +564,7 @@ export function ProspeccaoDetalheModal({ card, onClose }: { card: ProspeccaoCard
             </div>
           </section>
 
-          <section aria-label="Histórico" className="card mt-4 p-4">
+          <section hidden={tab !== 'historico'} role="tabpanel" id={tabsId + "-panel-historico"} aria-labelledby={tabsId + "-tab-historico"} aria-label="Histórico" className="card mt-4 p-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-silver-500">Histórico</h3>
             {historicoQ.isLoading && (
               <p className="mt-3 flex items-center gap-2 text-xs text-silver-500">
@@ -739,7 +744,7 @@ function ConverterConfirmDialog({ onCancel, onConfirm }: { onCancel: () => void;
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-silver-950/55 p-4 backdrop-blur-[1px]"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-[1px]"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onCancel()

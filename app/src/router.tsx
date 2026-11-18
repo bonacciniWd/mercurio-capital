@@ -40,6 +40,7 @@ import { PartnerDashboard } from '@/pages/partner/Dashboard'
 import { PartnerSimulacoes } from '@/pages/partner/Simulacoes'
 import { PartnerWizard } from '@/pages/partner/Wizard'
 import { PartnerPropostas } from '@/pages/partner/Propostas'
+import { ProspeccaoClientesBoard } from '@/components/ProspeccaoClientesBoard'
 import { PartnerKanban } from '@/pages/partner/Kanban'
 import { PartnerPropostaDetalhe } from '@/pages/partner/PropostaDetalhe'
 import { PartnerCarteira } from '@/pages/partner/Carteira'
@@ -184,6 +185,7 @@ const appRoutes = [
                       { index: true, element: <PartnerDashboard /> },
                       { path: 'simulacoes', element: <PartnerSimulacoes /> },
                       { path: 'propostas', element: <PartnerPropostas /> },
+                      { path: 'prospeccao', element: <ProspeccaoClientesBoard /> },
                       { path: 'kanban', element: <PartnerKanban /> },
                       { path: 'propostas/nova', element: <PartnerWizard /> },
                       { path: 'propostas/:id', element: <PartnerPropostaDetalhe /> },

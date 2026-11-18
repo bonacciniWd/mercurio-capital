@@ -2,6 +2,21 @@
 
 <!-- RELEASE_CURRENT_VERSION: 0.3.0 -->
 
+## Publicação web/B2C — 2026-11-18
+
+- [x] GO explícito para migration, deploy e commit/push registrado em `prompts/2026-11-18-prospeccao-kanban-ui-notas-prints.md`.
+- [x] Escopo mapeado: Kanban B2C, notas/prints privados, abas B2B/Admin, wizard e rastreio de origem. Mobile, Electron, integrações e versões de release não são alterados.
+- [x] Modelo aprovado; revisão read-only sem achados Critical/High; lint sem erros, typecheck/build aprovados, 37 testes direcionados e 25 rechecados aprovados. Smokes 65/66 e três cenários concorrentes aprovados no Docker.
+- [x] GitHub Actions desativados; sem tag/release/build nativo. `validate:release` passou sem alterar a versão do pacote.
+- [x] Preflight remoto: projeto produção `bhagksfvszeogtjvjtpx`; dry-run lista apenas `20261118000002`, sem Vault/seed/roles.
+- [x] Smoke estrutural sem fixtures preparado e validado localmente; rollback Vercel anterior `dpl_5hVDNj6KUNWcWwwXrVZo2NGhyv79` mapeado.
+- [x] Aplicação remota de `20261118000002`, smokes estruturais 65/66 e grants confirmados; nenhuma fixture em produção.
+- [ ] Commit allowlist e validação do candidato isolado.
+- [ ] Vercel Ready, domínio e assets conferidos.
+- [ ] Push GitHub confirmado, sem Actions disparado.
+
+Esta publicação web não cria versão desktop/mobile nem altera seus artefatos. As seções de releases abaixo são históricas e independentes deste rollout.
+
 ## Release atual — v0.3.0 (2026-11-06)
 
 - [x] Plano aprovado: `prompts/2026-11-06-release-web-desktop-v0-3-0.md`.

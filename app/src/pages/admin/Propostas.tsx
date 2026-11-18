@@ -109,6 +109,20 @@ export function AdminPropostas() {
     },
   })
 
+  const propostaIds = (propostas ?? []).map(proposta => proposta.id)
+  const origensB2cQ = useQuery({
+    queryKey: ['admin-propostas-origem-b2c', session?.adminNivel, propostaIds],
+    enabled: propostaIds.length > 0 && session?.adminNivel !== 'juridico',
+    queryFn: async () => {
+      const { data, error } = await supabase.from('v_prospeccoes_clientes')
+        .select('id, proposta_id')
+        .in('proposta_id', propostaIds)
+      if (error) throw error
+      return new Map((data ?? []).filter(row => row.proposta_id).map(row => [row.proposta_id as string, row.id as string]))
+    },
+  })
+  const propostasB2c = origensB2cQ.data ?? new Map<string, string>()
+
   const { data: fundosRows = [] } = useQuery({
     queryKey: ['admin-propostas-fundos'],
     queryFn: async (): Promise<FundoRow[]> => {
@@ -306,6 +320,7 @@ export function AdminPropostas() {
                     <td>
                       <strong className="admin-proposals__client">{p.cliente?.nome_completo || '—'}</strong>
                       <span className="admin-proposals__secondary">{p.cliente?.cpf ? maskCpf(p.cliente.cpf) : ''}</span>
+                      {propostasB2c.has(p.id) && <Link className="mt-1 inline-flex text-[11px] font-semibold text-red-700 hover:underline" to={`/admin/prospeccao?aba=b2c&prospect=${propostasB2c.get(p.id)}`}>Da prospecção B2C</Link>}
                     </td>
                     <td className="admin-proposals__partner">
                       {p.partner?.usuario?.nome_completo || '—'}
