@@ -70,7 +70,7 @@ Aprovado pelo usuário em 2026-11-18 antes da implementação.
 
 ## Publicação
 
-A autorização anterior do usuário para “commit e deploy” desta política cobre a correção pontual do contato na mesma página. A publicação será um deploy direto de produção via Vercel a partir de checkout limpo, sem push ao GitHub ou acionamento de Actions. Registrar abaixo commit, deployment e smoke após concluir.
+A autorização anterior do usuário para “commit e deploy” desta política cobriu a correção pontual do contato na mesma página. A publicação foi feita diretamente em produção pela Vercel a partir de checkout isolado, sem push ao GitHub ou acionamento de Actions; os identificadores e resultados estão abaixo.
 
 - Commit local: `212da40` (`fix(web): use .com.br privacy contact`), somente os seis arquivos previstos no escopo.
 - Projeto Vercel correto `mercurio-digital`: deployment `dpl_5hVDNj6KUNWcWwwXrVZo2NGhyv79`, estado **READY**, produção em `https://mercuriocapitalsa.com.br`.
