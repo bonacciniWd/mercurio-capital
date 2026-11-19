@@ -128,20 +128,18 @@ export function ClienteProposta() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-5">
-      <div className="hidden flex-col justify-between bg-black p-12 text-white lg:col-span-3 lg:flex">
+      <div className="hidden flex-col justify-between bg-[url('./assets/partner-register.jpg')] bg-cover p-12 text-white lg:col-span-3 lg:flex">
         <Logo variant="light" />
-        <div>
+        <div className="absolute bottom-20 left-10">
           <h2 className="text-4xl font-bold leading-tight">
             Sua proposta de crédito<br />está pronta.
           </h2>
           <p className="mt-4 max-w-md text-white/70">
             Acompanhe o andamento, responda pendências e envie documentos com segurança no portal do cliente.
           </p>
-          <div className="mt-6 absolute top-0 right-0.5 gap-3">
-            
-          </div>
+         
         </div>
-        <p className="text-xs text-white/40">© Mercurio Capital</p>
+        <p className=" text-white/40">© Mercurio Capital</p>
       </div>
 
       <div className="flex items-center justify-center p-8 lg:col-span-2">
@@ -201,7 +199,7 @@ export function ClienteProposta() {
                 <span>
                   <b className="block text-base text-navy">Instrução para consultas desta proposta <span className="text-xs font-medium text-silver-500">(opcional)</span></b>
                   Confirmo que solicitei a análise desta proposta e instruo a Mercúrio Capital a encaminhar, para essa finalidade, os dados informados dos proponentes e dos imóveis vinculados a ela aos serviços de crédito, cadastro e registros imobiliários integrados e habilitados. A consulta efetiva depende da disponibilidade do serviço e das validações aplicáveis. O registro será feito em meu nome como cliente principal e não representa aceite individual dos demais proponentes. Novos provedores ou finalidades fora dessas categorias exigirão atualização das informações e do escopo.
-                  <span className="mt-2 block text-xs font-medium text-silver-600">Se deixar desmarcada, você poderá continuar. Para consultas externas da proposta, a equipe precisará de um documento de autorização aprovado.</span>
+                  
                 </span>
               </label>
 
