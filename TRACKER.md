@@ -13,14 +13,20 @@ este espelho existe para leitura rápida e deve ser atualizado junto com elas.
 
 **Legenda:** ⚪ pendente · 🟡 em andamento · 🔴 bloqueada · 🟢 concluída
 
+## Situação atual — 2026-11-19
+
+Validação do dono: todas as entregas validadas, exceto **#16**, que permanece
+em andamento. Conferência no GitHub: **36 issues fechadas e somente #16 aberta**.
+Submissão à App Review concluída; isso não significa aprovação da Apple.
+
 ## App Store (submissão iOS)
 
 | Issue | Item | Status | Notas |
 |---|---|---|---|
-| #2 | Preencher placeholders de submissão | ⚪ | Só o dono: contato App Review + conta demo |
+| #2 | Preencher placeholders de submissão | 🟢 | Validado pelo dono; issue fechada em 18/11 |
 | #3 | Screenshots iPad 13" (2064×2752) | 🟢 | 3 telas em `screenshots/ios/ipad-13/`; commit `10dd7f6` fecha a issue |
-| #4 | Decisões ⚖️ (nome, países, versão) | ⚪ | Dono decide; registrar em `screenshots/app-store-connect.md` |
-| #5 | Submeter build para App Review | 🔴 | Bloqueada por #2, #3, #4. Go/no-go do dono |
+| #4 | Decisões ⚖️ (nome, países, versão) | 🟢 | Definidas pelo dono; issue fechada em 18/11 |
+| #5 | Submeter build para App Review | 🟢 | App enviado para revisão, confirmado pelo dono; issue fechada em 18/11 |
 
 Feito: screenshots iPhone 6.9" (1320×2868) de onboarding, login e recuperar-senha
 em `screenshots/ios/6.9/`; textos e campos completos em `screenshots/app-store-connect.md`.
@@ -29,8 +35,8 @@ em `screenshots/ios/6.9/`; textos e campos completos em `screenshots/app-store-c
 
 | Issue | Item | Status | Notas |
 |---|---|---|---|
-| #6 | Contraste quebrado em "Recuperar acesso" | 🟢 | Fix commitado em `fba022b` (mobile v0.0.2); build 13 ainda tem o bug → decisão de build 14 pendente |
-| #9 | Validar área do parceiro (Configurações) no aparelho | ⚪ | Roles admin e membro |
+| #6 | Contraste quebrado em "Recuperar acesso" | 🟢 | Correção validada pelo dono; issue fechada |
+| #9 | Validar área do parceiro (Configurações) no aparelho | 🟢 | Validado no mobile pelo dono; issue fechada em 16/11 |
 
 ## Web
 
@@ -39,11 +45,11 @@ em `screenshots/ios/6.9/`; textos e campos completos em `screenshots/app-store-c
 | #8 | Nova frente no projeto `/app` | 🟢 | Frente A = Push Web (FCM); plano `prompts/2026-11-11-push-web-fcm.md` aprovado (modelo de dados + dep `firebase` incluídos) |
 | #10 | push-web: modelo push_devices/push_outbox + RLS + smoke | 🟢 | `ee3d42f`; reutilizou `push_devices` (decisão do dono); smokes fase-59 verdes em Supabase local |
 | #12 | push-web: trigger de fan-out a partir de notificacoes | 🟢 | Entregue junto da #10 (`ee3d42f`), conforme §9 do plano |
-| #11 | push-web: edge push-dispatcher (FCM HTTP v1) | 🟢 | `29aadaf`; 31/31 testes, deno check limpo; deploy aguarda GO + secrets FCM |
+| #11 | push-web: edge push-dispatcher (FCM HTTP v1) | 🟢 | Implementação entregue; configuração e publicação executadas; acompanhamento do rollout em #16 |
 | #13 | push-web: service worker + SDK Firebase no app web | 🟢 | `b684535`; payload data-only após revisão; 7/7 testes; falhas da suite são pré-existentes (#17 e adminLeads) |
 | #14 | push-web: UX de permissão e preferências | 🟢 | `deab1ab`; spec UX/UI aprovada pelo dono; 20/20 testes; M-1 do Revisor corrigido |
 | #15 | push-web: degradê Electron/Safari + docs operacionais | 🟢 | `fa28d48`+`c4c7297`; runbook §17, handoff 21, .env.example versionado |
-| #16 | push-web: flag de rollout + evidências | 🟡 | `a0bf2de`: flag nasce off + rollout 4 etapas + checklist de staging; evidências bloqueadas no projeto Firebase (dono) + GO de deploy |
+| #16 | push-web: flag de rollout + evidências | 🟡 | Única issue aberta. Mantida pendente por orientação do dono em 19/11; evidências em `docs/operacao/push-web-rollout-evidencias.md`. Validação local e produção, sem projeto Supabase de staging |
 
 ## Repositório
 
@@ -52,7 +58,7 @@ em `screenshots/ios/6.9/`; textos e campos completos em `screenshots/app-store-c
 | #7 | Organizar ~235 arquivos não commitados | 🟢 | 10 commits temáticos (`9dd9c26`…`10dd7f6`) + rebase sobre release v0.3.0; working tree limpo; fecha #3 e #6 via mensagens |
 
 ---
-Atualizado em 2026-11-12.
+Atualizado em 2026-11-19; status conferidos diretamente no GitHub.
 
 ## Observações no Kanban (nova feature — mesma release do push web)
 
@@ -67,11 +73,11 @@ Atualizado em 2026-11-12.
 | #23 | obs-kanban: upload de prints (2 fases) | 🟢 | `2922d29`; maioria entregue em #22/#27 (composer); delta: retry + L1-L3 do Revisor |
 | #24 | obs-kanban: testes web + evidências | 🟢 | `7f3a427`; 23/23 novos; suite 285/299 (14 pré-existentes); validate:release OK; fase-60 verde |
 | #25 | obs-kanban: docs + handoff 22 | 🟢 | handoff 22 + runbooks §18 + checklist A02 + roadmap/finalização |
-| #26 | obs-kanban: limpeza de anexos órfãos | ⚪ | Dívida P2, não bloqueia v1 |
+| #26 | obs-kanban: limpeza de anexos órfãos | 🟢 | Entregue e validado; issue fechada em 17/11 |
 
 ## Funil comercial de prospecção de parceiros + admin_comercial (nova frente)
 
-Plano aprovado: `prompts/2026-11-12-funil-prospeccao-parceiros.md`. Entidade nova `prospeccoes_parceiro`; `admin_nivel='comercial'` (não é role nova). 🔴 Fix obrigatório no mesmo merge: fallback admin_nivel→full nos parsers (#31).
+Plano aprovado: `prompts/2026-11-12-funil-prospeccao-parceiros.md`. Entidade nova `prospeccoes_parceiro`; `admin_nivel='comercial'` (não é role nova). Fallback admin_nivel→full corrigido nos parsers (#31 concluída).
 
 | Issue | Item | Status | Notas |
 |---|---|---|---|
@@ -82,7 +88,23 @@ Plano aprovado: `prompts/2026-11-12-funil-prospeccao-parceiros.md`. Entidade nov
 | #32 | prospeccao: guards por nível + rota + menu | 🟢 | `4120fa1`; +H1 Serasa endurecida, +H2 limitado na prospecção, +M1 case-bypass |
 | #33 | prospeccao: RPC converter (cria proposta via wizard) | 🟢 | `e8141ca`; elevação local do claim; guard comercial+full |
 | #34 | prospeccao: UI Kanban de prospecção | 🟢 | `fbcf3a3`; tela completa; 16 testes; Revisor sem bloqueantes |
-| #35 | auth: admin-invite-internal aceita comercial | ⚪ | P1 |
-| #36 | prospeccao: ocultar escrita em Carteiras/Universidade | ⚪ | P1 |
-| #37 | prospeccao: drawer + métricas + docs | ⚪ | P2 |
+| #35 | auth: admin-invite-internal aceita comercial | 🟢 | Entregue e validado; issue fechada em 16/11 |
+| #36 | prospeccao: ocultar escrita em Carteiras/Universidade | 🟢 | Proteções de UI, banco/Storage e Edge entregues e validadas; issue fechada em 16/11 |
+| #37 | prospeccao: drawer + métricas + docs | 🟢 | Entregue e validado; issue fechada em 16/11 |
 | #38 | prospeccao: DB anexos | 🟢 | `e8141ca`; bucket+tabela+4 RPCs |
+
+## Segurança
+
+| Issue | Item | Status | Notas |
+|---|---|---|---|
+| #17 | Revogar EXECUTE público nas RPCs de email outbox | 🟢 | Privilégios de produção conferidos: anon/authenticated sem execução, service_role autorizado; issue fechada em 16/11 |
+
+## Prospecção de clientes B2C — publicação e validação
+
+Plano: `prompts/2026-11-18-prospeccao-kanban-ui-notas-prints.md`.
+
+- 🟢 Kanban com arraste, cards B2C de 384px e abas Dados/Notas/Anexos/Histórico.
+- 🟢 Prints privados, até 3 arquivos de 2 MB, com autorização e RLS.
+- 🟢 Migration `20261118000002_prospeccoes_clientes_anexos.sql` aplicada em produção; smoke fase 66 aprovado.
+- 🟢 Frontend publicado na Vercel; commits `98fd6e8` e `f7f9d0b` enviados ao GitHub, sem acionar Actions.
+- 🟢 Validação final confirmada pelo dono em 19/11.
