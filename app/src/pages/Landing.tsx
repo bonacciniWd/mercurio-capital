@@ -812,7 +812,7 @@ export function Landing() {
                   aria-label="Acessar site da Visione Rifatta"
                 >
                   <small className="brand-credit">Powered by Visione Rifatta</small>
-                  <span className="build-version" aria-label="Build version">v0.3.0</span>
+                  <span className="build-version" aria-label="Build version">v0.3.2</span>
                 </a>
               </div>
             </div>

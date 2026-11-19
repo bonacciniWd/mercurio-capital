@@ -1,2 +1,6 @@
 .vercel
 desktop/artifacts/
+
+desktop/artifacts-win/
+
+desktop/artifacts-linux/

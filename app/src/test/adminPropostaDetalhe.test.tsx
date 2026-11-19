@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { supabase } from '@/lib/supabase'
 import { AdminPropostaDetalhe } from '@/pages/admin/PropostaDetalhe'
 
-const state = vi.hoisted(() => ({ legal: false }))
+const state = vi.hoisted(() => ({ legal: false, requested: 400000 }))
 vi.mock('@/auth/AuthContext', () => ({ useAuth: () => ({ session: { role: 'admin', adminNivel: state.legal ? 'juridico' : 'master' } }) }))
 vi.mock('@/components/PropostaFundos', () => ({ PropostaFundos: () => <div>Fundos vinculados</div> }))
 vi.mock('@/components/PropostaConsultas', () => ({ PropostaConsultas: () => <div>Consultas autorizadas</div>, ProponenteSerasaResumo: () => <div>Resumo Serasa</div> }))
@@ -14,10 +14,13 @@ vi.mock('@/components/PropostaPendencias', () => ({ PropostaPendencias: () => <d
 vi.mock('@/components/PropostaCondicaoComercial', () => ({ PropostaCondicaoComercial: () => <div>Condição comercial</div> }))
 vi.mock('@/lib/supabase', () => ({ supabase: {
   functions: { invoke: vi.fn().mockResolvedValue({ data: { url: 'https://example.invalid/c/proposta/token-teste', email_status: 'enfileirado' }, error: null }) },
-  rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+  rpc: vi.fn().mockImplementation(async (name: string, args?: { p_proposta?: { valor_solicitado?: string } }) => {
+    if (name === 'admin_proposta_update_campos' && args?.p_proposta?.valor_solicitado != null) state.requested = Number(args.p_proposta.valor_solicitado)
+    return { data: null, error: null }
+  }),
   from: (table: string) => {
     const data = table === 'propostas' ? {
-      id: 'test', protocolo: 'MC-TESTE', produto: 'home_equity', status: 'pre_analise', valor_solicitado: 400000,
+      id: 'test', protocolo: 'MC-TESTE', produto: 'home_equity', status: 'pre_analise', valor_solicitado: state.requested,
       valor_imoveis_total: 1000000, prazo_meses: 120, carencia_meses: 0, taxa_juros_mensal: 1.29,
       amortizacao: 'price', indexador: 'IPCA', created_at: '2026-10-21T12:00:00Z', updated_at: '2026-10-21T12:00:00Z',
       cliente: { id: 'cliente-teste', nome_completo: 'Cliente Sintético', cpf: null, email: 'cliente@example.invalid' }, responsavel: null, partner: null,
@@ -30,7 +33,7 @@ vi.mock('@/lib/supabase', () => ({ supabase: {
     return builder
   },
 } }))
-afterEach(() => { cleanup(); state.legal = false })
+afterEach(() => { cleanup(); state.legal = false; state.requested = 400000 })
 function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
   render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/admin/propostas/test']}><Routes><Route path="/admin/propostas/:id" element={<AdminPropostaDetalhe />} /></Routes></MemoryRouter></QueryClientProvider>)
@@ -75,6 +78,22 @@ describe('detalhe administrativo da proposta', () => {
     fireEvent.click(confirm)
     await waitFor(() => expect(supabase.rpc).toHaveBeenCalledWith('admin_set_proposta_status', { p_id: 'test', p_status: 'analise_credito', p_motivo: 'Teste sintético' }))
     await waitFor(() => expect(details).not.toHaveAttribute('open'))
+  })
+  it('edita solicitado em BRL e envia reais sem multiplicar por cem', async () => {
+    mount()
+    await screen.findByText('Proposta MC-TESTE')
+    fireEvent.click(screen.getByRole('button', { name: 'Editar dados' }))
+    const input = screen.getByLabelText('Valor solicitado')
+    expect((input as HTMLInputElement).value.replace(/\s/g, ' ')).toBe('R$ 400.000,00')
+    fireEvent.change(input, { target: { value: 'R$ 150.000,99' } })
+    expect((input as HTMLInputElement).value.replace(/\s/g, ' ')).toBe('R$ 150.000,99')
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+    await waitFor(() => expect(supabase.rpc).toHaveBeenCalledWith('admin_proposta_update_campos', expect.objectContaining({
+      p_proposta: expect.objectContaining({ valor_solicitado: '150000.99' }),
+    })))
+    await screen.findByRole('button', { name: 'Editar dados' })
+    fireEvent.click(screen.getByRole('button', { name: 'Editar dados' }))
+    expect((screen.getByLabelText('Valor solicitado') as HTMLInputElement).value.replace(/\s/g, ' ')).toBe('R$ 150.000,99')
   })
   it('mantém o perfil jurídico sem controles de alteração de status e edição', async () => {
     state.legal = true

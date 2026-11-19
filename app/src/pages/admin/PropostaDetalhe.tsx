@@ -31,7 +31,7 @@ import { supabase } from '@/lib/supabase'
 import { invalidateAdminDashboardQueries } from '@/lib/adminDashboardCache'
 import { brl } from '@/lib/utils'
 import { calcularFinanciamento, calcularLTV, somarValoresImoveis } from '@/lib/credito'
-import { formatReais, parseReaisInput } from '@/components/MoneyInput'
+import { MoneyInput, formatReais, parseReaisInput } from '@/components/MoneyInput'
 import { maskCpf, maskCnpj } from '@/lib/documentoBr'
 import { PropostaDocsUploader } from '@/components/PropostaDocsUploader'
 import { PropostaPendencias } from '@/components/PropostaPendencias'
@@ -974,9 +974,11 @@ export function AdminPropostaDetalhe() {
                     {Object.entries(PRODUTO_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                   </select>
                 </Field>
-                <Field label="Valor solicitado">
-                  <input className="input" type="number" step="0.01" value={produtoForm.valor_solicitado} onChange={(e) => setProdutoForm({ ...produtoForm, valor_solicitado: e.target.value })} />
-                </Field>
+                <MoneyInput
+                  label="Valor solicitado"
+                  value={Number(produtoForm.valor_solicitado) || 0}
+                  onChange={(value) => setProdutoForm({ ...produtoForm, valor_solicitado: String(value) })}
+                />
                 <Field label="Prazo (meses)">
                   <input className="input" type="number" value={produtoForm.prazo_meses} onChange={(e) => setProdutoForm({ ...produtoForm, prazo_meses: e.target.value })} />
                 </Field>
