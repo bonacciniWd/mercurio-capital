@@ -46,6 +46,18 @@ interface BackfillAceiteResult {
   ja_registrados: number
 }
 
+interface SerasaPjAtestadoPreview {
+  protocolo: string
+  status_atual: string
+  proponentes_pj: number
+}
+
+interface SerasaPjAtestadoResult {
+  propostas_revisadas: number
+  inseridos: number
+  ja_registrados: number
+}
+
 const BACKFILL_ACEITE_PROTOCOLOS_REVISADOS = 138
 
 const STATUS_BADGE: Record<Status, { variant: 'green' | 'red' | 'yellow' | 'gray'; label: string }> = {
@@ -96,6 +108,7 @@ export function AdminIntegracoes() {
   const [filtroCategoria, setFiltroCategoria] = useState<string>('todas')
   const [avisoSerasa, setAvisoSerasa] = useState<string | null>(null)
   const [avisoBackfillAceite, setAvisoBackfillAceite] = useState<string | null>(null)
+  const [avisoAtestadoSerasaPj, setAvisoAtestadoSerasaPj] = useState<string | null>(null)
   const [featuresPf, setFeaturesPf] = useState<string[]>([])
   const [scoreModelPf, setScoreModelPf] = useState('')
   const [rendaModelPf, setRendaModelPf] = useState('HRM5')
@@ -189,6 +202,38 @@ export function AdminIntegracoes() {
     onError: () => setAvisoBackfillAceite('Não foi possível executar o backfill. Atualize a prévia e confira se algum protocolo mudou para status inelegível.'),
   })
 
+  const isAdminFull = session?.role === 'admin' && (session.adminNivel ?? 'full') === 'full'
+  const serasaPjAtestadoPreviewQuery = useQuery({
+    queryKey: ['admin-serasa-pj-atestado-preview'],
+    enabled: isAdminFull,
+    queryFn: async (): Promise<SerasaPjAtestadoPreview[]> => {
+      const { data, error } = await supabase.rpc('admin_proposta_consulta_aceites_serasa_pj_preview')
+      if (error) throw error
+      return (data ?? []) as unknown as SerasaPjAtestadoPreview[]
+    },
+  })
+
+  const serasaPjAtestadoMutation = useMutation({
+    mutationFn: async (protocolos: string[]): Promise<SerasaPjAtestadoResult> => {
+      const { data, error } = await supabase.rpc('admin_proposta_consulta_aceites_serasa_pj_atestar', {
+        p_protocolos: protocolos,
+      })
+      if (error) throw error
+      const result = Array.isArray(data) ? data[0] : data
+      if (!result || typeof result !== 'object') throw new Error('resposta_invalida')
+      return result as unknown as SerasaPjAtestadoResult
+    },
+    onSuccess: result => {
+      setAvisoAtestadoSerasaPj(
+        `Revisadas ${result.propostas_revisadas} propostas: ${result.inseridos} atestados PJ registrados e ${result.ja_registrados} já existentes. Nenhuma consulta ou débito foi executado.`,
+      )
+      void serasaPjAtestadoPreviewQuery.refetch()
+    },
+    onError: () => {
+      setAvisoAtestadoSerasaPj('A prévia mudou ou a operação não foi autorizada. Atualize a lista e revise os protocolos; nenhum resultado deve ser presumido.')
+    },
+  })
+
   const listQuery = useQuery({
     queryKey: ['admin-integracoes-web'],
     queryFn: async () => {
@@ -208,6 +253,12 @@ export function AdminIntegracoes() {
     && backfillRows.length === BACKFILL_ACEITE_PROTOCOLOS_REVISADOS
     && backfillInvalidCount === 0
     && !backfillAceiteMutation.isPending
+  const serasaPjAtestadoRows = serasaPjAtestadoPreviewQuery.data ?? []
+  const serasaPjAtestadoCanRun = isAdminFull
+    && serasaPjAtestadoRows.length > 0
+    && !serasaPjAtestadoPreviewQuery.isLoading
+    && !serasaPjAtestadoPreviewQuery.isError
+    && !serasaPjAtestadoMutation.isPending
 
   const toggleMut = useMutation({
     mutationFn: async ({ chave, ativo }: { chave: string; ativo: boolean }) => {
@@ -394,6 +445,75 @@ export function AdminIntegracoes() {
           </div>
         </div>
       </section>
+
+      {isAdminFull && (
+        <section className="mb-6 rounded-xl border border-amber-200 bg-white p-5 shadow-sm" aria-labelledby="serasa-pj-atestado-title">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="max-w-4xl flex-1">
+              <h2 id="serasa-pj-atestado-title" className="font-semibold text-navy">Atestado retrospectivo — Serasa PJ</h2>
+              <p className="mt-1 text-xs text-silver-600">
+                A prévia lista propostas ativas com proponente PJ e sem escopo de autorização Serasa PJ. Antes de confirmar, o controlador deve atestar a autorização histórica de cada protocolo. O registro será apenas do escopo PJ, sem representar clique digital, sem alterar aceites existentes e sem executar consulta ou débito.
+              </p>
+              {serasaPjAtestadoPreviewQuery.isLoading && (
+                <p className="mt-3 flex items-center gap-2 text-xs text-silver-500" role="status">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando propostas pendentes…
+                </p>
+              )}
+              {serasaPjAtestadoPreviewQuery.isError && (
+                <p className="mt-3 text-xs text-red-700" role="alert">Não foi possível carregar a prévia. Confira a migration e atualize a página.</p>
+              )}
+              {!serasaPjAtestadoPreviewQuery.isLoading && !serasaPjAtestadoPreviewQuery.isError && (
+                <p className="mt-3 text-sm font-medium text-silver-800" role="status">
+                  {serasaPjAtestadoRows.length === 0
+                    ? 'Nenhuma proposta elegível sem autorização ativa no escopo Serasa PJ.'
+                    : `${serasaPjAtestadoRows.length} propostas aguardam revisão de autorização histórica.`}
+                </p>
+              )}
+              {avisoAtestadoSerasaPj && <p className="mt-3 text-xs text-silver-700" role="status">{avisoAtestadoSerasaPj}</p>}
+              {serasaPjAtestadoRows.length > 0 && (
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-xs font-medium text-silver-600 hover:text-silver-900">
+                    Revisar protocolos e status ({serasaPjAtestadoRows.length})
+                  </summary>
+                  <div className="mt-2 max-h-52 overflow-y-auto rounded-lg border border-silver-100">
+                    {serasaPjAtestadoRows.map(row => (
+                      <div key={row.protocolo} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-silver-100 px-3 py-2 text-[11px] last:border-b-0">
+                        <code className="font-mono text-silver-800">{row.protocolo}</code>
+                        <span className="text-silver-600">{row.status_atual}</span>
+                        <span className="text-silver-600">{row.proponentes_pj} proponente(s) PJ</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+            <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+              <button
+                type="button"
+                onClick={() => void serasaPjAtestadoPreviewQuery.refetch()}
+                disabled={serasaPjAtestadoPreviewQuery.isFetching || serasaPjAtestadoMutation.isPending}
+                className="btn-no-liquid inline-flex items-center justify-center gap-2 rounded-lg border border-silver-200 px-4 py-2 text-xs font-medium text-silver-700 hover:bg-silver-50 disabled:opacity-50"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${serasaPjAtestadoPreviewQuery.isFetching ? 'animate-spin' : ''}`} />
+                Atualizar prévia PJ
+              </button>
+              <button
+                type="button"
+                disabled={!serasaPjAtestadoCanRun}
+                onClick={() => {
+                  const protocols = serasaPjAtestadoRows.map(row => row.protocolo)
+                  const message = `Confirmo que o controlador atesta autorização histórica para consulta Serasa PJ em todas as ${protocols.length} propostas listadas?\n\nSerá registrado um atestado administrativo atual, sem representar clique digital nem informar a data original. Apenas o escopo serasa_pj será adicionado. A operação será auditada e não executa consultas nem débitos.`
+                  if (window.confirm(message)) serasaPjAtestadoMutation.mutate(protocols)
+                }}
+                className="btn-no-liquid inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {serasaPjAtestadoMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Atestar escopo PJ listado
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="mb-6 rounded-xl border border-silver-200 bg-white p-5 shadow-sm" aria-labelledby="backfill-aceite-title">
         <div className="flex flex-wrap items-start justify-between gap-4">

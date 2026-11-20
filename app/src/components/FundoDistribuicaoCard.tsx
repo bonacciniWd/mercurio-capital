@@ -326,7 +326,7 @@ export function FundoDistribuicaoCard({ inicio, fim, fundo, partner }: Props) {
       </header>
 
       {query.isError ? <p className="m-6 rounded-lg border border-danger/20 bg-danger/5 p-4 text-sm text-danger">Não foi possível carregar a distribuição por fundos.</p> : query.isLoading ? <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-silver-400" /></div> : (
-        <div className="grid min-h-[520px] lg:grid-cols-[minmax(250px,0.8fr)_minmax(0,1.4fr)] xl:grid-cols-[minmax(320px,0.9fr)_minmax(500px,1.35fr)]">
+        <div className="grid max-h-auto lg:grid-cols-[minmax(250px,0.8fr)_minmax(0,1.4fr)] xl:grid-cols-[minmax(320px,0.9fr)_minmax(500px,1.35fr)]">
           <aside className="min-w-0 border-b border-black/10 p-4 sm:p-5 md:border-b-0 md:border-r md:p-6" aria-label="Fundos disponíveis">
             <div className="mb-3 flex items-center justify-between px-1 text-[10px] font-semibold uppercase tracking-[.13em] text-black/40"><span>Fundos disponíveis</span><span className="text-xs normal-case tracking-normal text-black/40">{rows.length} fundos</span></div>
             {rows.length === 0 ? <p className="rounded-lg bg-black/[0.035] p-4 text-sm text-silver-500">Nenhum fundo vinculado neste período.</p> : <ul role="tablist" aria-label="Selecionar fundo" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-4 lg:mx-0 lg:block lg:max-h-[635px] lg:space-y-1.5 lg:overflow-y-auto lg:px-0">

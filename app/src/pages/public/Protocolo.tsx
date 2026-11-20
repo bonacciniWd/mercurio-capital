@@ -151,7 +151,7 @@ export function Protocolo() {
 
   return (
     <main className="min-h-dvh [color-scheme:light] bg-[#f3f5f7] text-[#102c4c] lg:grid lg:grid-cols-[minmax(360px,0.88fr)_minmax(520px,1.12fr)]">
-      <section className="relative flex min-h-[270px] overflow-hidden bg-[#040b12eb] px-6 py-7 text-white sm:px-10 lg:min-h-dvh lg:px-[clamp(40px,6vw,96px)] lg:py-12">
+      <section className="relative flex min-h-[270px] overflow-hidden bg-[#04080ceb] px-6 py-7 text-white sm:px-10 lg:min-h-dvh lg:px-[clamp(40px,6vw,96px)] lg:py-12">
         <div className="relative z-10 flex w-full flex-col">
           <div className="flex items-center gap-3" aria-label="Mercúrio Capital">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden"><img src={logo} alt="" className="h-12 w-12 scale-[2.35] object-contain" /></span>
