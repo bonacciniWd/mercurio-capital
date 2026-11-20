@@ -32,6 +32,17 @@ Superfícies:
 8. Rodar os checks (seção 11) com evidência real.
 9. Submeter o diff ao agente **Revisor Mercurio Capital** (read-only; achados Critical/High bloqueiam merge e release).
 10. Fechar com relatório curto: **O que fiz / Testes / Precisa de atenção**. O raciocínio detalhado fica no arquivo de prompt, não numa mensagem longa.
+11. Temos o TRACKER.md que é uma Visão resumida do trabalho em aberto. O sistema oficial é o GitHub Issues — este espelho existe para leitura rápida e deve ser atualizado junto com elas.
+
+"Como funciona?"
+
+Cada frente de trabalho tem uma issue em bonacciniWd/mercurio-capital/issues.
+Commits referenciam issues (refs #N ou closes #N quando a issue é concluída).
+Mudanças funcionais seguem o AGENTS.md: plano em prompts/ + aprovação do dono antes de implementar.
+Releases (tags, deploys, EAS build/submit, submissão Apple) exigem go/no-go explícito do dono.
+Legenda: ⚪ pendente · 🟡 em andamento · 🔴 bloqueada · 🟢 concluída
+
+
 
 Fluxo resumido: `PLAN → REVIEW → APPROVE → IMPLEMENT → TEST → FIX → SHIP`.
 
