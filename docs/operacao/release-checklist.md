@@ -2,7 +2,7 @@
 
 <!-- RELEASE_CURRENT_VERSION: 0.3.2 -->
 
-## Candidata desktop v0.3.2 — preparação local 19/11/2026
+## Desktop v0.3.2 — preparação 19/11 e publicação conferida 20/11/2026
 
 - [x] Plano aprovado: `prompts/2026-11-19-brl-proposta-release-desktop-v0-3-2.md`.
 - [x] Escopo: solicitado em BRL, bump0.3.2, recuperação do validador runtime0.3.1 e builds novos MacIntel/ARM, Windowsx64, Linuxx64.
@@ -10,7 +10,7 @@
 - [x] GitHub Actions permanecem disabled_manually; builds com publish never.
 - [x] Testes direcionados 8/8 e navegador isolado: BRL, centavos, apagar/zero, payload em reais. Suíte final 352/355: três falhas textuais preexistentes em protocoloCaptchaUI (2) e clientePropostaAceiteConsultas (1), registradas para decisão final.
 - [x] Lint0erros/32avisos; typecheck corrigido e aprovado; validate:release0.3.2 aprovado; rendererdesktop construído.
-- [x] Revisão fonte sem Critical/High; audit4High na cadeiaFirestore/gRPC mantidos e triados como sem caminho identificado no código atual, ainda dependente de conferir pacote final.
+- [x] Revisão fonte sem Critical/High; audit4High na cadeiaFirestore/gRPC mantidos e triados como sem caminho identificado no código atual; pacote final conferido e risco residual registrado.
 - [x] Aditivo aprovado: bloquear downgrade após configurar channel; teste real inferior/igual/superior e rebuild dos quatro alvos. Smoke nativo Intel 0.3.2 sem exceção JS e updater=no-update.
 - [x] macOSIntel/ARM: runtime, assinatura, notarização, staple e spctl.
 - [x] WindowsNSISx64: runtime, versão e integridade; distribuição sem Authenticode, conforme histórico.
@@ -18,6 +18,10 @@
 - [x] Feeds/hashes/blockmaps e matriz completa local de downloads conferidos: 16 assets, 15/15 SHA256 e cinco instaladores reconhecidos pelo parser real de /download.
 - [x] Revisão final de artefatos: Approved with reservations, sem Critical/High bloqueante; smoke Intel e limites reais de instalação registrados em docs/operacao/releases/v0.3.2-validacao.md.
 - [x] GO separado recebido em 19/11/2026 para commit/push, tag/release GitHub latest e Vercel. Issue #39 acompanha a execução e evidências; Actions mantidos desativados.
+
+- [x] Commit/push `706a4fd`, tag/release latest `v0.3.2`, 16 assets remotos com SHA256/tamanhos iguais ao stage; 16 links públicos HTTP200 e feeds/manifesto idênticos.
+- [x] Vercel `dpl_BSuMb4JsfXU7p3PbUsht9uUuuDaW` Ready em mercuriocapitalsa.com.br; navegador confirma rodapé0.3.2, cinco instaladores novos em /download e ausência de exceções JS.
+- [x] Cópia temporária Intel0.3.1 detectou e baixou0.3.2, status downloaded; instalação/reinício não executados no teste. Zero Actions no SHA da release; workflows desativados.
 
 ## Publicação web/B2C — 2026-11-18
 

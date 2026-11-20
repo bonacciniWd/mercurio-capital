@@ -13,17 +13,17 @@ este espelho existe para leitura rápida e deve ser atualizado junto com elas.
 
 **Legenda:** ⚪ pendente · 🟡 em andamento · 🔴 bloqueada · 🟢 concluída
 
-## Situação atual — 2026-11-19
+## Situação atual — 2026-11-20
 
 Validação do dono: todas as entregas validadas, exceto **#16**, que permanece
-em andamento. A nova frente desktop/web #39 está em publicação; #16 permanece em andamento.
+em andamento. A frente desktop/web #39 foi publicada e conferida; somente #16 permanece aberta.
 Submissão à App Review concluída; isso não significa aprovação da Apple.
 
 ## Desktop e frontend
 
 | Issue | Item | Status | Notas |
 |---|---|---|---|
-| #39 | Release 0.3.2: BRL, updater e quatro alvos desktop | 🟡 | GO de publicação em 19/11; 16 assets validados; publicação e conferência pública em andamento |
+| #39 | Release 0.3.2: BRL, updater e quatro alvos desktop | 🟢 | Commit 706a4fd, tag/release latest v0.3.2 com16 assets; Vercel Ready; /download e feeds públicos conferidos; cópia Intel0.3.1 detectou/baixou0.3.2; instalação após reinício não testada |
 
 ## App Store (submissão iOS)
 

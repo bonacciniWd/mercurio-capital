@@ -4,7 +4,7 @@
 
 ## Objetivo
 
-Este documento define o fluxo obrigatorio para qualquer mudanca futura no Mercurio Capital. A candidata em preparação é `v0.3.2`; a última release publicada é `v0.3.1`.
+Este documento define o fluxo obrigatorio para qualquer mudanca futura no Mercurio Capital. A versão publicada atual é `v0.3.2` (desktop e frontend); evidências em `docs/operacao/releases/v0.3.2-validacao.md`.
 
 Nenhuma solicitacao autoriza por si so deploy, migration remota, criacao de tag, GitHub Release ou publicacao mobile. Essas acoes exigem aprovacao explicita e um go/no-go separado depois do mapeamento completo da mudanca.
 

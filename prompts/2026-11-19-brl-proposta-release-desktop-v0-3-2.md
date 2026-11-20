@@ -82,3 +82,6 @@ Quatro alvos reconstruídos; oito testes direcionados aprovados; smoke Intel com
 
 ## GO de publicação
 Dono autorizou explicitamente: “GO: publicar v0.3.2 e web”. Escopo: commit/push isolado, tag, GitHub Release latest com16 assets, deploy web Vercel; Actions desativados. Ressalvas apresentadas e aceitas. Issue #39 registra execução. Nenhuma migration ou build mobile.
+
+## Publicação concluída e conferida — 20/11/2026
+Commit706a4fd/tagv0.3.2; release latest451912788 com16 assets remotos conferidos por digest/tamanho,16linksHTTP200,feeds/manifesto idênticos. Vercel dpl_BSuMb4JsfXU7p3PbUsht9uUuuDaW Ready, site/download testados no Chrome semexceçãoJS. Cópia Intel0.3.1 detectou/baixou0.3.2; instalação/reinício não executados. ZeroActions, workflowsdesativados. Evidências e rollback em docs/operacao/releases/v0.3.2-validacao.md. Issue#39 encerrada por publicação; #16permaneceaberta.
